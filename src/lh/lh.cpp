@@ -451,9 +451,13 @@ LhatValue fail(LhatMachine *machine, const LhatErrorKind *kind, const std::strin
 
 LhatValue raise(LhatMachine *machine, const std::string &message)
 {
-	(void) machine;
-	fprintf(stderr, "lhatove: %s\n", message.c_str());
-	fflush(stderr);
+	if (!lhat_machine_panic_text(machine, message.c_str()))
+	{
+		// No room for the message: say it here, then panic with nil.
+		fprintf(stderr, "lhatove: %s\n", message.c_str());
+		fflush(stderr);
+		lhat_machine_panic(machine, lhat_nil());
+	}
 	return lhat_nil();
 }
 

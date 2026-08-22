@@ -221,9 +221,10 @@ T *checkObject(LhatValue value, const TypeRegistry &registry)
 LhatValue fail(LhatMachine *machine, const LhatErrorKind *kind, const std::string &message);
 
 // A programmer error the API does not declare (a bad enum, a module that is
-// not loaded, a GL failure). Lua raised these with lua_error; L^ has no host
-// panic yet (docs/porting/lhat-issues.md), so this writes the message to
-// stderr and answers nil, which faults at the next use of the value.
+// not loaded, a GL failure). Lua raised these with lua_error; here it is
+// 05 の 8.7改2's lhat_machine_panic: the run ends as if the call site had
+// written panic^, traceback standing. The answer is nil for the caller to
+// return -- it is dropped.
 LhatValue raise(LhatMachine *machine, const std::string &message);
 
 // Runs `body`; a love::Exception thrown inside is raised as above.

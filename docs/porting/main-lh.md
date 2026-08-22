@@ -1,6 +1,6 @@
 # main.lh の書き方
 
-M1 時点で動く形。実例は `testing/lh/{hello,autoquit,customrun,panic}/main.lh`。
+M1 時点で動く形。実例は `testing/lh/{hello,autoquit,customrun,panic,raise,badcallback}/main.lh`。
 実装と食い違ったらこのファイルを直す。
 
 ## 基本形
@@ -98,5 +98,6 @@ return^ {
 - `string.format` は無い。`$"x = {x}"` の補間を使う
 - Lua パターン（`string.match` 等）は無い。`s.find/replace/split` の組込か `std.regex`（実正規表現のサブセット。backref/lookaround 無し）
 - `table.sort` 等は組込メンバ `t.sort^()`（ハット必須）。比較関数は 3値（負/0/正）
-- `math.sin` 等のスカラー数学関数は現状 L^ に無い（lhat 側へ提案中、[lhat-issues.md](lhat-issues.md)）
+- `math.*` 相当は `std.math`（`import^ std.math` → `std.math.sin/cos/sqrt/atan2/lerp/min/max/...`）。**角度は度数法**。`love.graphics.rotate` などラジアンを取る API へは `std.math.rad(deg)` で変換。`abs/sign/clamp/floor/ceil/round` は `number^` のメンバ（`x.clamp(lo, hi)`）、定数は `number^.pi` / `tau` / `e` / `inf` / `nan`
+- 公開したコールバックの型が違うと（例 `update = p^dt:string^`）起動前に診断で止まる
 - 実行時のコード読み込みは `std.load.file(path)` / `std.load.text(src, name)`、または `love.filesystem.load`（M2）

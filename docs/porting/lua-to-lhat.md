@@ -11,7 +11,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 3. **バインディング様式**: 型ごと hostdata。多態はシグネチャ union、コンストラクタ多重定義は再登録=オーバーロード
 4. **スクリプト形**: main.lh は `module^` + `public^let^` コールバック
 5. **メインループ**: L^ 側 run コルーチン。埋め込み Boot.lh が既定 `run`（yieldable `p^`、毎フレーム `yield^`）を提供、ゲームは `public^let^ run` でオーバーライド可。C++ は毎フレーム `lhat_machine_resume`
-6. **lhatstdlib**: 選別登録 — `error` / `debug` / `regex` / `load`。`std.io` は非登録（love.filesystem が担当）。`std.thread` / `std.async` は M5、`std.math` は love.math 設計時に判断
+6. **lhatstdlib**: 選別登録 — `error` / `debug` / `regex` / `load` / `math`（スカラー、度数法）。`std.io`・`std.math.vector3` は非登録（love.filesystem が担当 / LÖVE API に用途なし）。`std.thread` / `std.async` は M5 で判断
 
 ## 対応表
 
@@ -68,9 +68,11 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - 起動列: 登録 → check(Boot.lh, main.lh) → compile → main.lh 実行（公開テーブル）→ モジュール生成（timer/event/keyboard/mouse/font/window/graphics、800x600）→ handlers 構築 → run 選択 → `lhat_machine_call(run)` でコルーチン → 毎フレーム `lhat_machine_resume`
 - handlers: `src/lh/Boot.cpp` の `callbacks[]` からシグネチャ文字列を生成し `love.boot.handlers()` に登録。欠けたコールバックは variadic no-op のホスト関数（quit は `false^` を返す）
 - `love.event.dispatch(h) -> number^|nil^`: C++ がイベントを poll し `handlers.<name>(typed args)` をネスト `lhat_machine_call`。quit は `handlers.quit()` が `true^` なら拒否、さもなくば終了コードを返す
-- `lh::raise`: プログラマエラー用。stderr に出して nil を返す（ホスト panic API が lhat に入るまでの暫定。[lhat-issues.md](lhat-issues.md)）
+- `lh::raise`: プログラマエラー用。`lhat_machine_panic_text` で run を `panic^` として終える（traceback は呼び出し箇所から）。戻り値の nil は捨てられる
 - `lh::guard`: `love::Exception` → `raise`。`lh::catchexcept`: `love::Exception` → 宣言済みエラー値（fallible API 用）
 - 可変長の末尾引数（描画の transform 9 数値など）は `...`、少数の省略可能引数は同名再登録のオーバーロード（`clear` 0/3/4 引数）
 - enum 文字列（draw mode、align）は `string^` + `getConstant` で実行時検証、不正なら `raise`
 - `src/lh/lh.h` に TypeRegistry（`love::Type* ↔ LhatHostDataTag*`、isa によるダウンキャスト）、`pushObject`/`checkObject`、`pushVariant`、`park` を実装済み（オブジェクト型の初使用は M2 の image/font）
+- 起動時に `lhat_unit_export_conforms` でゲームの公開コールバックの型を `callbacks[]` の署名と照合。違えば診断を出して起動しない（`testing/lh/badcallback`）
+- `std.math` を登録（度数法。`love.graphics.rotate` 等ラジアン API へは `std.math.rad(a)`）。`std.math.vector3` は非登録
 - 未対応: conf.lh、Window の settings テーブル、restart、nogame、`love.graphics` のオブジェクト類

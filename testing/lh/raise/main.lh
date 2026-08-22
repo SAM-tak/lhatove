@@ -1,0 +1,8 @@
+# A programmer error inside a love call: the host panics with a traceback.
+module^ raisegame
+
+import^ love.graphics
+
+public^let^ draw = p^ {
+    love.graphics.rectangle("filled", 0, 0, 10, 10)
+}

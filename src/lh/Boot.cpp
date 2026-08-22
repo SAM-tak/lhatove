@@ -35,15 +35,19 @@
 #include "modules/graphics/Graphics.h"
 
 // lhatstdlib, the modules the porting plan admits into the game's program:
-// error kinds, std.debug, std.regex and std.load. std.io stays out --
-// love.filesystem owns file access.
+// error kinds, std.debug, std.regex, std.load and std.math (scalar maths;
+// its angles are degrees, so love.graphics.rotate takes std.math.rad(a)).
+// std.io stays out -- love.filesystem owns file access -- and so does
+// std.math.vector3, which LOVE's API has no use for.
 #include "stdlib/debug.h"
 #include "stdlib/error.h"
 #include "stdlib/load.h"
+#include "stdlib/math.h"
 #include "stdlib/regex.h"
 
 #include <SDL3/SDL.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -82,7 +86,8 @@ static bool registerStdlib(LhatProgram *program)
 	return lhatstdlib_error_register(program)
 		&& lhatstdlib_debug_register(program)
 		&& lhatstdlib_regex_register(program)
-		&& lhatstdlib_load_register(program);
+		&& lhatstdlib_load_register(program)
+		&& lhatstdlib_math_register(program);
 }
 
 // Something the user has to see. Text always; a message box as well for the
@@ -196,6 +201,27 @@ static bool lhopen_love_boot(Context &ctx)
 	bootState.handlersSignature = signature;
 
 	return ctx.func("love.boot", "handlers", bootState.handlersSignature.c_str(), lh_boot_handlers, &bootState);
+}
+
+// 05 の 5.6: a module^ unit's exports answer their types. Every callback the
+// game exported has to conform to the signature the handlers table gives
+// it, or the loop would call it wrongly at run time. Answers the problems
+// found, one per line; empty when all is well.
+static std::string checkCallbacks(const LhatUnit *unit)
+{
+	std::string problems;
+	for (const Callback &cb : callbacks)
+	{
+		size_t needed = lhat_unit_export_type(unit, cb.name, nullptr, 0);
+		if (needed == SIZE_MAX)
+			continue; // not exported: the no-op takes its place
+		if (lhat_unit_export_conforms(unit, cb.name, cb.signature))
+			continue;
+		std::vector<char> spelt(needed + 1);
+		lhat_unit_export_type(unit, cb.name, spelt.data(), spelt.size());
+		problems += std::string(lhat_unit_path(unit)) + ": error: " + cb.name + " is " + spelt.data() + ", but a love callback of that name is " + cb.signature + "\n";
+	}
+	return problems;
 }
 
 // Builds the handlers table from what the game's module exported, parks it,
@@ -337,6 +363,15 @@ static int boot(int argc, char **argv, bool console)
 			said = "Could not read " + mainUnit + " from " + (loader.getBase().empty() ? "the embedded units" : loader.getBase());
 		report("lhatove: check failed", said);
 		return 1;
+	}
+
+	{
+		std::string problems = checkCallbacks(root);
+		if (!problems.empty())
+		{
+			report("lhatove: check failed", problems);
+			return 1;
+		}
 	}
 
 	if (!runtime.compile())

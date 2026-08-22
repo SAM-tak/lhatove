@@ -41,7 +41,8 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - lhat の登録は check 前に完結が必須。レジストラは **2相**（TYPES 相で `lhat_register_type` / `lhat_register_hostdata_type`、MEMBERS 相でメンバ・関数登録）。シグネチャは既登録型しか参照できないため
 - 登録 context は per-registration の構造体を渡す。ファイルスコープ static 変数は使わない（雛形: `../lhat/stdlib/io.c`）
 - C 側で保持する L^ 値は GC ルートにならない。永続値は `lhat_machine_register` で `L^.modules.love.*` に係留する
-- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` のみ。`std.io` は登録しない（love.filesystem が担当）。`std.thread` / `std.async` / `std.math` は未決（各モジュール設計時に判断）
+- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math`。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は M5 で判断
+- プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
 - 前提 lhat は HEAD `ad39df0` 以降（`lhat_machine_set_modules` / `LhatModule` 廃止後の API）
 

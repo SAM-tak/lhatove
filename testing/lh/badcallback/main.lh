@@ -1,0 +1,6 @@
+# update takes a string here; the engine refuses it before the loop starts.
+module^ badcallback
+
+public^let^ update = p^dt:string^ {
+    print(dt)
+}
