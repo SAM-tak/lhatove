@@ -76,3 +76,17 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - 起動時に `lhat_unit_export_conforms` でゲームの公開コールバックの型を `callbacks[]` の署名と照合。違えば診断を出して起動しない（`testing/lh/badcallback`）
 - `std.math` を登録（度数法。`love.graphics.rotate` 等ラジアン API へは `std.math.rad(a)`）。`std.math.vector3` は非登録
 - 未対応: conf.lh、Window の settings テーブル、restart、nogame、`love.graphics` のオブジェクト類
+
+## M2 で確定した実装事項
+
+- `Loader`（src/lh/PhysfsLoader.cpp）は held ユニット → `love.filesystem` の順に読む。boot が最初に `physfs::Filesystem` を作り `init(argv[0])` → fused 判定（`setSource(exepath)`）→ ゲームの `setSource` → identity（boot.lua と同じ導出）→ `setIdentity(identity, true)` → check
+- **U3 解決**: `require^ "lib/vec.lh"` はそのまま PhysFS に届く（ディレクトリ・zip・fused で確認）
+- conf.lh は check 後・compile 後に実行（テーブル）、モジュール生成と window 設定を制御。`modules.*` の既定は全 `true^`。conf.lh が無ければ既定値
+- 起動列: filesystem → 登録 → check(Boot.lh, conf.lh?, main.lh) → callback 型検査 → compile → conf 実行 → モジュール生成 + window → main 実行 → handlers → run
+- nogame: 引数なし or 無効パスは埋め込み `nogame_lh`（簡素版。アニメ版は M6）
+- エラー画面: `src/lh/ErrorScreen.cpp`。実行時 fault/panic は `reportRuntime` → 青画面（Escape/閉じるで終了）。check 失敗は `report`（コンソール + love.exe はメッセージボックス）— window 生成前のため
+- オブジェクト: File / FileData / ImageData / Drawable / Texture / Font を `ctx.objectType` で登録（dispose/type/typeOf 自動）。`draw` は当面 `love.graphics.Texture` 引数（Drawable union は他の Drawable 実装時）
+- 失敗しうる API（read/write/newImage/newFont(path)/newFile/newFileData(path)）は `|love.Error.IO` を宣言し `catchexcept`。それ以外のプログラマエラーは `raise` = panic
+- **可変長オーバーロードの制約**: `print(text, ...)` と `print(text, Font, ...)` は重複とみなされ登録拒否 → 1 本にして可変長尾の先頭が Font かを実行時判別（`fontInTail`）。同様の「任意位置のオブジェクト引数」は同方式
+- `Runtime::failedRegistrar()` でどのレジストラが拒否されたか分かる
+- 未対応: window の `getMode` settings 返却、`love.filesystem.mount/lines/enumerate`、restart、`--game` 等 arg.lua のオプション群、URI 引数

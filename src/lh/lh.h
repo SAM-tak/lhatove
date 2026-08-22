@@ -135,6 +135,9 @@ public:
 	// False if any refused.
 	bool registerAll(const Registrar *registrars, size_t count);
 
+	// Which registrar refused, for the report.
+	const std::string &failedRegistrar() const { return failedRegistrar_; }
+
 	// lhat_program_check; the unit is returned even when it failed so the
 	// caller can decide what to do with the diagnostics.
 	const LhatUnit *check(const char *path);
@@ -159,6 +162,7 @@ private:
 	LhatMachine *machine_;
 	Errors errors_;
 	TypeRegistry registry_;
+	std::string failedRegistrar_;
 };
 
 // ---------------------------------------------------------------------------
@@ -179,6 +183,14 @@ const char *stringOf(LhatValue value, size_t *length = nullptr);
 double optNumber(const LhatValue *args, size_t count, size_t index, double fallback);
 bool optBool(const LhatValue *args, size_t count, size_t index, bool fallback);
 std::string optString(const LhatValue *args, size_t count, size_t index, const std::string &fallback);
+
+// Table fields by name (a missing field answers nil / the fallback). The key
+// string is made on `machine`; nothing here runs an instruction.
+LhatValue field(LhatMachine *machine, LhatValue table, const char *name);
+double fieldNumber(LhatMachine *machine, LhatValue table, const char *name, double fallback);
+bool fieldBool(LhatMachine *machine, LhatValue table, const char *name, bool fallback);
+std::string fieldString(LhatMachine *machine, LhatValue table, const char *name, const std::string &fallback);
+bool fieldIs(LhatMachine *machine, LhatValue table, const char *name, LhatValueTag tag);
 
 // A love::Variant (what events and channels carry) as a value on `machine`.
 // Objects come back as fresh hostdata; tables are copied; light userdata is

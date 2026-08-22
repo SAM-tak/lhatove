@@ -18,10 +18,10 @@
  * 3. This notice may not be removed or altered from any source distribution.
  **/
 
-// love.graphics for L^ -- milestone M1: the immediate-mode subset a first
-// game needs (clear, shapes, text, color and transform state). The reference
-// is wrap_Graphics.cpp beside this file; objects (Image, Canvas, Font, ...)
-// arrive with later milestones.
+// love.graphics for L^: the immediate-mode subset (clear, shapes, text,
+// color and transform state), textures from files and fonts. The reference
+// is wrap_Graphics.cpp beside this file; Canvas, Shader, Mesh, SpriteBatch
+// and the rest arrive with later milestones.
 //
 // Optional trailing arguments are spelled as overloads (one registration
 // per arity, 02 の 14.12) where the set is small, and as a variadic tail
@@ -30,8 +30,15 @@
 #include "Graphics.h"
 #include "lh/lh.h"
 
+#include "Font.h"
+#include "Texture.h"
 #include "common/Matrix.h"
 #include "common/Vector.h"
+#include "modules/filesystem/Filesystem.h"
+#include "modules/filesystem/FileData.h"
+#include "modules/font/Font.h"
+#include "modules/image/Image.h"
+#include "modules/image/ImageData.h"
 
 #include <vector>
 
@@ -327,37 +334,62 @@ static LhatValue lh_setPointSize(LhatMachine *machine, void *context, const Lhat
 // Text
 // ---------------------------------------------------------------------------
 
-// print(text, x, y, r, sx, sy, ox, oy, kx, ky) -- all but text optional.
+struct GraphicsBinding
+{
+	lh::Errors *errors;
+	lh::TypeRegistry *registry;
+};
+
+static GraphicsBinding binding;
+
+// The Font a print call may pass right after its text. Both spellings --
+// print(text, x, y, ...) and print(text, font, x, y, ...) -- are one
+// variadic registration, since two variadic arms would overlap (14.12);
+// the tail is read here instead.
+static Font *fontInTail(const LhatValue *arguments, size_t count, size_t index)
+{
+	if (index >= count || !lhat_is_object_kind(arguments[index], LHAT_OBJECT_HOSTDATA))
+		return nullptr;
+	return lh::checkObject<Font>(arguments[index], *binding.registry);
+}
+
+// print(text[, font], x, y, r, sx, sy, ox, oy, kx, ky) -- all but text optional.
 static LhatValue lh_print(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
 {
 	(void) context;
 	std::vector<love::font::ColoredString> text;
 	text.push_back({lh::optString(arguments, count, 0, ""), instance()->getColor()});
-	Matrix4 m = transformOf(arguments, count, 1);
+	Font *font = fontInTail(arguments, count, 1);
+	Matrix4 m = transformOf(arguments, count, font != nullptr ? 2 : 1);
 	return lh::guard(machine, [&]() {
-		instance()->print(text, m);
+		if (font != nullptr)
+			instance()->print(text, font, m);
+		else
+			instance()->print(text, m);
 		return lhat_nil();
 	});
 }
 
-// printf(text, x, y, limit[, align, r, sx, sy, ox, oy, kx, ky])
+// printf(text[, font], x, y, limit[, align, r, sx, sy, ox, oy, kx, ky])
 static LhatValue lh_printf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
 {
 	(void) context;
 	std::vector<love::font::ColoredString> text;
 	text.push_back({lh::optString(arguments, count, 0, ""), instance()->getColor()});
-	float x = (float) lh::optNumber(arguments, count, 1, 0.0);
-	float y = (float) lh::optNumber(arguments, count, 2, 0.0);
-	float wrap = (float) lh::optNumber(arguments, count, 3, 0.0);
+	Font *font = fontInTail(arguments, count, 1);
+	size_t at = font != nullptr ? 2 : 1;
+	float x = (float) lh::optNumber(arguments, count, at + 0, 0.0);
+	float y = (float) lh::optNumber(arguments, count, at + 1, 0.0);
+	float wrap = (float) lh::optNumber(arguments, count, at + 2, 0.0);
 
 	Font::AlignMode align = Font::ALIGN_LEFT;
-	size_t rest = 4;
-	if (count > 4 && lh::stringOf(arguments[4]) != nullptr)
+	size_t rest = at + 3;
+	if (count > rest && lh::stringOf(arguments[rest]) != nullptr)
 	{
-		const char *name = lh::stringOf(arguments[4]);
+		const char *name = lh::stringOf(arguments[rest]);
 		if (!Font::getConstant(name, align))
 			return lh::raise(machine, std::string("Invalid align mode: ") + name);
-		rest = 5;
+		rest = rest + 1;
 	}
 	float a = (float) lh::optNumber(arguments, count, rest + 0, 0.0);
 	float sx = (float) lh::optNumber(arguments, count, rest + 1, 1.0);
@@ -368,7 +400,10 @@ static LhatValue lh_printf(LhatMachine *machine, void *context, const LhatValue 
 	float ky = (float) lh::optNumber(arguments, count, rest + 6, 0.0);
 	Matrix4 m(x, y, a, sx, sy, ox, oy, kx, ky);
 	return lh::guard(machine, [&]() {
-		instance()->printf(text, wrap, align, m);
+		if (font != nullptr)
+			instance()->printf(text, font, wrap, align, m);
+		else
+			instance()->printf(text, wrap, align, m);
 		return lhat_nil();
 	});
 }
@@ -434,6 +469,225 @@ static LhatValue lh_origin(LhatMachine *machine, void *context, const LhatValue 
 	return lhat_nil();
 }
 
+// ---------------------------------------------------------------------------
+// Objects: Texture (love.graphics.newImage) and Font
+// ---------------------------------------------------------------------------
+
+static Texture *checkTexture(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
+{
+	Texture *texture = index < count ? lh::checkObject<Texture>(arguments[index], *binding.registry) : nullptr;
+	if (texture == nullptr)
+		lh::raise(machine, "Expected a Texture");
+	return texture;
+}
+
+static Font *checkFont(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
+{
+	Font *font = index < count ? lh::checkObject<Font>(arguments[index], *binding.registry) : nullptr;
+	if (font == nullptr)
+		lh::raise(machine, "Expected a Font");
+	return font;
+}
+
+// newImage(path) / newImage(imagedata): a 2D texture with one mip level.
+// wrap_Graphics.cpp takes layers, mipmap tables, compressed data and
+// settings as well -- those arrive with the later milestones.
+static LhatValue lh_newImage(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	auto imagemodule = Module::getInstance<love::image::Image>(Module::M_IMAGE);
+	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+	if (imagemodule == nullptr)
+		return lh::raise(machine, "Cannot load images without the love.image module.");
+
+	StrongRef<love::image::ImageData> idata;
+	if (count > 0 && lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
+	{
+		idata.set(lh::checkObject<love::image::ImageData>(arguments[0], *binding.registry));
+		if (idata.get() == nullptr)
+			return lh::raise(machine, "Expected an ImageData");
+	}
+	else
+	{
+		std::string path = lh::optString(arguments, count, 0, "");
+		if (fs == nullptr)
+			return lh::raise(machine, "love.filesystem is not loaded.");
+		try
+		{
+			StrongRef<love::filesystem::FileData> file(fs->read(path.c_str()), Acquire::NORETAIN);
+			idata.set(imagemodule->newImageData(file.get()), Acquire::NORETAIN);
+		}
+		catch (const love::Exception &e)
+		{
+			return lh::fail(machine, binding.errors->io, e.what());
+		}
+	}
+
+	return lh::guard(machine, [&]() {
+		Texture::Settings settings;
+		settings.type = TEXTURE_2D;
+		Texture::Slices slices(TEXTURE_2D);
+		slices.set(0, 0, idata.get());
+		StrongRef<Texture> texture(instance()->newTexture(settings, &slices), Acquire::NORETAIN);
+		return lh::pushObject(machine, *binding.registry, texture.get());
+	});
+}
+
+static LhatValue lh_Texture_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Texture *t = checkTexture(machine, arguments, count, 0);
+	return lhat_integer(t != nullptr ? t->getWidth() : 0);
+}
+
+static LhatValue lh_Texture_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Texture *t = checkTexture(machine, arguments, count, 0);
+	return lhat_integer(t != nullptr ? t->getHeight() : 0);
+}
+
+static LhatValue lh_Texture_getDimensions(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Texture *t = checkTexture(machine, arguments, count, 0);
+	if (t == nullptr)
+		return lhat_nil();
+	LhatValue parts[2] = {lhat_integer(t->getWidth()), lhat_integer(t->getHeight())};
+	LhatValue out = lhat_nil();
+	lh::makeTuple(machine, parts, 2, &out);
+	return out;
+}
+
+// texture.setFilter(min[, mag])
+static LhatValue lh_Texture_setFilter(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Texture *t = checkTexture(machine, arguments, count, 0);
+	if (t == nullptr)
+		return lhat_nil();
+	SamplerState s = t->getSamplerState();
+	std::string minstr = lh::optString(arguments, count, 1, "linear");
+	std::string magstr = lh::optString(arguments, count, 2, minstr);
+	if (!SamplerState::getConstant(minstr.c_str(), s.minFilter))
+		return lh::raise(machine, "Invalid filter mode: " + minstr);
+	if (!SamplerState::getConstant(magstr.c_str(), s.magFilter))
+		return lh::raise(machine, "Invalid filter mode: " + magstr);
+	return lh::guard(machine, [&]() {
+		t->setSamplerState(s);
+		return lhat_nil();
+	});
+}
+
+// draw(drawable, x, y, r, sx, sy, ox, oy, kx, ky)
+static LhatValue lh_draw(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Drawable *drawable = count > 0 ? lh::checkObject<Drawable>(arguments[0], *binding.registry) : nullptr;
+	if (drawable == nullptr)
+		return lh::raise(machine, "Expected a Drawable");
+	Matrix4 m = transformOf(arguments, count, 1);
+	return lh::guard(machine, [&]() {
+		instance()->draw(drawable, m);
+		return lhat_nil();
+	});
+}
+
+// newFont(size) -- the default face; newFont(path, size) -- a TrueType file.
+static LhatValue lh_newFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	auto fontmodule = Module::getInstance<love::font::Font>(Module::M_FONT);
+	if (fontmodule == nullptr)
+		return lh::raise(machine, "Cannot create fonts without the love.font module.");
+
+	love::font::TrueTypeRasterizer::Settings settings;
+	StrongRef<love::font::Rasterizer> rasterizer;
+	if (count > 0 && lhat_is_number(arguments[0]))
+	{
+		int size = (int) lh::optNumber(arguments, count, 0, 12);
+		try
+		{
+			rasterizer.set(fontmodule->newTrueTypeRasterizer(size, settings), Acquire::NORETAIN);
+		}
+		catch (const love::Exception &e)
+		{
+			return lh::raise(machine, e.what());
+		}
+	}
+	else
+	{
+		std::string path = lh::optString(arguments, count, 0, "");
+		int size = (int) lh::optNumber(arguments, count, 1, 12);
+		auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+		if (fs == nullptr)
+			return lh::raise(machine, "love.filesystem is not loaded.");
+		try
+		{
+			StrongRef<love::filesystem::FileData> file(fs->read(path.c_str()), Acquire::NORETAIN);
+			rasterizer.set(fontmodule->newTrueTypeRasterizer(file.get(), size, settings), Acquire::NORETAIN);
+		}
+		catch (const love::Exception &e)
+		{
+			return lh::fail(machine, binding.errors->io, e.what());
+		}
+	}
+
+	return lh::guard(machine, [&]() {
+		StrongRef<Font> font(instance()->newFont(rasterizer.get()), Acquire::NORETAIN);
+		return lh::pushObject(machine, *binding.registry, font.get());
+	});
+}
+
+static LhatValue lh_setFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Font *font = checkFont(machine, arguments, count, 0);
+	if (font == nullptr)
+		return lhat_nil();
+	return lh::guard(machine, [&]() {
+		instance()->setFont(font);
+		return lhat_nil();
+	});
+}
+
+static LhatValue lh_getFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	(void) arguments;
+	(void) count;
+	return lh::guard(machine, [&]() {
+		return lh::pushObject(machine, *binding.registry, instance()->getFont());
+	});
+}
+
+static LhatValue lh_Font_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Font *font = checkFont(machine, arguments, count, 0);
+	if (font == nullptr)
+		return lhat_nil();
+	std::string text = lh::optString(arguments, count, 1, "");
+	return lh::guard(machine, [&]() {
+		return lhat_real(font->getWidth(text));
+	});
+}
+
+static LhatValue lh_Font_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Font *font = checkFont(machine, arguments, count, 0);
+	return lhat_real(font != nullptr ? font->getHeight() : 0.0f);
+}
+
+static LhatValue lh_Font_getLineHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	Font *font = checkFont(machine, arguments, count, 0);
+	return lhat_real(font != nullptr ? font->getLineHeight() : 0.0f);
+}
+
+
 } // graphics
 
 namespace lh
@@ -441,11 +695,17 @@ namespace lh
 
 bool lhopen_love_graphics(Context &ctx)
 {
+	using namespace love::graphics;
+	const char *m = "love.graphics";
+
+	if (!ctx.objectType(m, "Drawable", Drawable::type) || !ctx.objectType(m, "Texture", Texture::type) || !ctx.objectType(m, "Font", Font::type))
+		return false;
 	if (ctx.types())
 		return true;
 
-	using namespace love::graphics;
-	const char *m = "love.graphics";
+	binding.errors = ctx.errors;
+	binding.registry = ctx.registry;
+
 	return ctx.func(m, "clear", "p^;", lh_clear, nullptr)
 		&& ctx.func(m, "clear", "p^number^, number^, number^;", lh_clear, nullptr)
 		&& ctx.func(m, "clear", "p^number^, number^, number^, number^;", lh_clear, nullptr)
@@ -476,7 +736,21 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.func(m, "rotate", "p^number^;", lh_rotate, nullptr)
 		&& ctx.func(m, "scale", "p^number^;", lh_scale, nullptr)
 		&& ctx.func(m, "scale", "p^number^, number^;", lh_scale, nullptr)
-		&& ctx.func(m, "origin", "p^;", lh_origin, nullptr);
+		&& ctx.func(m, "origin", "p^;", lh_origin, nullptr)
+		&& ctx.func(m, "newImage", "p^string^ -> love.graphics.Texture|love.Error.IO;", lh_newImage, nullptr)
+		&& ctx.func(m, "newImage", "p^love.image.ImageData -> love.graphics.Texture;", lh_newImage, nullptr)
+		&& ctx.member(m, "Texture", "getWidth", "f^self^ -> number^;", lh_Texture_getWidth, nullptr)
+		&& ctx.member(m, "Texture", "getHeight", "f^self^ -> number^;", lh_Texture_getHeight, nullptr)
+		&& ctx.member(m, "Texture", "getDimensions", "f^self^ -> (number^, number^);", lh_Texture_getDimensions, nullptr)
+		&& ctx.member(m, "Texture", "setFilter", "p^self^, string^, ...;", lh_Texture_setFilter, nullptr)
+		&& ctx.func(m, "draw", "p^love.graphics.Texture, ...;", lh_draw, nullptr)
+		&& ctx.func(m, "newFont", "p^number^ -> love.graphics.Font;", lh_newFont, nullptr)
+		&& ctx.func(m, "newFont", "p^string^, number^ -> love.graphics.Font|love.Error.IO;", lh_newFont, nullptr)
+		&& ctx.func(m, "setFont", "p^love.graphics.Font;", lh_setFont, nullptr)
+		&& ctx.func(m, "getFont", "p^ -> love.graphics.Font;", lh_getFont, nullptr)
+		&& ctx.member(m, "Font", "getWidth", "f^self^, string^ -> number^;", lh_Font_getWidth, nullptr)
+		&& ctx.member(m, "Font", "getHeight", "f^self^ -> number^;", lh_Font_getHeight, nullptr)
+		&& ctx.member(m, "Font", "getLineHeight", "f^self^ -> number^;", lh_Font_getLineHeight, nullptr);
 }
 
 } // lh

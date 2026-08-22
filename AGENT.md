@@ -44,7 +44,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math`。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は M5 で判断
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
-- 前提 lhat は HEAD `ad39df0` 以降（`lhat_machine_set_modules` / `LhatModule` 廃止後の API）
+- 前提 lhat は HEAD `763c137` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math 入り）
 
 ### 旧 Lua コード
 
@@ -76,19 +76,14 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 
 > `git clone https://github.com/love2d/megasource.git`
 
-## 動作確認（M0 時点）
-
-```powershell
-.\build\love\Release\lovec.exe                 # 埋め込み hello（print / タプル / U1）
-.\build\love\Release\lovec.exe --probe         # U4 probe（構造型戻り値）
-.\build\love\Release\lovec.exe path\to\gamedir # gamedir\main.lh を実行（stdio 読込、PhysFS は M2）
-```
+## 動作確認（M2 時点）
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
-## 動作確認（M1 時点）
-
 ```powershell
+.\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（Esc で終了）
+.\build\love\Release\lovec.exe --probe              # U4 probe（構造型戻り値）
+.\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5

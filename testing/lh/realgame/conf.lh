@@ -1,0 +1,16 @@
+# conf.lh: a script answering the configuration table (love.conf's shape).
+return^ {
+    identity = "lhatove-realgame",
+    version = "12.0",
+    window = {
+        title = "lhatove real game",
+        width = 640,
+        height = 480,
+        resizable = true^,
+        vsync = 1,
+    },
+    modules = {
+        image = true^,
+        font = true^,
+    },
+}

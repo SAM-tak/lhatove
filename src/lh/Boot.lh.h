@@ -67,6 +67,40 @@ return^ p^ {
 }
 )lh";
 
+// What runs when no game is given: a window that says so. nogame.lua's
+// animated version is milestone M6.
+static const char nogame_lh[] = R"lh(module^ nogame
+
+import^ love.graphics
+import^ love.event
+import^ love.window
+
+let^ usage = "lhatove -- LOVE with L^
+
+No game was given.
+
+usage:
+    love path/to/gamedir            runs the game from the given directory which contains a main.lh file
+    love path/to/packagedgame.love  runs the packaged game from the provided .love file
+    love path/to/file.lh            runs the game from the given .lh file
+
+Press Escape to quit."
+
+public^let^ load = p^ {
+    love.window.setTitle("lhatove")
+    love.graphics.setBackgroundColor(0.26, 0.53, 0.96)
+}
+
+public^let^ draw = p^ {
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf(usage, 40, 40, love.graphics.getWidth() - 80)
+}
+
+public^let^ keypressed = p^key:string^, scancode:string^, isrepeat:bool^ {
+    if^ key = "escape" { love.event.quit() }
+}
+)lh";
+
 // Milestone M0: what runs when no game is given. Exercises the boundary
 // that every later module relies on -- a global, a module function, a
 // tuple answer, and the two open questions from the porting plan:

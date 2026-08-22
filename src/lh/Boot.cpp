@@ -20,18 +20,24 @@
 
 #include "Boot.h"
 #include "Boot.lh.h"
+#include "ErrorScreen.h"
 #include "PhysfsLoader.h"
 #include "lh.h"
 
 #include "common/Module.h"
+#include "common/version.h"
+#include "modules/love/love.h"
 
-// The modules milestone M1 brings up, in boot.lua's order.
+// The modules, in boot.lua's order.
+#include "modules/filesystem/physfs/Filesystem.h"
 #include "modules/timer/Timer.h"
 #include "modules/event/sdl/Event.h"
 #include "modules/keyboard/sdl/Keyboard.h"
 #include "modules/mouse/sdl/Mouse.h"
+#include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
 #include "modules/window/sdl/Window.h"
+#include "modules/window/lh_Window.h"
 #include "modules/graphics/Graphics.h"
 
 // lhatstdlib, the modules the porting plan admits into the game's program:
@@ -68,6 +74,8 @@ bool lhopen_love_keyboard(Context &ctx);
 bool lhopen_love_mouse(Context &ctx);
 bool lhopen_love_window(Context &ctx);
 bool lhopen_love_graphics(Context &ctx);
+bool lhopen_love_filesystem(Context &ctx);
+bool lhopen_love_image(Context &ctx);
 static bool lhopen_love_boot(Context &ctx);
 
 static const Registrar registrars[] = {
@@ -77,6 +85,8 @@ static const Registrar registrars[] = {
 	lhopen_love_event,
 	lhopen_love_keyboard,
 	lhopen_love_mouse,
+	lhopen_love_filesystem,
+	lhopen_love_image,
 	lhopen_love_window,
 	lhopen_love_graphics,
 };
@@ -260,6 +270,71 @@ static bool buildHandlers(LhatMachine *machine, LhatValue game)
 	return true;
 }
 
+
+// ---------------------------------------------------------------------------
+// conf.lh
+// ---------------------------------------------------------------------------
+
+// What conf.lh may say, with boot.lua's defaults. The unit is a plain
+// script whose return^ is a table; fields it does not write keep these.
+struct Conf
+{
+	std::string identity;
+	bool appendidentity = false;
+	std::string version = LOVE_VERSION_STRING;
+	bool console = false;
+	struct
+	{
+		std::string title = "Untitled";
+		int width = 800;
+		int height = 600;
+		LhatValue settings = lhat_nil(); // the window table itself, for readWindowSettings
+		bool wanted = true;              // window = nil^ means no window
+	} window;
+	struct
+	{
+		bool event = true, filesystem = true, font = true, graphics = true, image = true;
+		bool keyboard = true, mouse = true, timer = true, window = true;
+	} modules;
+};
+
+static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
+{
+	if (!lhat_is_object_kind(table, LHAT_OBJECT_TABLE))
+		return;
+	conf.identity = fieldString(machine, table, "identity", conf.identity);
+	conf.appendidentity = fieldBool(machine, table, "appendidentity", conf.appendidentity);
+	conf.version = fieldString(machine, table, "version", conf.version);
+	conf.console = fieldBool(machine, table, "console", conf.console);
+
+	LhatValue window = field(machine, table, "window");
+	if (lhat_is_object_kind(window, LHAT_OBJECT_TABLE))
+	{
+		conf.window.title = fieldString(machine, window, "title", conf.window.title);
+		conf.window.width = (int) fieldNumber(machine, window, "width", conf.window.width);
+		conf.window.height = (int) fieldNumber(machine, window, "height", conf.window.height);
+		conf.window.settings = window;
+	}
+	else if (fieldIs(machine, table, "window", LHAT_VALUE_NIL) && lhat_is_object_kind(field(machine, table, "modules"), LHAT_OBJECT_TABLE))
+	{
+		// window = nil^ is how boot.lua reads "no window".
+	}
+
+	LhatValue modules = field(machine, table, "modules");
+	if (lhat_is_object_kind(modules, LHAT_OBJECT_TABLE))
+	{
+		conf.modules.event = fieldBool(machine, modules, "event", true);
+		conf.modules.filesystem = fieldBool(machine, modules, "filesystem", true);
+		conf.modules.font = fieldBool(machine, modules, "font", true);
+		conf.modules.graphics = fieldBool(machine, modules, "graphics", true);
+		conf.modules.image = fieldBool(machine, modules, "image", true);
+		conf.modules.keyboard = fieldBool(machine, modules, "keyboard", true);
+		conf.modules.mouse = fieldBool(machine, modules, "mouse", true);
+		conf.modules.timer = fieldBool(machine, modules, "timer", true);
+		conf.modules.window = fieldBool(machine, modules, "window", true);
+	}
+}
+
 // ---------------------------------------------------------------------------
 // The boot sequence
 // ---------------------------------------------------------------------------
@@ -294,47 +369,176 @@ static int exitCodeOf(LhatValue value)
 	return lhat_is_integer(value) ? (int) lhat_as_integer(value) : 0;
 }
 
+// The last path component, as love.path.leaf.
+static std::string leaf(const std::string &path)
+{
+	std::string p = path;
+	while (!p.empty() && (p.back() == '/' || p.back() == '\\'))
+		p.pop_back();
+	size_t slash = p.find_last_of("/\\");
+	return slash == std::string::npos ? p : p.substr(slash + 1);
+}
+
+// boot.lua's identity from a source name: leading dots stripped, the
+// extension dropped, remaining dots made underscores.
+static std::string identityOf(const std::string &name)
+{
+	std::string id = name;
+	while (!id.empty() && id.front() == '.')
+		id.erase(id.begin());
+	size_t dot = id.find_last_of('.');
+	if (dot != std::string::npos)
+		id = id.substr(0, dot);
+	for (char &c : id)
+		if (c == '.')
+			c = '_';
+	return id.empty() ? "lovegame" : id;
+}
+
+// What the command line asks for. arg.lua's parser, reduced to what the
+// engine reads itself: options first, then the game.
+struct Arguments
+{
+	std::string game;     // directory, .love, or .lh file
+	bool fused = false;   // --fused
+	bool console = false; // --console
+	bool probe = false;   // --probe (milestone M0's boundary check)
+};
+
+static Arguments parseArguments(int argc, char **argv)
+{
+	Arguments args;
+	for (int i = 1; i < argc; i++)
+	{
+		std::string a = argv[i];
+		if (a == "--fused")
+			args.fused = true;
+		else if (a == "--console")
+			args.console = true;
+		else if (a == "--probe")
+			args.probe = true;
+		else if (a == "--")
+			break;
+		else if (args.game.empty() && (a.empty() || a[0] != '-'))
+			args.game = a;
+	}
+	return args;
+}
+
+// Reports a problem the way the game's author should see it: the blue
+// screen when a window can be had, text otherwise.
+static void reportRuntime(const std::string &text)
+{
+	fputs(text.c_str(), stderr);
+	if (!text.empty() && text.back() != '\n')
+		fputc('\n', stderr);
+	fflush(stderr);
+	if (!showErrorScreen(text) && !consoleBuild)
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "lhatove: error", text.c_str(), nullptr);
+}
+
 static int boot(int argc, char **argv, bool console)
 {
 	consoleBuild = console;
+	Arguments args = parseArguments(argc, argv);
 
-	// Milestone M1: the game is a directory holding main.lh or a single .lh
-	// file; without one the embedded hello unit runs. arg.lua's full option
-	// handling (fused mode, .love archives) comes with the PhysFS loader.
-	Loader loader;
-	std::string mainUnit = "main.lh";
-	loader.hold("Boot.lh", boot_lh);
-
-	std::string game = argc > 1 ? argv[1] : "";
-	if (game.empty())
+#ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
+	if (args.console)
 	{
-		loader.hold(mainUnit, hello_main_lh);
+		const char *err = nullptr;
+		love_openConsole(err);
 	}
-	else if (game == "--probe")
-	{
-		loader.hold(mainUnit, probe_main_lh);
-	}
-	else if (endsWith(game, ".lh"))
-	{
-		size_t slash = game.find_last_of("/\\");
-		if (slash == std::string::npos)
-		{
-			loader.setBase(".");
-			mainUnit = game;
-		}
-		else
-		{
-			loader.setBase(game.substr(0, slash));
-			mainUnit = game.substr(slash + 1);
-		}
-	}
-	else
-	{
-		loader.setBase(game);
-	}
+#endif
 
 	// Declared before the runtime so it is destroyed after it.
 	Modules modules;
+	Loader loader;
+	loader.hold("Boot.lh", boot_lh);
+
+	// love.filesystem first of all: the loader reads through it. boot.lua's
+	// love.boot, without arg.lua's URI handling.
+	auto fs = modules.add(new love::filesystem::physfs::Filesystem());
+	loader.setFilesystem(fs);
+	try
+	{
+		fs->init(argv[0]);
+	}
+	catch (const love::Exception &e)
+	{
+		report("lhatove", std::string("Could not initialize the filesystem: ") + e.what());
+		return 1;
+	}
+
+	std::string exepath = fs->getExecutablePath();
+	if (exepath.empty())
+		exepath = argv[0];
+
+	// A fused game: the executable is the archive.
+	bool canHasGame = false;
+	try
+	{
+		canHasGame = fs->setSource(exepath.c_str());
+	}
+	catch (const love::Exception &)
+	{
+		canHasGame = false;
+	}
+	bool fused = canHasGame || args.fused;
+	fs->setFused(fused);
+
+	std::string mainUnit = "main.lh";
+	std::string identity;
+	std::string invalidGamePath;
+
+	if (!canHasGame && !args.game.empty() && !args.probe)
+	{
+		std::string source = args.game;
+		if (endsWith(source, ".lh"))
+		{
+			mainUnit = leaf(source);
+			size_t slash = source.find_last_of("/\\");
+			source = slash == std::string::npos ? "." : source.substr(0, slash);
+		}
+		try
+		{
+			canHasGame = fs->setSource(source.c_str());
+		}
+		catch (const love::Exception &)
+		{
+			canHasGame = false;
+		}
+		if (!canHasGame)
+			invalidGamePath = source;
+		identity = leaf(source);
+	}
+	else
+	{
+		identity = leaf(exepath);
+	}
+
+	try
+	{
+		std::string realdir = fs->getRealDirectory(mainUnit.c_str());
+		if (!realdir.empty())
+			identity = leaf(realdir);
+	}
+	catch (const love::Exception &)
+	{
+		// Not on disk (or nothing mounted): the fallbacks above stand.
+	}
+	identity = identityOf(identity);
+	fs->setIdentity(identity.c_str(), true);
+
+	bool noGameCode = canHasGame && !loader.exists(mainUnit) && !loader.exists("conf.lh");
+
+	if (args.probe)
+		loader.hold(mainUnit, probe_main_lh);
+	else if (!canHasGame || noGameCode)
+	{
+		if (!invalidGamePath.empty())
+			fprintf(stderr, "Cannot load game at path '%s'.\nMake sure a folder exists at the specified path.\n", invalidGamePath.c_str());
+		loader.hold(mainUnit, nogame_lh);
+	}
 
 	Runtime runtime(Loader::load, &loader);
 	if (runtime.program() == nullptr)
@@ -345,7 +549,7 @@ static int boot(int argc, char **argv, bool console)
 
 	if (!runtime.registerAll(registrars, sizeof(registrars) / sizeof(registrars[0])))
 	{
-		report("lhatove", "A love module refused to register its API.");
+		report("lhatove", "A love module refused to register its API: " + runtime.failedRegistrar());
 		return 1;
 	}
 	if (!registerStdlib(runtime.program()))
@@ -354,13 +558,16 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 	}
 
+	// 05 の 8.7: everything is registered; now the units may be checked.
+	// conf.lh is optional and checked only where it exists.
 	const LhatUnit *bootUnit = runtime.check("Boot.lh");
+	const LhatUnit *confUnit = loader.exists("conf.lh") ? runtime.check("conf.lh") : nullptr;
 	const LhatUnit *root = runtime.check(mainUnit.c_str());
 	if (bootUnit == nullptr || root == nullptr || !runtime.ok())
 	{
 		std::string said = runtime.diagnostics();
 		if (said.empty())
-			said = "Could not read " + mainUnit + " from " + (loader.getBase().empty() ? "the embedded units" : loader.getBase());
+			said = "Could not read " + mainUnit;
 		report("lhatove: check failed", said);
 		return 1;
 	}
@@ -382,12 +589,92 @@ static int boot(int argc, char **argv, bool console)
 
 	LhatMachine *machine = runtime.machine();
 
+	// conf.lh: a script answering a table.
+	Conf conf;
+	if (confUnit != nullptr)
+	{
+		LhatRunResult confRan = lhat_run(machine, lhat_unit_proto(confUnit));
+		if (confRan.status != LHAT_RUN_OK)
+		{
+			report("lhatove: error", "conf.lh: " + runtime.describe(confRan));
+			return 1;
+		}
+		if (!park(machine, "love.boot", "conf", confRan.value))
+			return 1;
+		readConf(machine, confRan.value, conf);
+		if (!conf.identity.empty())
+			fs->setIdentity(conf.identity.c_str(), conf.appendidentity);
+	}
+
+#ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
+	if (conf.console)
+	{
+		const char *err = nullptr;
+		love_openConsole(err);
+	}
+#endif
+
+	// The modules conf admits, in boot.lua's order. love.filesystem is
+	// already up; the loader needed it.
+	love::window::Window *window = nullptr;
+	try
+	{
+		if (conf.modules.timer)
+			modules.add(new love::timer::Timer());
+		if (conf.modules.event)
+			modules.add(new love::event::sdl::Event());
+		if (conf.modules.keyboard)
+			modules.add(new love::keyboard::sdl::Keyboard());
+		if (conf.modules.mouse)
+			modules.add(new love::mouse::sdl::Mouse());
+		if (conf.modules.image)
+			modules.add(new love::image::Image());
+		if (conf.modules.font)
+			modules.add(new love::font::freetype::Font());
+		if (conf.modules.window)
+			window = modules.add(new love::window::sdl::Window());
+		if (conf.modules.graphics)
+			modules.add(love::graphics::Graphics::createInstance());
+
+		if (window != nullptr && conf.window.wanted)
+		{
+			window->setWindowTitle(conf.window.title);
+			love::window::WindowSettings settings;
+			std::string error;
+			if (!love::window::readWindowSettings(machine, conf.window.settings, settings, error))
+			{
+				report("lhatove: conf.lh", error);
+				return 1;
+			}
+			if (!window->setWindow(conf.window.width, conf.window.height, &settings))
+			{
+				report("lhatove", "Could not set window mode.");
+				return 1;
+			}
+		}
+	}
+	catch (const love::Exception &e)
+	{
+		report("lhatove", std::string("Could not start a module: ") + e.what());
+		return 1;
+	}
+
+	// The first couple event pumps on some systems can take a while; better
+	// here than in the first frames.
+	auto event = Module::getInstance<love::event::Event>(Module::M_EVENT);
+	auto timer = Module::getInstance<love::timer::Timer>(Module::M_TIMER);
+	if (event != nullptr)
+		for (int i = 0; i < 2; i++)
+			event->pump();
+	if (timer != nullptr)
+		timer->step();
+
 	// A script (the hello and probe units) answers its return^ and is done;
 	// a module^ unit answers its public table, which is a game.
 	LhatRunResult ran = lhat_run(machine, lhat_unit_proto(root));
 	if (ran.status != LHAT_RUN_OK)
 	{
-		report("lhatove: error", runtime.describe(ran));
+		reportRuntime(runtime.describe(ran));
 		return 1;
 	}
 	if (!lhat_is_object_kind(ran.value, LHAT_OBJECT_TABLE))
@@ -400,37 +687,6 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 	}
 
-	// The modules. conf.lh (milestone M2) will choose; until then all of M1's.
-	try
-	{
-		modules.add(new love::timer::Timer());
-		modules.add(new love::event::sdl::Event());
-		modules.add(new love::keyboard::sdl::Keyboard());
-		modules.add(new love::mouse::sdl::Mouse());
-		modules.add(new love::font::freetype::Font());
-		love::window::Window *window = modules.add(new love::window::sdl::Window());
-		modules.add(love::graphics::Graphics::createInstance());
-
-		window->setWindowTitle("Untitled");
-		love::window::WindowSettings settings;
-		if (!window->setWindow(800, 600, &settings))
-		{
-			report("lhatove", "Could not set window mode.");
-			return 1;
-		}
-	}
-	catch (const love::Exception &e)
-	{
-		report("lhatove", std::string("Could not start a module: ") + e.what());
-		return 1;
-	}
-
-	// The first couple event pumps on some systems can take a while; better
-	// here than in the first frames.
-	for (int i = 0; i < 2; i++)
-		Module::getInstance<love::event::Event>(Module::M_EVENT)->pump();
-	Module::getInstance<love::timer::Timer>(Module::M_TIMER)->step();
-
 	if (!buildHandlers(machine, gameTable))
 	{
 		report("lhatove", "Could not build the callback table.");
@@ -438,12 +694,7 @@ static int boot(int argc, char **argv, bool console)
 	}
 
 	// run: the game's own if it exported one, else Boot.lh's.
-	LhatValue run = lhat_nil();
-	{
-		LhatValue key = lhat_nil();
-		makeString(machine, "run", &key);
-		run = lhat_table_get((const LhatTable *) lhat_as_object(gameTable), key);
-	}
+	LhatValue run = field(machine, gameTable, "run");
 	if (!lhat_is_object_kind(run, LHAT_OBJECT_SUBROUTINE))
 	{
 		LhatRunResult bootRan = lhat_run(machine, lhat_unit_proto(bootUnit));
@@ -462,7 +713,7 @@ static int boot(int argc, char **argv, bool console)
 	LhatRunResult started = lhat_machine_call(machine, run, nullptr, 0);
 	if (started.status != LHAT_RUN_OK)
 	{
-		report("lhatove: error", runtime.describe(started));
+		reportRuntime(runtime.describe(started));
 		return 1;
 	}
 	if (!lhat_is_object_kind(started.value, LHAT_OBJECT_COROUTINE))
@@ -480,7 +731,7 @@ static int boot(int argc, char **argv, bool console)
 		LhatRunResult step = lhat_machine_resume(machine, coroutine, nullptr, 0);
 		if (step.status != LHAT_RUN_OK)
 		{
-			report("lhatove: error", runtime.describe(step));
+			reportRuntime(runtime.describe(step));
 			return 1;
 		}
 		if (gcstats != nullptr && (++frame % 120) == 0)

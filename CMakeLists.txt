@@ -416,6 +416,7 @@ add_library(love_filesystem_root STATIC
 	src/modules/filesystem/FileData.h
 	src/modules/filesystem/Filesystem.cpp
 	src/modules/filesystem/Filesystem.h
+	src/modules/filesystem/lh_Filesystem.cpp
 	src/modules/filesystem/NativeFile.cpp
 	src/modules/filesystem/NativeFile.h
 )
@@ -640,6 +641,7 @@ add_library(love_image_root STATIC
 	src/modules/image/FormatHandler.h
 	src/modules/image/Image.cpp
 	src/modules/image/Image.h
+	src/modules/image/lh_Image.cpp
 	src/modules/image/ImageData.cpp
 	src/modules/image/ImageData.h
 	src/modules/image/ImageDataBase.cpp
@@ -1066,6 +1068,7 @@ add_library(love_window_root STATIC
 	src/modules/window/Window.cpp
 	src/modules/window/Window.h
 	src/modules/window/lh_Window.cpp
+	src/modules/window/lh_Window.h
 )
 target_link_libraries(love_window_root PUBLIC
 	lovedep::Lhat
@@ -1570,6 +1573,8 @@ add_library(liblove SHARED
 	src/lh/Boot.cpp
 	src/lh/Boot.h
 	src/lh/Boot.lh.h
+	src/lh/ErrorScreen.cpp
+	src/lh/ErrorScreen.h
 	# Reference copies of the Lua-era scripts, kept visible in Visual Studio:
 	src/modules/love/boot.lua
 	src/modules/love/callbacks.lua

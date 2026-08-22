@@ -21,7 +21,7 @@
 // love.window for L^. The reference is wrap_Window.cpp beside this file.
 // Milestone M1: the settings table of setMode/getMode waits for conf.lh.
 
-#include "Window.h"
+#include "lh_Window.h"
 #include "lh/lh.h"
 
 namespace love
@@ -31,13 +31,49 @@ namespace window
 
 #define instance() (Module::getInstance<Window>(Module::M_WINDOW))
 
+bool readWindowSettings(LhatMachine *machine, LhatValue table, WindowSettings &settings, std::string &error)
+{
+	if (!lhat_is_object_kind(table, LHAT_OBJECT_TABLE))
+		return true;
+
+	std::string fstype = lh::fieldString(machine, table, "fullscreentype", "");
+	if (!fstype.empty() && !Window::getConstant(fstype.c_str(), settings.fstype))
+	{
+		error = "Invalid fullscreen type: " + fstype;
+		return false;
+	}
+	settings.fullscreen = lh::fieldBool(machine, table, "fullscreen", settings.fullscreen);
+	settings.vsync = (int) lh::fieldNumber(machine, table, "vsync", settings.vsync);
+	settings.msaa = (int) lh::fieldNumber(machine, table, "msaa", settings.msaa);
+	settings.stencil = lh::fieldBool(machine, table, "stencil", settings.stencil);
+	settings.depth = lh::fieldBool(machine, table, "depth", settings.depth);
+	settings.resizable = lh::fieldBool(machine, table, "resizable", settings.resizable);
+	settings.minwidth = (int) lh::fieldNumber(machine, table, "minwidth", settings.minwidth);
+	settings.minheight = (int) lh::fieldNumber(machine, table, "minheight", settings.minheight);
+	settings.borderless = lh::fieldBool(machine, table, "borderless", settings.borderless);
+	settings.centered = lh::fieldBool(machine, table, "centered", settings.centered);
+	settings.displayindex = (int) lh::fieldNumber(machine, table, "displayindex", settings.displayindex + 1) - 1;
+	settings.usedpiscale = lh::fieldBool(machine, table, "usedpiscale", settings.usedpiscale);
+	settings.refreshrate = lh::fieldNumber(machine, table, "refreshrate", settings.refreshrate);
+	if (lh::fieldIs(machine, table, "x", LHAT_VALUE_INTEGER) || lh::fieldIs(machine, table, "x", LHAT_VALUE_REAL))
+	{
+		settings.useposition = true;
+		settings.x = (int) lh::fieldNumber(machine, table, "x", 0);
+		settings.y = (int) lh::fieldNumber(machine, table, "y", 0);
+	}
+	return true;
+}
+
 static LhatValue lh_setMode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
 {
 	(void) context;
 	int w = (int) lh::optNumber(arguments, count, 0, 800);
 	int h = (int) lh::optNumber(arguments, count, 1, 600);
+	WindowSettings settings;
+	std::string error;
+	if (count > 2 && !readWindowSettings(machine, arguments[2], settings, error))
+		return lh::raise(machine, error);
 	return lh::guard(machine, [&]() {
-		WindowSettings settings;
 		return lhat_bool(instance()->setWindow(w, h, &settings));
 	});
 }
@@ -169,6 +205,7 @@ bool lhopen_love_window(Context &ctx)
 	using namespace love::window;
 	const char *m = "love.window";
 	return ctx.func(m, "setMode", "p^number^, number^ -> bool^;", lh_setMode, nullptr)
+		&& ctx.func(m, "setMode", "p^number^, number^, t^{} -> bool^;", lh_setMode, nullptr)
 		&& ctx.func(m, "getMode", "f^ -> (number^, number^);", lh_getMode, nullptr)
 		&& ctx.func(m, "setTitle", "p^string^;", lh_setTitle, nullptr)
 		&& ctx.func(m, "getTitle", "f^ -> string^;", lh_getTitle, nullptr)

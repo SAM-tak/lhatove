@@ -207,7 +207,10 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 		for (size_t i = 0; i < count; i++)
 		{
 			if (!registrars[i](ctx))
+			{
+				failedRegistrar_ = "registrar #" + std::to_string(i) + " in the " + (phase == Phase::TYPES ? "TYPES" : "MEMBERS") + " phase";
 				return false;
+			}
 		}
 	}
 	return true;
@@ -359,6 +362,40 @@ std::string optString(const LhatValue *args, size_t count, size_t index, const s
 	size_t length = 0;
 	const char *text = stringOf(args[index], &length);
 	return text != nullptr ? std::string(text, length) : fallback;
+}
+
+LhatValue field(LhatMachine *machine, LhatValue table, const char *name)
+{
+	if (!lhat_is_object_kind(table, LHAT_OBJECT_TABLE))
+		return lhat_nil();
+	LhatValue key = lhat_nil();
+	if (!makeString(machine, name, &key))
+		return lhat_nil();
+	return lhat_table_get((const LhatTable *) lhat_as_object(table), key);
+}
+
+double fieldNumber(LhatMachine *machine, LhatValue table, const char *name, double fallback)
+{
+	LhatValue v = field(machine, table, name);
+	return lhat_is_number(v) ? lhat_number_as_real(v) : fallback;
+}
+
+bool fieldBool(LhatMachine *machine, LhatValue table, const char *name, bool fallback)
+{
+	LhatValue v = field(machine, table, name);
+	return lhat_is_bool(v) ? lhat_as_bool(v) : fallback;
+}
+
+std::string fieldString(LhatMachine *machine, LhatValue table, const char *name, const std::string &fallback)
+{
+	size_t length = 0;
+	const char *text = stringOf(field(machine, table, name), &length);
+	return text != nullptr ? std::string(text, length) : fallback;
+}
+
+bool fieldIs(LhatMachine *machine, LhatValue table, const char *name, LhatValueTag tag)
+{
+	return field(machine, table, name).tag == tag;
 }
 
 LhatValue pushVariant(LhatMachine *machine, const TypeRegistry &registry, const Variant &v)

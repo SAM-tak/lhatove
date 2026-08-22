@@ -30,6 +30,11 @@
 
 namespace love
 {
+namespace filesystem
+{
+class Filesystem;
+}
+
 namespace lh
 {
 
@@ -40,19 +45,23 @@ namespace lh
 // Two sources, asked in order:
 //   1. held units -- text the engine embeds (Boot.lh, nogame.lh) or
 //      substitutes, served under a path the program asks for;
-//   2. the game's files. For now this reads through stdio relative to a
-//      base directory; milestone M2 routes it through love.filesystem
-//      (PhysFS), which is why the class already carries that name.
+//   2. love.filesystem: the game's source (a directory, a .love archive or
+//      the fused executable) and the save directory, one PhysFS namespace,
+//      which is what lets one loader serve one program.
 class Loader
 {
 public:
 
 	// Serves `text` whenever the program asks for `path`.
 	void hold(const std::string &path, const std::string &text);
+	bool isHeld(const std::string &path) const;
 
-	// Directory the game's units are read from (empty: none).
-	void setBase(const std::string &base);
-	const std::string &getBase() const { return base; }
+	// Reads game units through this module from now on.
+	void setFilesystem(love::filesystem::Filesystem *fs) { filesystem = fs; }
+
+	// Whether `path` can be read by this loader (held, or a file in the
+	// mounted filesystem).
+	bool exists(const std::string &path) const;
 
 	// The callback handed to lhat_program_new, with `this` as its context.
 	static char *load(void *context, const char *path, size_t *length);
@@ -62,7 +71,7 @@ private:
 	char *loadUnit(const char *path, size_t *length) const;
 
 	std::map<std::string, std::string> held;
-	std::string base;
+	love::filesystem::Filesystem *filesystem = nullptr;
 };
 
 } // lh

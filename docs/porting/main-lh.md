@@ -1,6 +1,6 @@
 # main.lh の書き方
 
-M1 時点で動く形。実例は `testing/lh/{hello,autoquit,customrun,panic,raise,badcallback}/main.lh`。
+M2 時点で動く形。実例は `testing/lh/{hello,autoquit,customrun,panic,raise,badcallback,realgame}`。
 実装と食い違ったらこのファイルを直す。
 
 ## 基本形
@@ -71,19 +71,36 @@ public^let^ run = p^ {
 }
 ```
 
-## conf.lh（M2 予定・未実装）
+## conf.lh
 
 テーブルを返す素のユニット（`module^` なし）。love.conf のスキーマを 1:1 写像。
+読まれる項目: `identity` `appendidentity` `version` `console`、`window.{title width height fullscreen
+fullscreentype vsync msaa stencil depth resizable minwidth minheight borderless centered displayindex
+usedpiscale refreshrate x y}`、`modules.{timer event keyboard mouse image font window graphics}`（既定 `true^`）。
 
 ```lhat
 return^ {
+    identity = "mygame",
     window = {
         title = "My Game",
         width = 1280,
         height = 720,
+        resizable = true^,
     },
 }
 ```
+
+## ゲームの置き場
+
+`love path/to/dir`（`main.lh` を含むディレクトリ）、`love game.love`（zip）、`love file.lh`、
+または exe に zip を連結した fused 形式（`copy /b love.exe+game.love mygame.exe`）。
+ゲーム内の別ユニットは `require^ "lib/util.lh"`（要求側からの相対パス、リテラルのみ）。
+実行時に決めるパスは `love.filesystem.load(path)`（閉包を返す）か `std.load`。
+
+## エラー表示
+
+型検査エラーは起動前に診断として（lovec はコンソール、love.exe はメッセージボックス）。
+実行時の `panic^`（ホストが検出したプログラマエラーを含む）は traceback 付きの青画面。Escape で閉じる。
 
 ## Lua 版との違い（ゲーム作者向け）
 
@@ -100,4 +117,4 @@ return^ {
 - `table.sort` 等は組込メンバ `t.sort^()`（ハット必須）。比較関数は 3値（負/0/正）
 - `math.*` 相当は `std.math`（`import^ std.math` → `std.math.sin/cos/sqrt/atan2/lerp/min/max/...`）。**角度は度数法**。`love.graphics.rotate` などラジアンを取る API へは `std.math.rad(deg)` で変換。`abs/sign/clamp/floor/ceil/round` は `number^` のメンバ（`x.clamp(lo, hi)`）、定数は `number^.pi` / `tau` / `e` / `inf` / `nan`
 - 公開したコールバックの型が違うと（例 `update = p^dt:string^`）起動前に診断で止まる
-- 実行時のコード読み込みは `std.load.file(path)` / `std.load.text(src, name)`、または `love.filesystem.load`（M2）
+- 実行時のコード読み込みは `love.filesystem.load(path)`（ゲームのファイルシステム経由）か `std.load.file/text`
