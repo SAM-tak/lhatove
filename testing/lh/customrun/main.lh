@@ -1,0 +1,46 @@
+# A game that owns its main loop: exports run instead of relying on Boot.lh.
+# Quits with exit code 5 after 360 frames (enough for the GC stats to print
+# three times under LHATOVE_GC_STATS=1).
+module^ customrun
+
+import^ love.boot
+import^ love.event
+import^ love.timer
+import^ love.graphics
+
+var^ frames = 0
+var^ angle = 0
+
+public^let^ update = p^dt:number^ {
+    frames := frames + 1
+    angle := angle + dt
+}
+
+public^let^ draw = p^ {
+    love.graphics.push()
+    love.graphics.translate(400, 300)
+    love.graphics.rotate(angle)
+    love.graphics.setColor(0.9, 0.8, 0.2)
+    love.graphics.rectangle("fill", -40, -40, 80, 80)
+    love.graphics.pop()
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print($"custom run, frame {frames}", 10, 10)
+}
+
+public^let^ run = p^ {
+    let^ h = love.boot.handlers()
+    print("customrun: my own loop")
+    love.timer.step()
+    repeat^ {
+        love.event.pump()
+        let^ code = love.event.dispatch(h)
+        if^ code isa^ number^ { return^ code }
+        h.update(love.timer.step())
+        love.graphics.origin()
+        love.graphics.clear(0.05, 0.05, 0.1)
+        h.draw()
+        love.graphics.present()
+        if^ frames >= 360 { return^ 5 }
+        yield^
+    }
+}

@@ -52,13 +52,25 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 ## 未解決事項（M0/M1 で検証）
 
 - **U1**（M0 で確認）: シグネチャに宣言したエラー種（`f^ -> number^|love.probe.Error.Failed;`）をホストが `lhat_machine_make_error` で返し、L^ 側 `catch^` で受けられる。未宣言のエラー値を返す経路は試していない → 各バインディングは返しうるエラー種をシグネチャに必ず書く
-- **U2**: 60fps での fresh ラッパ GC 負荷
+- **U2**（M1 で計測）: オブジェクト無しの段階で live ≈750、120 フレームで数百回収。hostdata が入る M2 以降に再計測
 - **U3**: `require^` のパス正規化と PhysFS 区切り・`..` の整合
-- **U4**（M0 で確認）: `f^ -> t^{ update : p^number^ -> nil^;, draw : p^ -> nil^; };` は登録・検査・呼び出しとも動く（`lovec --probe`）。ただし lhat 側に構造型メンバ名の use-after-free があり結果が非決定的 → [lhat-issues.md](lhat-issues.md) #1 の修正が M1 の前提
+- **U4**（M0 で確認）: `f^ -> t^{ update : p^number^ -> nil^;, draw : p^ -> nil^; };` は登録・検査・呼び出しとも動く（`lovec --probe`）。lhat 側の構造型メンバ名 use-after-free は `10e810e` で修正済み
 
 ## M0 で確定した実装事項
 
-- lhatstdlib ヘッダは `extern "C" {}` で包んで include（ガード無し）
+- lhatstdlib ヘッダは lhat 側で `extern "C"` ガード済み（そのまま include）
 - `love.Error{Misuse,IO,NotSupported}` を TYPES 相の最初に登録（`love` モジュール表を最初に作る）
 - `lovec` は `LOVE_LH_CONSOLE_EXE` 定義付きでビルドし、`love_lh_boot(argc, argv, console)` にフラグを渡す。console=true では診断・エラーは stderr のみ、false（love.exe）ではメッセージボックスも出す
 - 末尾呼び出しは traceback に残らない（`outer = p^ { inner() }` は表示されない）— 仕様
+
+## M1 で確定した実装事項
+
+- 起動列: 登録 → check(Boot.lh, main.lh) → compile → main.lh 実行（公開テーブル）→ モジュール生成（timer/event/keyboard/mouse/font/window/graphics、800x600）→ handlers 構築 → run 選択 → `lhat_machine_call(run)` でコルーチン → 毎フレーム `lhat_machine_resume`
+- handlers: `src/lh/Boot.cpp` の `callbacks[]` からシグネチャ文字列を生成し `love.boot.handlers()` に登録。欠けたコールバックは variadic no-op のホスト関数（quit は `false^` を返す）
+- `love.event.dispatch(h) -> number^|nil^`: C++ がイベントを poll し `handlers.<name>(typed args)` をネスト `lhat_machine_call`。quit は `handlers.quit()` が `true^` なら拒否、さもなくば終了コードを返す
+- `lh::raise`: プログラマエラー用。stderr に出して nil を返す（ホスト panic API が lhat に入るまでの暫定。[lhat-issues.md](lhat-issues.md)）
+- `lh::guard`: `love::Exception` → `raise`。`lh::catchexcept`: `love::Exception` → 宣言済みエラー値（fallible API 用）
+- 可変長の末尾引数（描画の transform 9 数値など）は `...`、少数の省略可能引数は同名再登録のオーバーロード（`clear` 0/3/4 引数）
+- enum 文字列（draw mode、align）は `string^` + `getConstant` で実行時検証、不正なら `raise`
+- `src/lh/lh.h` に TypeRegistry（`love::Type* ↔ LhatHostDataTag*`、isa によるダウンキャスト）、`pushObject`/`checkObject`、`pushVariant`、`park` を実装済み（オブジェクト型の初使用は M2 の image/font）
+- 未対応: conf.lh、Window の settings テーブル、restart、nogame、`love.graphics` のオブジェクト類

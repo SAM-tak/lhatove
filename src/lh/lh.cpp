@@ -21,15 +21,65 @@
 #include "lh.h"
 
 #include <cstdio>
+#include <cstring>
 
 namespace love
 {
 namespace lh
 {
 
+// ---------------------------------------------------------------------------
+// TypeRegistry
+// ---------------------------------------------------------------------------
+
+const LhatHostDataTag *TypeRegistry::tagFor(love::Type &type) const
+{
+	auto it = tags.find(&type);
+	if (it != tags.end())
+		return it->second;
+
+	// Not registered itself: the nearest registered ancestor. love::Type has
+	// no parent walk, but isa answers the same question for each candidate;
+	// "nearest" is the candidate that every other matching candidate isa.
+	const LhatHostDataTag *best = nullptr;
+	love::Type *bestType = nullptr;
+	for (const auto &entry : tags)
+	{
+		if (!type.isa(*entry.first))
+			continue;
+		if (bestType == nullptr || entry.first->isa(*bestType))
+		{
+			best = entry.second;
+			bestType = entry.first;
+		}
+	}
+	return best;
+}
+
+love::Type *TypeRegistry::typeFor(const LhatHostDataTag *tag) const
+{
+	auto it = types.find(tag);
+	return it != types.end() ? it->second : nullptr;
+}
+
+void TypeRegistry::add(love::Type &type, const LhatHostDataTag *tag)
+{
+	tags[&type] = tag;
+	types[tag] = &type;
+}
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+
 bool Context::func(const char *module, const char *name, const char *signature, LhatHostFn fn, void *ctx) const
 {
 	return lhat_register_func(program, module, name, signature, fn, ctx);
+}
+
+bool Context::member(const char *module, const char *type, const char *name, const char *signature, LhatHostFn fn, void *ctx) const
+{
+	return lhat_register_member(program, module, type, name, signature, fn, ctx);
 }
 
 bool Context::global(const char *name, const char *signature, LhatHostFn fn, void *ctx) const
@@ -41,6 +91,78 @@ bool Context::bind(const char *name, const char *member) const
 {
 	return lhat_bind_initial(program, name, member);
 }
+
+// What every object answers. The context handed to these is the TypeRegistry,
+// since the wrapper's own tag is what says which love::Type it is.
+
+// 05 の 8.8: registering `dispose` hands the wrapper's lifetime to L^ -- the
+// collector calls it once, and so may the program. The release must not
+// reach back into the lhat API (the sweep may be the caller); Object::release
+// does not.
+static LhatValue lh_object_dispose(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) machine;
+	(void) context;
+	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
+		return lhat_nil();
+	LhatHostData *data = (LhatHostData *) lhat_as_object(arguments[0]);
+	if (data->pointer != nullptr)
+	{
+		((love::Object *) data->pointer)->release();
+		data->pointer = nullptr;
+	}
+	return lhat_nil();
+}
+
+// obj.type() -> the registered name of the wrapper's own type.
+static LhatValue lh_object_type(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
+		return lhat_nil();
+	const LhatHostData *data = (const LhatHostData *) lhat_as_object(arguments[0]);
+	LhatValue out = lhat_nil();
+	makeString(machine, data->tag->name, &out);
+	return out;
+}
+
+// obj.typeOf(name) -> whether the object is (or derives from) the named type.
+static LhatValue lh_object_typeOf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) machine;
+	const TypeRegistry *registry = (const TypeRegistry *) context;
+	if (count < 2 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
+		return lhat_bool(false);
+	const char *name = stringOf(arguments[1]);
+	if (name == nullptr)
+		return lhat_bool(false);
+	const LhatHostData *data = (const LhatHostData *) lhat_as_object(arguments[0]);
+	love::Type *own = registry->typeFor(data->tag);
+	love::Type *asked = love::Type::byName(name);
+	if (own == nullptr || asked == nullptr)
+		return lhat_bool(false);
+	return lhat_bool(own->isa(*asked));
+}
+
+bool Context::objectType(const char *module, const char *name, love::Type &type) const
+{
+	if (types())
+	{
+		type.init();
+		const LhatHostDataTag *tag = lhat_register_hostdata_type(program, module, name);
+		if (tag == nullptr)
+			return false;
+		registry->add(type, tag);
+		return true;
+	}
+	return member(module, name, "dispose", "p^self^;", lh_object_dispose, registry)
+		&& member(module, name, "type", "f^self^ -> string^;", lh_object_type, registry)
+		&& member(module, name, "typeOf", "f^self^, string^ -> bool^;", lh_object_typeOf, registry);
+}
+
+// ---------------------------------------------------------------------------
+// Runtime
+// ---------------------------------------------------------------------------
 
 Runtime::Runtime(LhatProgramLoader loader, void *loaderContext)
 	: program_(nullptr)
@@ -65,8 +187,19 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	if (program_ == nullptr)
 		return false;
 
+	// love.Error first of all, so any signature may name its variants.
+	static const char *const variants[] = {"Misuse", "IO", "NotSupported"};
+	const LhatErrorKind *kinds[3] = {nullptr, nullptr, nullptr};
+	if (!lhat_register_error_kind(program_, "love", "Error", variants, 3, nullptr, kinds))
+		return false;
+	errors_.misuse = kinds[0];
+	errors_.io = kinds[1];
+	errors_.notSupported = kinds[2];
+
 	Context ctx;
 	ctx.program = program_;
+	ctx.errors = &errors_;
+	ctx.registry = &registry_;
 
 	for (Phase phase : {Phase::TYPES, Phase::MEMBERS})
 	{
@@ -173,6 +306,10 @@ std::string Runtime::describe(const LhatRunResult &ran) const
 	return text;
 }
 
+// ---------------------------------------------------------------------------
+// Values
+// ---------------------------------------------------------------------------
+
 std::string valueText(LhatValue value)
 {
 	size_t needed = lhat_value_text(value, nullptr, 0);
@@ -189,6 +326,182 @@ bool makeString(LhatMachine *machine, const std::string &text, LhatValue *out)
 bool makeTuple(LhatMachine *machine, const LhatValue *values, size_t count, LhatValue *out)
 {
 	return lhat_make_tuple(machine, values, count, out);
+}
+
+const char *stringOf(LhatValue value, size_t *length)
+{
+	if (!lhat_is_object_kind(value, LHAT_OBJECT_STRING))
+		return nullptr;
+	const LhatString *s = (const LhatString *) lhat_as_object(value);
+	if (length != nullptr)
+		*length = s->length;
+	return s->text;
+}
+
+double optNumber(const LhatValue *args, size_t count, size_t index, double fallback)
+{
+	if (index >= count || !lhat_is_number(args[index]))
+		return fallback;
+	return lhat_number_as_real(args[index]);
+}
+
+bool optBool(const LhatValue *args, size_t count, size_t index, bool fallback)
+{
+	if (index >= count || !lhat_is_bool(args[index]))
+		return fallback;
+	return lhat_as_bool(args[index]);
+}
+
+std::string optString(const LhatValue *args, size_t count, size_t index, const std::string &fallback)
+{
+	if (index >= count)
+		return fallback;
+	size_t length = 0;
+	const char *text = stringOf(args[index], &length);
+	return text != nullptr ? std::string(text, length) : fallback;
+}
+
+LhatValue pushVariant(LhatMachine *machine, const TypeRegistry &registry, const Variant &v)
+{
+	const Variant::Data &data = v.getData();
+	LhatValue out = lhat_nil();
+
+	switch (v.getType())
+	{
+	case Variant::BOOLEAN:
+		return lhat_bool(data.boolean);
+	case Variant::NUMBER:
+		return lhat_real(data.number);
+	case Variant::STRING:
+		makeString(machine, std::string(data.string->str, data.string->len), &out);
+		return out;
+	case Variant::SMALLSTRING:
+		makeString(machine, std::string(data.smallstring.str, data.smallstring.len), &out);
+		return out;
+	case Variant::LOVEOBJECT:
+		if (data.objectproxy.type == nullptr || data.objectproxy.object == nullptr)
+			return lhat_nil();
+		return pushObject(machine, registry, *data.objectproxy.type, data.objectproxy.object);
+	case Variant::TABLE:
+	{
+		if (!lhat_machine_make_table(machine, &out))
+			return lhat_nil();
+		LhatTable *table = (LhatTable *) lhat_as_object(out);
+		for (const auto &pair : data.table->pairs)
+		{
+			LhatValue key = pushVariant(machine, registry, pair.first);
+			LhatValue value = pushVariant(machine, registry, pair.second);
+			bool refused = false;
+			if (lhat_is_nil(key))
+				continue;
+			lhat_table_set(table, key, value, &refused);
+		}
+		return out;
+	}
+	case Variant::LUSERDATA:
+	case Variant::NIL:
+	case Variant::UNKNOWN:
+	default:
+		return lhat_nil();
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Objects
+// ---------------------------------------------------------------------------
+
+LhatValue pushObject(LhatMachine *machine, const TypeRegistry &registry, love::Type &type, love::Object *object)
+{
+	if (object == nullptr)
+		return lhat_nil();
+	const LhatHostDataTag *tag = registry.tagFor(type);
+	if (tag == nullptr)
+		return lhat_nil();
+	LhatValue out = lhat_nil();
+	if (!lhat_machine_make_hostdata(machine, tag, object, &out))
+		return lhat_nil();
+	object->retain();
+	return out;
+}
+
+love::Object *checkObject(LhatValue value, const TypeRegistry &registry, love::Type &type)
+{
+	if (!lhat_is_object_kind(value, LHAT_OBJECT_HOSTDATA))
+		return nullptr;
+	const LhatHostData *data = (const LhatHostData *) lhat_as_object(value);
+	if (data->released || data->pointer == nullptr)
+		return nullptr;
+	love::Type *own = registry.typeFor(data->tag);
+	if (own == nullptr || !own->isa(type))
+		return nullptr;
+	return (love::Object *) data->pointer;
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+LhatValue fail(LhatMachine *machine, const LhatErrorKind *kind, const std::string &message)
+{
+	LhatValue error = lhat_nil();
+	if (!lhat_machine_make_error(machine, kind, message.c_str(), lhat_nil(), &error))
+		return lhat_nil();
+	return error;
+}
+
+LhatValue raise(LhatMachine *machine, const std::string &message)
+{
+	(void) machine;
+	fprintf(stderr, "lhatove: %s\n", message.c_str());
+	fflush(stderr);
+	return lhat_nil();
+}
+
+LhatValue guard(LhatMachine *machine, const std::function<LhatValue()> &body)
+{
+	try
+	{
+		return body();
+	}
+	catch (const love::Exception &e)
+	{
+		return raise(machine, e.what());
+	}
+}
+
+LhatValue catchexcept(LhatMachine *machine, const LhatErrorKind *kind, const std::function<LhatValue()> &body)
+{
+	try
+	{
+		return body();
+	}
+	catch (const love::Exception &e)
+	{
+		return fail(machine, kind, e.what());
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Calling back
+// ---------------------------------------------------------------------------
+
+bool callMember(LhatMachine *machine, LhatValue table, const char *name, const LhatValue *args, size_t count, LhatRunResult *out)
+{
+	if (!lhat_is_object_kind(table, LHAT_OBJECT_TABLE))
+		return false;
+	LhatValue key = lhat_nil();
+	if (!makeString(machine, name, &key))
+		return false;
+	LhatValue member = lhat_table_get((const LhatTable *) lhat_as_object(table), key);
+	if (!lhat_is_object_kind(member, LHAT_OBJECT_SUBROUTINE) && !lhat_is_object_kind(member, LHAT_OBJECT_HOST))
+		return false;
+	*out = lhat_machine_call(machine, member, args, count);
+	return true;
+}
+
+bool park(LhatMachine *machine, const char *module, const char *name, LhatValue value)
+{
+	return lhat_machine_register(machine, module, nullptr, name, value);
 }
 
 } // lh

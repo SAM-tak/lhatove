@@ -29,6 +29,44 @@ namespace love
 namespace lh
 {
 
+// Boot.lh: the default `run`, the successor of callbacks.lua's love.run. A
+// script whose return^ is the run procedure; yieldable, so calling it from
+// C answers a coroutine the engine resumes once per frame. The handlers
+// table holds one member per callback -- the game's own or a no-op --
+// built by the engine (Boot.cpp), so every call here is statically typed.
+static const char boot_lh[] = R"lh(import^ love.boot
+import^ love.event
+import^ love.timer
+import^ love.graphics
+
+return^ p^ {
+    let^ h = love.boot.handlers()
+    h.load()
+
+    # We don't want the first frame's dt to include time taken by load.
+    love.timer.step()
+
+    repeat^ {
+        love.event.pump()
+        let^ code = love.event.dispatch(h)
+        if^ code isa^ number^ { return^ code }
+
+        let^ dt = love.timer.step()
+        h.update(dt)
+
+        if^ love.graphics.isActive() {
+            love.graphics.origin()
+            love.graphics.clear()
+            h.draw()
+            love.graphics.present()
+        }
+
+        love.timer.sleep(0.001)
+        yield^
+    }
+}
+)lh";
+
 // Milestone M0: what runs when no game is given. Exercises the boundary
 // that every later module relies on -- a global, a module function, a
 // tuple answer, and the two open questions from the porting plan:
@@ -47,10 +85,8 @@ print($"U1 probe: failing() caught as {answer}")
 return^ 0
 )lh";
 
-// `lovec --probe`: the U4 shape on its own. Kept apart from the hello unit
-// because lhat HEAD ad39df0 frees the signature text while the structural
-// type still points into it (docs/porting/lhat-issues.md), so this check
-// passes or fails on what the freed bytes happen to hold.
+// `lovec --probe`: the U4 shape on its own -- a structural return type whose
+// members are procedures, the shape love.boot.handlers() takes in M1.
 static const char probe_main_lh[] = R"lh(import^ love
 
 let^ h = love.probe.handlers()

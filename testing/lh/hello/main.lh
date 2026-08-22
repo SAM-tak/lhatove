@@ -1,0 +1,44 @@
+# Milestone M1 acceptance: a rectangle moves, Esc quits.
+module^ hello
+
+import^ love.graphics
+import^ love.event
+import^ love.timer
+import^ love.mouse
+
+var^ x = 100
+var^ y = 100
+var^ dx = 120
+var^ frames = 0
+
+public^let^ load = p^ {
+    print("hello.load")
+    love.graphics.setBackgroundColor(0.1, 0.1, 0.2)
+}
+
+public^let^ update = p^dt:number^ {
+    x := x + dx * dt
+    let^ w, h = love.graphics.getDimensions()
+    if^ x > w - 50 { dx := -120 }
+    if^ x < 0 { dx := 120 }
+    frames := frames + 1
+}
+
+public^let^ draw = p^ {
+    love.graphics.setColor(0.9, 0.3, 0.3)
+    love.graphics.rectangle("fill", x, y, 50, 50)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print($"lhatove M1 -- fps {love.timer.getFPS()} frame {frames}", 10, 10)
+    let^ mx, my = love.mouse.getPosition()
+    love.graphics.circle("line", mx, my, 12)
+}
+
+public^let^ keypressed = p^key:string^, scancode:string^, isrepeat:bool^ {
+    print($"keypressed {key} ({scancode})")
+    if^ key = "escape" { love.event.quit() }
+}
+
+public^let^ quit = p^ -> bool^ {
+    print($"hello.quit after {frames} frames")
+    return^ false^
+}

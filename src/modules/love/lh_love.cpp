@@ -163,15 +163,6 @@ bool lhopen_love(Context &ctx)
 {
 	if (ctx.types())
 	{
-		// love.Error is the error kind every binding answers with. It also has
-		// to be the first registration under "love": when the "love" module
-		// table is created implicitly by a submodule (love.probe) instead, a
-		// structural return type reached through `import^ love` loses its
-		// function-typed members (lhat HEAD ad39df0; see docs/porting/lhat-issues.md).
-		static const char *const love_variants[] = {"Misuse", "IO", "NotSupported"};
-		if (!lhat_register_error_kind(ctx.program, "love", "Error", love_variants, 3, nullptr, nullptr))
-			return false;
-
 		static const char *const variants[] = {"Failed"};
 		const LhatErrorKind *kinds[1] = {nullptr};
 		if (!lhat_register_error_kind(ctx.program, "love.probe", "Error", variants, 1, nullptr, kinds))

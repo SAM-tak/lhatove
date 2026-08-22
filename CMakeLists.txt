@@ -384,6 +384,7 @@ target_link_libraries(love_data PUBLIC
 add_library(love_event_root STATIC
 	src/modules/event/Event.cpp
 	src/modules/event/Event.h
+	src/modules/event/lh_Event.cpp
 )
 target_link_libraries(love_event_root PUBLIC
 	lovedep::Lhat
@@ -504,6 +505,7 @@ add_library(love_graphics_root STATIC
 	src/modules/graphics/Font.h
 	src/modules/graphics/Graphics.cpp
 	src/modules/graphics/Graphics.h
+	src/modules/graphics/lh_Graphics.cpp
 	src/modules/graphics/GraphicsReadback.cpp
 	src/modules/graphics/GraphicsReadback.h
 	src/modules/graphics/Mesh.cpp
@@ -715,6 +717,7 @@ target_link_libraries(love_joystick INTERFACE
 add_library(love_keyboard_root STATIC
 	src/modules/keyboard/Keyboard.cpp
 	src/modules/keyboard/Keyboard.h
+	src/modules/keyboard/lh_Keyboard.cpp
 )
 target_link_libraries(love_keyboard_root PUBLIC
 	lovedep::Lhat
@@ -761,6 +764,7 @@ add_library(love_mouse_root STATIC
 	src/modules/mouse/Cursor.cpp
 	src/modules/mouse/Cursor.h
 	src/modules/mouse/Mouse.h
+	src/modules/mouse/lh_Mouse.cpp
 )
 target_link_libraries(love_mouse_root PUBLIC
 	lovedep::Lhat
@@ -988,6 +992,7 @@ target_link_libraries(love_thread INTERFACE
 add_library(love_timer STATIC
 	src/modules/timer/Timer.cpp
 	src/modules/timer/Timer.h
+	src/modules/timer/lh_Timer.cpp
 )
 target_link_libraries(love_timer PUBLIC
 	lovedep::Lhat
@@ -1060,6 +1065,7 @@ target_link_libraries(love_video INTERFACE
 add_library(love_window_root STATIC
 	src/modules/window/Window.cpp
 	src/modules/window/Window.h
+	src/modules/window/lh_Window.cpp
 )
 target_link_libraries(love_window_root PUBLIC
 	lovedep::Lhat

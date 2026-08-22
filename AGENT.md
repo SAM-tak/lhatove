@@ -84,3 +84,13 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 ```
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
+
+## 動作確認（M1 時点）
+
+```powershell
+.\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
+.\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
+.\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5
+.\build\love\Release\lovec.exe testing\lh\panic      # update 内 panic^ → traceback
+$env:LHATOVE_GC_STATS=1; .\build\love\Release\lovec.exe testing\lh\customrun   # 120 フレーム毎に GC 統計
+```
