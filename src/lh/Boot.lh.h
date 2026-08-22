@@ -101,35 +101,6 @@ public^let^ keypressed = p^key:string^, scancode:string^, isrepeat:bool^ {
 }
 )lh";
 
-// Milestone M0: what runs when no game is given. Exercises the boundary
-// that every later module relies on -- a global, a module function, a
-// tuple answer, and the two open questions from the porting plan:
-//   U1: a host function answering an error value its signature declares;
-//   U4: a host function answering a structural table type with p^ members.
-static const char hello_main_lh[] = R"lh(import^ love
-
-print("lhatove: hello from L^")
-
-let^ major, minor, revision, codename = love.getVersion()
-print($"love.getVersion() -> {major}.{minor}.{revision} {codename}")
-
-let^ answer = love.probe.failing() catch^ -1
-print($"U1 probe: failing() caught as {answer}")
-
-return^ 0
-)lh";
-
-// `lovec --probe`: the U4 shape on its own -- a structural return type whose
-// members are procedures, the shape love.boot.handlers() takes in M1.
-static const char probe_main_lh[] = R"lh(import^ love
-
-let^ h = love.probe.handlers()
-h.update(0.5)
-h.draw()
-print("U4 probe: handlers table called back into the host")
-
-return^ 0
-)lh";
 
 } // lh
 } // love

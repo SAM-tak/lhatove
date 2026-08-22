@@ -82,7 +82,7 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
 ```powershell
 .\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（Esc で終了）
-.\build\love\Release\lovec.exe --probe              # U4 probe（構造型戻り値）
+.\build\love\Release\lovec.exe --dump-host-api      # lhat-host.json（LSP 用ホスト API）を書き出す
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3

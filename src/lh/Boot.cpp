@@ -402,7 +402,8 @@ struct Arguments
 	std::string game;     // directory, .love, or .lh file
 	bool fused = false;   // --fused
 	bool console = false; // --console
-	bool probe = false;   // --probe (milestone M0's boundary check)
+	bool dumpHostApi = false; // --dump-host-api [file]
+	std::string dumpPath = "lhat-host.json";
 };
 
 static Arguments parseArguments(int argc, char **argv)
@@ -415,8 +416,12 @@ static Arguments parseArguments(int argc, char **argv)
 			args.fused = true;
 		else if (a == "--console")
 			args.console = true;
-		else if (a == "--probe")
-			args.probe = true;
+		else if (a == "--dump-host-api")
+		{
+			args.dumpHostApi = true;
+			if (i + 1 < argc && argv[i + 1][0] != '-')
+				args.dumpPath = argv[++i];
+		}
 		else if (a == "--")
 			break;
 		else if (args.game.empty() && (a.empty() || a[0] != '-'))
@@ -490,7 +495,7 @@ static int boot(int argc, char **argv, bool console)
 	std::string identity;
 	std::string invalidGamePath;
 
-	if (!canHasGame && !args.game.empty() && !args.probe)
+	if (!canHasGame && !args.game.empty())
 	{
 		std::string source = args.game;
 		if (endsWith(source, ".lh"))
@@ -531,9 +536,7 @@ static int boot(int argc, char **argv, bool console)
 
 	bool noGameCode = canHasGame && !loader.exists(mainUnit) && !loader.exists("conf.lh");
 
-	if (args.probe)
-		loader.hold(mainUnit, probe_main_lh);
-	else if (!canHasGame || noGameCode)
+	if (!canHasGame || noGameCode)
 	{
 		if (!invalidGamePath.empty())
 			fprintf(stderr, "Cannot load game at path '%s'.\nMake sure a folder exists at the specified path.\n", invalidGamePath.c_str());
@@ -556,6 +559,25 @@ static int boot(int argc, char **argv, bool console)
 	{
 		report("lhatove", "The L^ standard library refused to register.");
 		return 1;
+	}
+
+	// --dump-host-api: what the checker was told, as JSON for the language
+	// server (lsp/workspace.c reads lhat-host.json at the workspace root).
+	if (args.dumpHostApi)
+	{
+		size_t needed = lhat_program_dump_host_api(runtime.program(), nullptr, 0);
+		std::vector<char> json(needed + 1);
+		lhat_program_dump_host_api(runtime.program(), json.data(), json.size());
+		FILE *out = fopen(args.dumpPath.c_str(), "wb");
+		if (out == nullptr)
+		{
+			report("lhatove", "Could not write " + args.dumpPath);
+			return 1;
+		}
+		fwrite(json.data(), 1, needed, out);
+		fclose(out);
+		printf("wrote %s (%zu bytes)\n", args.dumpPath.c_str(), needed);
+		return 0;
 	}
 
 	// 05 の 8.7: everything is registered; now the units may be checked.
@@ -669,7 +691,7 @@ static int boot(int argc, char **argv, bool console)
 	if (timer != nullptr)
 		timer->step();
 
-	// A script (the hello and probe units) answers its return^ and is done;
+	// A script answers its return^ and is done;
 	// a module^ unit answers its public table, which is a game.
 	LhatRunResult ran = lhat_run(machine, lhat_unit_proto(root));
 	if (ran.status != LHAT_RUN_OK)

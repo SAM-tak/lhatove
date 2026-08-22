@@ -79,103 +79,14 @@ static LhatValue lh_getVersion(LhatMachine *machine, void *context, const LhatVa
 	return answer;
 }
 
-// ---------------------------------------------------------------------------
-// love.probe -- milestone M0 only. Answers the porting plan's open questions
-// about the boundary and goes away once the real modules exist.
-// ---------------------------------------------------------------------------
-
-struct Probe
-{
-	const LhatErrorKind *failed = nullptr;
-};
-
-// U1: a host answering an error value its signature declares.
-static LhatValue lh_probe_failing(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
-{
-	(void) arguments;
-	(void) count;
-	Probe *probe = (Probe *) context;
-	LhatValue error = lhat_nil();
-	if (!lhat_machine_make_error(machine, probe->failed, "failing on purpose", lhat_nil(), &error))
-		return lhat_nil();
-	return error;
-}
-
-static LhatValue lh_probe_update(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
-{
-	(void) machine;
-	(void) context;
-	double dt = count > 0 && lhat_is_number(arguments[0]) ? lhat_number_as_real(arguments[0]) : -1.0;
-	printf("U4 probe: update(%g) reached the host\n", dt);
-	return lhat_nil();
-}
-
-static LhatValue lh_probe_draw(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
-{
-	(void) machine;
-	(void) context;
-	(void) arguments;
-	(void) count;
-	printf("U4 probe: draw() reached the host\n");
-	return lhat_nil();
-}
-
-// U4: a host answering a table whose members are procedures, under a
-// structural signature -- the shape love.boot.handlers() will have.
-static LhatValue lh_probe_handlers(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
-{
-	(void) context;
-	(void) arguments;
-	(void) count;
-
-	// Nothing here runs an instruction, so the collector cannot step between
-	// making the table and filling it (the table is not yet handed over).
-	LhatValue table = lhat_nil();
-	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
-	LhatTable *t = (LhatTable *) lhat_as_object(table);
-
-	struct Entry
-	{
-		const char *name;
-		LhatHostFn fn;
-		uint8_t parameters;
-	};
-	const Entry entries[] = {
-		{"update", lh_probe_update, 1},
-		{"draw", lh_probe_draw, 0},
-	};
-	for (const Entry &e : entries)
-	{
-		LhatValue key = lhat_nil(), fn = lhat_nil();
-		bool refused = false;
-		if (!makeString(machine, e.name, &key)
-			|| !lhat_machine_make_host(machine, e.fn, nullptr, e.parameters, false, false, false, nullptr, &fn)
-			|| !lhat_table_set(t, key, fn, &refused) || refused)
-			return lhat_nil();
-	}
-	return table;
-}
-
-static Probe probe;
-
 bool lhopen_love(Context &ctx)
 {
 	if (ctx.types())
-	{
-		static const char *const variants[] = {"Failed"};
-		const LhatErrorKind *kinds[1] = {nullptr};
-		if (!lhat_register_error_kind(ctx.program, "love.probe", "Error", variants, 1, nullptr, kinds))
-			return false;
-		probe.failed = kinds[0];
 		return true;
-	}
 
 	return ctx.global("print", "f^...->nil^;", lh_print, nullptr)
 		&& ctx.bind("print", "L^.print")
-		&& ctx.func("love", "getVersion", "f^ -> (number^, number^, number^, string^);", lh_getVersion, nullptr)
-		&& ctx.func("love.probe", "failing", "f^ -> number^|love.probe.Error.Failed;", lh_probe_failing, &probe)
-		&& ctx.func("love.probe", "handlers", "f^ -> t^{ update : p^number^ -> nil^;, draw : p^ -> nil^; };", lh_probe_handlers, &probe);
+		&& ctx.func("love", "getVersion", "f^ -> (number^, number^, number^, string^);", lh_getVersion, nullptr);
 }
 
 } // lh

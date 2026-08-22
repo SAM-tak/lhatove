@@ -60,7 +60,9 @@ static void print_usage()
 		"usage:\n"
 		"    love --version                  prints the version and quits\n"
 		"    love --help                     prints this message and quits\n"
+		"    love --dump-host-api [file]     writes the L^ host API (lhat-host.json) for the language server and quits\n"
 		"    love path/to/gamedir            runs the game from the given directory which contains a main.lh file\n"
+		"    love path/to/packagedgame.love  runs the packaged game from the provided .love file\n"
 		"    love path/to/file.lh            runs the game from the given .lh file\n"
 		);
 }
