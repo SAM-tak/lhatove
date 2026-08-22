@@ -5,11 +5,26 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 未解決
 
-（なし）
+### `lhat_program_install` が無限ループ（自型を返すメンバ + 自型を取るメンバ）
+
+hostdata 型 T に「T を返すメンバ」（`translate : p^self^, number^, number^ -> m.T;`）と
+「T を引数に取るメンバ」（`apply : p^self^, m.T -> m.T;`）が共存すると `lhat_program_install` が返らない。
+どちらか一方だけなら正常。T の実行時型を `translate` の戻り値のために構築 → T のメンバを辿る → `apply` の
+引数 T → また T を構築 … と、構築中の型を覚えていないための循環。
+
+再現: [repro/install_loop.c](repro/install_loop.c)（lhat.lib + lhatport.lib とリンクして実行 → `installing...` で停止）。
+
+lhatove 側の暫定: `love.math.Transform.apply` の引数を `any^` にして実行時検査（lhat 修正後に戻す）。
 
 ## 提案
 
-（なし）
+### 可変長アームと他アームの重複判定
+
+`host_arms_overlap`（program.c）は「可変長アームは全てと重複」と単純化しているため、
+`newSoundData(path:string^)` と `newSoundData(samples:number^, ...)` のように先頭引数の型で明らかに
+区別できる組も登録拒否される。先頭から順に disjoint な位置があれば区別可、とできると
+LÖVE 風の API（`print(text, ...)` / `print(text, font, ...)` など）がそのまま書ける。
+現状 lhatove は可変長尾の実行時判別（`fontInTail`）や固定アーム化で回避中
 
 ## 解決済み
 

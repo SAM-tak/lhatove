@@ -21,6 +21,7 @@
 #include "lh.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace love
@@ -72,14 +73,38 @@ void TypeRegistry::add(love::Type &type, const LhatHostDataTag *tag)
 // Context
 // ---------------------------------------------------------------------------
 
+// LHATOVE_SKIP_REGISTRATIONS="love.x.a,love.y.B.b": registrations left out, a
+// development aid for bisecting a registration the runtime chokes on.
+static bool skipped(const std::string &what)
+{
+	static const char *list = getenv("LHATOVE_SKIP_REGISTRATIONS");
+	if (list == nullptr)
+		return false;
+	std::string all = std::string(",") + list + ",";
+	return all.find("," + what + ",") != std::string::npos;
+}
+
+static bool noteFailure(std::string *failed, const char *what, const char *signature)
+{
+	if (failed != nullptr)
+		*failed = std::string(what) + " : " + signature;
+	return false;
+}
+
 bool Context::func(const char *module, const char *name, const char *signature, LhatHostFn fn, void *ctx) const
 {
-	return lhat_register_func(program, module, name, signature, fn, ctx);
+	std::string what = std::string(module) + "." + name;
+	if (skipped(what))
+		return true;
+	return lhat_register_func(program, module, name, signature, fn, ctx) || noteFailure(failed, what.c_str(), signature);
 }
 
 bool Context::member(const char *module, const char *type, const char *name, const char *signature, LhatHostFn fn, void *ctx) const
 {
-	return lhat_register_member(program, module, type, name, signature, fn, ctx);
+	std::string what = std::string(module) + "." + type + "." + name;
+	if (skipped(what))
+		return true;
+	return lhat_register_member(program, module, type, name, signature, fn, ctx) || noteFailure(failed, what.c_str(), signature);
 }
 
 bool Context::global(const char *name, const char *signature, LhatHostFn fn, void *ctx) const
@@ -200,6 +225,8 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	ctx.program = program_;
 	ctx.errors = &errors_;
 	ctx.registry = &registry_;
+	std::string failure;
+	ctx.failed = &failure;
 
 	for (Phase phase : {Phase::TYPES, Phase::MEMBERS})
 	{
@@ -208,7 +235,7 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 		{
 			if (!registrars[i](ctx))
 			{
-				failedRegistrar_ = "registrar #" + std::to_string(i) + " in the " + (phase == Phase::TYPES ? "TYPES" : "MEMBERS") + " phase";
+				failedRegistrar_ = "registrar #" + std::to_string(i) + " in the " + (phase == Phase::TYPES ? "TYPES" : "MEMBERS") + " phase" + (failure.empty() ? "" : " (" + failure + ")");
 				return false;
 			}
 		}
@@ -436,6 +463,9 @@ LhatValue pushVariant(LhatMachine *machine, const TypeRegistry &registry, const 
 		return out;
 	}
 	case Variant::LUSERDATA:
+		// Touch ids travel as light userdata (Event.cpp: a double would lose
+		// bits); here they are the integer they were made from.
+		return lhat_integer((int64_t) (intptr_t) data.userdata);
 	case Variant::NIL:
 	case Variant::UNKNOWN:
 	default:

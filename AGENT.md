@@ -45,6 +45,8 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
 - 前提 lhat は HEAD `763c137` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math 入り）
+- lhat の制約: 可変長アームは同名の他アームと共存不可（省略可能引数は固定アームを列挙）。hostdata 型に「自型を返すメンバ」と「自型を取るメンバ」を同居させると install が止まる（修正待ち）。詳細は docs/porting/lhat-issues.md
+- 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m`（登録を外して二分探索）
 
 ### 旧 Lua コード
 
@@ -76,7 +78,7 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 
 > `git clone https://github.com/love2d/megasource.git`
 
-## 動作確認（M2 時点）
+## 動作確認（M3 時点）
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
@@ -84,6 +86,7 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（Esc で終了）
 .\build\love\Release\lovec.exe --dump-host-api      # lhat-host.json（LSP 用ホスト API）を書き出す
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
+.\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5

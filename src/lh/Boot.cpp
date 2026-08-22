@@ -34,6 +34,15 @@
 #include "modules/event/sdl/Event.h"
 #include "modules/keyboard/sdl/Keyboard.h"
 #include "modules/mouse/sdl/Mouse.h"
+#include "modules/joystick/sdl/JoystickModule.h"
+#include "modules/touch/sdl/Touch.h"
+#include "modules/sound/lullaby/Sound.h"
+#include "modules/system/sdl/System.h"
+#include "modules/sensor/sdl/Sensor.h"
+#include "modules/audio/openal/Audio.h"
+#include "modules/audio/null/Audio.h"
+#include "modules/data/DataModule.h"
+#include "modules/math/MathModule.h"
 #include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
 #include "modules/window/sdl/Window.h"
@@ -76,6 +85,14 @@ bool lhopen_love_window(Context &ctx);
 bool lhopen_love_graphics(Context &ctx);
 bool lhopen_love_filesystem(Context &ctx);
 bool lhopen_love_image(Context &ctx);
+bool lhopen_love_audio(Context &ctx);
+bool lhopen_love_sound(Context &ctx);
+bool lhopen_love_data(Context &ctx);
+bool lhopen_love_math(Context &ctx);
+bool lhopen_love_system(Context &ctx);
+bool lhopen_love_touch(Context &ctx);
+bool lhopen_love_sensor(Context &ctx);
+bool lhopen_love_joystick(Context &ctx);
 static bool lhopen_love_boot(Context &ctx);
 
 static const Registrar registrars[] = {
@@ -87,6 +104,14 @@ static const Registrar registrars[] = {
 	lhopen_love_mouse,
 	lhopen_love_filesystem,
 	lhopen_love_image,
+	lhopen_love_sound,
+	lhopen_love_audio,
+	lhopen_love_data,
+	lhopen_love_math,
+	lhopen_love_system,
+	lhopen_love_touch,
+	lhopen_love_sensor,
+	lhopen_love_joystick,
 	lhopen_love_window,
 	lhopen_love_graphics,
 };
@@ -112,6 +137,18 @@ static void report(const std::string &title, const std::string &text)
 	fflush(stderr);
 	if (!consoleBuild)
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title.c_str(), text.c_str(), nullptr);
+}
+
+// LHATOVE_TRACE=1: the boot sequence, step by step, on stderr.
+static bool tracing = false;
+
+static void trace(const char *step)
+{
+	if (tracing)
+	{
+		fprintf(stderr, "[boot] %s\n", step);
+		fflush(stderr);
+	}
 }
 
 static bool endsWith(const std::string &s, const char *suffix)
@@ -151,6 +188,19 @@ static const Callback callbacks[] = {
 	{"focus", "p^bool^;"},
 	{"mousefocus", "p^bool^;"},
 	{"visible", "p^bool^;"},
+	{"joystickpressed", "p^love.joystick.Joystick, number^;"},
+	{"joystickreleased", "p^love.joystick.Joystick, number^;"},
+	{"joystickaxis", "p^love.joystick.Joystick, number^, number^;"},
+	{"joystickhat", "p^love.joystick.Joystick, number^, string^;"},
+	{"joystickadded", "p^love.joystick.Joystick;"},
+	{"joystickremoved", "p^love.joystick.Joystick;"},
+	{"gamepadpressed", "p^love.joystick.Joystick, string^;"},
+	{"gamepadreleased", "p^love.joystick.Joystick, string^;"},
+	{"gamepadaxis", "p^love.joystick.Joystick, string^, number^;"},
+	{"touchpressed", "p^number^, number^, number^, number^, number^, number^, ...;"},
+	{"touchreleased", "p^number^, number^, number^, number^, number^, number^, ...;"},
+	{"touchmoved", "p^number^, number^, number^, number^, number^, number^, ...;"},
+	{"sensorupdated", "p^string^, number^, number^, number^;"},
 };
 
 struct BootState
@@ -293,8 +343,9 @@ struct Conf
 	} window;
 	struct
 	{
-		bool event = true, filesystem = true, font = true, graphics = true, image = true;
-		bool keyboard = true, mouse = true, timer = true, window = true;
+		bool audio = true, data = true, event = true, filesystem = true, font = true, graphics = true;
+		bool image = true, joystick = true, keyboard = true, math = true, mouse = true, sensor = true;
+		bool sound = true, system = true, timer = true, touch = true, window = true;
 	} modules;
 };
 
@@ -323,14 +374,22 @@ static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
 	LhatValue modules = field(machine, table, "modules");
 	if (lhat_is_object_kind(modules, LHAT_OBJECT_TABLE))
 	{
+		conf.modules.audio = fieldBool(machine, modules, "audio", true);
+		conf.modules.data = fieldBool(machine, modules, "data", true);
 		conf.modules.event = fieldBool(machine, modules, "event", true);
 		conf.modules.filesystem = fieldBool(machine, modules, "filesystem", true);
 		conf.modules.font = fieldBool(machine, modules, "font", true);
 		conf.modules.graphics = fieldBool(machine, modules, "graphics", true);
 		conf.modules.image = fieldBool(machine, modules, "image", true);
+		conf.modules.joystick = fieldBool(machine, modules, "joystick", true);
 		conf.modules.keyboard = fieldBool(machine, modules, "keyboard", true);
+		conf.modules.math = fieldBool(machine, modules, "math", true);
 		conf.modules.mouse = fieldBool(machine, modules, "mouse", true);
+		conf.modules.sensor = fieldBool(machine, modules, "sensor", true);
+		conf.modules.sound = fieldBool(machine, modules, "sound", true);
+		conf.modules.system = fieldBool(machine, modules, "system", true);
 		conf.modules.timer = fieldBool(machine, modules, "timer", true);
+		conf.modules.touch = fieldBool(machine, modules, "touch", true);
 		conf.modules.window = fieldBool(machine, modules, "window", true);
 	}
 }
@@ -445,6 +504,7 @@ static void reportRuntime(const std::string &text)
 static int boot(int argc, char **argv, bool console)
 {
 	consoleBuild = console;
+	tracing = getenv("LHATOVE_TRACE") != nullptr;
 	Arguments args = parseArguments(argc, argv);
 
 #ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
@@ -550,11 +610,13 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 	}
 
+	trace("registering");
 	if (!runtime.registerAll(registrars, sizeof(registrars) / sizeof(registrars[0])))
 	{
 		report("lhatove", "A love module refused to register its API: " + runtime.failedRegistrar());
 		return 1;
 	}
+	trace("registering stdlib");
 	if (!registerStdlib(runtime.program()))
 	{
 		report("lhatove", "The L^ standard library refused to register.");
@@ -582,7 +644,9 @@ static int boot(int argc, char **argv, bool console)
 
 	// 05 の 8.7: everything is registered; now the units may be checked.
 	// conf.lh is optional and checked only where it exists.
+	trace("checking Boot.lh");
 	const LhatUnit *bootUnit = runtime.check("Boot.lh");
+	trace("checking conf.lh / main");
 	const LhatUnit *confUnit = loader.exists("conf.lh") ? runtime.check("conf.lh") : nullptr;
 	const LhatUnit *root = runtime.check(mainUnit.c_str());
 	if (bootUnit == nullptr || root == nullptr || !runtime.ok())
@@ -603,6 +667,7 @@ static int boot(int argc, char **argv, bool console)
 		}
 	}
 
+	trace("compiling");
 	if (!runtime.compile())
 	{
 		report("lhatove", "Could not compile the program.");
@@ -611,6 +676,7 @@ static int boot(int argc, char **argv, bool console)
 
 	LhatMachine *machine = runtime.machine();
 
+	trace("running conf.lh");
 	// conf.lh: a script answering a table.
 	Conf conf;
 	if (confUnit != nullptr)
@@ -636,6 +702,7 @@ static int boot(int argc, char **argv, bool console)
 	}
 #endif
 
+	trace("creating modules");
 	// The modules conf admits, in boot.lua's order. love.filesystem is
 	// already up; the loader needed it.
 	love::window::Window *window = nullptr;
@@ -647,16 +714,43 @@ static int boot(int argc, char **argv, bool console)
 			modules.add(new love::event::sdl::Event());
 		if (conf.modules.keyboard)
 			modules.add(new love::keyboard::sdl::Keyboard());
+		if (conf.modules.joystick)
+			modules.add(new love::joystick::sdl::JoystickModule());
 		if (conf.modules.mouse)
 			modules.add(new love::mouse::sdl::Mouse());
+		if (conf.modules.touch)
+			modules.add(new love::touch::sdl::Touch());
+		if (conf.modules.sound)
+			modules.add(new love::sound::lullaby::Sound());
+		if (conf.modules.system)
+			modules.add(new love::system::sdl::System());
+		if (conf.modules.sensor)
+			modules.add(new love::sensor::sdl::Sensor());
+		if (conf.modules.audio)
+		{
+			// OpenAL, else the silent module, as wrap_Audio.cpp falls back.
+			try
+			{
+				modules.add(new love::audio::openal::Audio());
+			}
+			catch (const love::Exception &e)
+			{
+				fprintf(stderr, "%s\n", e.what());
+				modules.add(new love::audio::null::Audio());
+			}
+		}
 		if (conf.modules.image)
 			modules.add(new love::image::Image());
+		if (conf.modules.data)
+			modules.add(new love::data::DataModule());
 		if (conf.modules.font)
 			modules.add(new love::font::freetype::Font());
 		if (conf.modules.window)
 			window = modules.add(new love::window::sdl::Window());
 		if (conf.modules.graphics)
 			modules.add(love::graphics::Graphics::createInstance());
+		if (conf.modules.math)
+			modules.add(new love::math::Math());
 
 		if (window != nullptr && conf.window.wanted)
 		{
@@ -691,6 +785,7 @@ static int boot(int argc, char **argv, bool console)
 	if (timer != nullptr)
 		timer->step();
 
+	trace("running main");
 	// A script answers its return^ and is done;
 	// a module^ unit answers its public table, which is a game.
 	LhatRunResult ran = lhat_run(machine, lhat_unit_proto(root));
@@ -715,6 +810,7 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 	}
 
+	trace("starting run");
 	// run: the game's own if it exported one, else Boot.lh's.
 	LhatValue run = field(machine, gameTable, "run");
 	if (!lhat_is_object_kind(run, LHAT_OBJECT_SUBROUTINE))

@@ -93,6 +93,7 @@ struct Context
 	Phase phase = Phase::TYPES;
 	Errors *errors = nullptr;
 	TypeRegistry *registry = nullptr;
+	std::string *failed = nullptr; // the registration that refused, for the report
 
 	bool types() const { return phase == Phase::TYPES; }
 	bool members() const { return phase == Phase::MEMBERS; }

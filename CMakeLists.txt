@@ -304,6 +304,7 @@ endif()
 add_library(love_audio_root STATIC
 	src/modules/audio/Audio.cpp
 	src/modules/audio/Audio.h
+	src/modules/audio/lh_Audio.cpp
 	src/modules/audio/Source.cpp
 	src/modules/audio/Source.h
 	src/modules/audio/RecordingDevice.cpp
@@ -365,6 +366,7 @@ add_library(love_data STATIC
 	src/modules/data/Compressor.h
 	src/modules/data/DataModule.cpp
 	src/modules/data/DataModule.h
+	src/modules/data/lh_Data.cpp
 	src/modules/data/DataStream.cpp
 	src/modules/data/DataStream.h
 	src/modules/data/DataView.cpp
@@ -691,6 +693,7 @@ add_library(love_joystick_root STATIC
 	src/modules/joystick/Joystick.cpp
 	src/modules/joystick/Joystick.h
 	src/modules/joystick/JoystickModule.h
+	src/modules/joystick/lh_Joystick.cpp
 )
 target_link_libraries(love_joystick_root PUBLIC
 	lovedep::Lhat
@@ -749,6 +752,7 @@ add_library(love_math STATIC
 	src/modules/math/BezierCurve.h
 	src/modules/math/MathModule.cpp
 	src/modules/math/MathModule.h
+	src/modules/math/lh_Math.cpp
 	src/modules/math/RandomGenerator.cpp
 	src/modules/math/RandomGenerator.h
 	src/modules/math/Transform.cpp
@@ -867,6 +871,7 @@ endif()
 add_library(love_sensor_root STATIC
 	src/modules/sensor/Sensor.cpp
 	src/modules/sensor/Sensor.h
+	src/modules/sensor/lh_Sensor.cpp
 )
 target_link_libraries(love_sensor_root PUBLIC
 	lovedep::Lhat
@@ -896,6 +901,7 @@ add_library(love_sound_root STATIC
 	src/modules/sound/Decoder.h
 	src/modules/sound/Sound.cpp
 	src/modules/sound/Sound.h
+	src/modules/sound/lh_Sound.cpp
 	src/modules/sound/SoundData.cpp
 	src/modules/sound/SoundData.h
 )
@@ -936,6 +942,7 @@ target_link_libraries(love_sound INTERFACE
 add_library(love_system_root STATIC
 	src/modules/system/System.cpp
 	src/modules/system/System.h
+	src/modules/system/lh_System.cpp
 )
 target_link_libraries(love_system_root PUBLIC
 	lovedep::Lhat
@@ -1007,6 +1014,7 @@ target_link_libraries(love_timer PUBLIC
 add_library(love_touch_root STATIC
 	src/modules/touch/Touch.cpp
 	src/modules/touch/Touch.h
+	src/modules/touch/lh_Touch.cpp
 )
 target_link_libraries(love_touch_root PUBLIC
 	lovedep::Lhat

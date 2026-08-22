@@ -9,7 +9,7 @@
 | M0 | ビルド統合（CMake 手術、最小 Boot、CLAUDE.md 等整備） | hold した main.lh が `print` で lovec に出力。診断表示。U1/U4 検証 | **完了**（2026-08-22）。U1 OK。U4 は機構 OK だが lhat 側 UAF あり → [lhat-issues.md](lhat-issues.md) |
 | M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微） |
 | M2 | 実ゲーム対応（PhysfsLoader 完全化・conf.lh・filesystem/image/font・エラー画面・fused） | ディスク上の実ゲームディレクトリ + zip 読込 | **完了**（2026-08-23）。`testing/lh/realgame` をディレクトリ・.love・fused exe の3形態で確認。blue screen・nogame 動作 |
-| M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | 未着手 |
+| M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
 | M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | 未着手 |
 | M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | 未着手 |
 | M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植開始） | 引数なし起動で nogame 表示 | 未着手 |
@@ -26,16 +26,16 @@
 | mouse | 2 | lh_Mouse.cpp 他 | M1: position/isDown/visible（Cursor は未） |
 | graphics | 12 | lh_Graphics.cpp | M1: 即時描画。M2: Texture（newImage/draw/寸法/setFilter）、Font（setFont/getFont、print/printf の font 引数）。Canvas/Shader/Mesh/SpriteBatch/Quad 等は未 |
 | filesystem | 4 | lh_Filesystem.cpp | M2: read/write/append/exists/getInfo/getDirectoryItems/createDirectory/remove/identity/source/isFused/load/newFile(File)/newFileData(FileData)。mount/lines/enumerate は未 |
-| image | 3 | lh_Image.cpp | M2: newImageData(path | w,h)、ImageData 寸法。ピクセル操作・CompressedImageData は M3 |
+| image | 3 | lh_Image.cpp | M2-3: newImageData(path | w,h)、寸法、getPixel/setPixel/mapPixel。CompressedImageData・encode/paste は未 |
 | font | 3 | （graphics 側で newFont）| M2: love.graphics.newFont(size | path,size)、Font.getWidth/getHeight/getLineHeight。Rasterizer/GlyphData 直接公開は未 |
-| audio | 3 | lh_Audio.cpp 他 | 未着手 |
-| sound | 3 | lh_Sound.cpp 他 | 未着手 |
-| data | 5 | lh_Data.cpp 他 | 未着手 |
-| math | 4 | lh_Math.cpp 他 | 未着手 |
-| system | 1 | lh_System.cpp | 未着手 |
-| touch | 1 | lh_Touch.cpp | 未着手 |
-| sensor | 1 | lh_Sensor.cpp | 未着手 |
-| joystick | 2 | lh_Joystick.cpp 他 | 未着手 |
+| audio | 3 | lh_Audio.cpp | M3: newSource(path,type | SoundData)、play/stop/pause、volume、Source{play stop pause isPlaying looping volume pitch seek tell getDuration clone}。効果・フィルタ・queueable は未 |
+| sound | 3 | lh_Sound.cpp | M3: newSoundData(path | samples,rate,bits,ch)、SoundData 諸元。Decoder・サンプルアクセスは未 |
+| data | 5 | lh_Data.cpp | M3: encode/decode(base64,hex)・hash・compress/decompress（文字列）。ByteData/DataView は未 |
+| math | 4 | lh_Math.cpp | M3: random系・RandomGenerator・noise・gamma/linear・colorTo/FromBytes・isConvex・Transform（apply は暫定 any^）。BezierCurve・triangulate は未 |
+| system | 1 | lh_System.cpp | M3: getOS/getProcessorCount/clipboard/getPowerInfo/openURL/vibrate/locales |
+| touch | 1 | lh_Touch.cpp | M3: getTouches/getPosition/getPressure（id は整数） |
+| sensor | 1 | lh_Sensor.cpp | M3: hasSensor/isEnabled/setEnabled/getData |
+| joystick | 2 | lh_Joystick.cpp | M3: getJoysticks/getJoystickCount、Joystick{connected name id guid axes buttons hats isDown isGamepad gamepadAxis isGamepadDown vibration}、joystick/gamepad コールバック |
 | physics/box2d | 21 | lh_Physics.cpp 他（コア脱 Lua 含む） | 未着手 |
 | thread | 3 | lh_Thread.cpp 他（LuaThread 置換含む） | 未着手 |
 | video | 2 | lh_Video.cpp 他 | 未着手 |

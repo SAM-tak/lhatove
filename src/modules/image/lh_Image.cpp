@@ -105,6 +105,74 @@ static LhatValue lh_ImageData_getDimensions(LhatMachine *machine, void *context,
 	return out;
 }
 
+// getPixel(x, y) -> (r, g, b, a); 0-based, as the Lua API. Out of bounds panics.
+static LhatValue lh_ImageData_getPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
+	if (data == nullptr)
+		return lhat_nil();
+	int x = (int) lh::optNumber(arguments, count, 1, 0);
+	int y = (int) lh::optNumber(arguments, count, 2, 0);
+	if (!data->inside(x, y))
+		return lh::raise(machine, "Attempt to get out-of-range pixel!");
+	Colorf c;
+	data->getPixel(x, y, c);
+	LhatValue parts[4] = {lhat_real(c.r), lhat_real(c.g), lhat_real(c.b), lhat_real(c.a)};
+	LhatValue out = lhat_nil();
+	lh::makeTuple(machine, parts, 4, &out);
+	return out;
+}
+
+// setPixel(x, y, r, g, b[, a])
+static LhatValue lh_ImageData_setPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
+	if (data == nullptr)
+		return lhat_nil();
+	int x = (int) lh::optNumber(arguments, count, 1, 0);
+	int y = (int) lh::optNumber(arguments, count, 2, 0);
+	if (!data->inside(x, y))
+		return lh::raise(machine, "Attempt to set out-of-range pixel!");
+	Colorf c((float) lh::optNumber(arguments, count, 3, 0.0), (float) lh::optNumber(arguments, count, 4, 0.0), (float) lh::optNumber(arguments, count, 5, 0.0), (float) lh::optNumber(arguments, count, 6, 1.0));
+	data->setPixel(x, y, c);
+	return lhat_nil();
+}
+
+// mapPixel(fn): fn(x, y, r, g, b, a) -> (r, g, b, a) over every pixel. One
+// nested call per pixel -- the FFI path Lua had is gone, and a bulk
+// operation in C is what a hot loop should reach for.
+static LhatValue lh_ImageData_mapPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
+	if (data == nullptr)
+		return lhat_nil();
+	if (count < 2 || !lhat_is_object_kind(arguments[1], LHAT_OBJECT_SUBROUTINE))
+		return lh::raise(machine, "Expected a function");
+	LhatValue fn = arguments[1];
+	int w = data->getWidth(), h = data->getHeight();
+	for (int y = 0; y < h; y++)
+	{
+		for (int x = 0; x < w; x++)
+		{
+			Colorf c;
+			data->getPixel(x, y, c);
+			LhatValue args[6] = {lhat_integer(x), lhat_integer(y), lhat_real(c.r), lhat_real(c.g), lhat_real(c.b), lhat_real(c.a)};
+			LhatRunResult ran = lhat_machine_call(machine, fn, args, 6);
+			if (ran.status != LHAT_RUN_OK)
+				return lhat_nil(); // the fault ends the run (vm.c)
+			if (ran.position_count >= 3)
+			{
+				c.r = (float) lh::optNumber(ran.positions, ran.position_count, 0, c.r);
+				c.g = (float) lh::optNumber(ran.positions, ran.position_count, 1, c.g);
+				c.b = (float) lh::optNumber(ran.positions, ran.position_count, 2, c.b);
+				c.a = (float) lh::optNumber(ran.positions, ran.position_count, 3, c.a);
+				data->setPixel(x, y, c);
+			}
+		}
+	}
+	return lhat_nil();
+}
+
 static ImageBinding binding;
 
 } // image
@@ -130,7 +198,10 @@ bool lhopen_love_image(Context &ctx)
 		&& ctx.func(m, "newImageData", "p^number^, number^ -> love.image.ImageData;", lh_newImageData, b)
 		&& ctx.member(m, "ImageData", "getWidth", "f^self^ -> number^;", lh_ImageData_getWidth, b)
 		&& ctx.member(m, "ImageData", "getHeight", "f^self^ -> number^;", lh_ImageData_getHeight, b)
-		&& ctx.member(m, "ImageData", "getDimensions", "f^self^ -> (number^, number^);", lh_ImageData_getDimensions, b);
+		&& ctx.member(m, "ImageData", "getDimensions", "f^self^ -> (number^, number^);", lh_ImageData_getDimensions, b)
+		&& ctx.member(m, "ImageData", "getPixel", "f^self^, number^, number^ -> (number^, number^, number^, number^);", lh_ImageData_getPixel, b)
+		&& ctx.member(m, "ImageData", "setPixel", "p^self^, number^, number^, number^, number^, number^, ...;", lh_ImageData_setPixel, b)
+		&& ctx.member(m, "ImageData", "mapPixel", "p^self^, f^number^, number^, number^, number^, number^, number^ -> (number^, number^, number^, number^);;", lh_ImageData_mapPixel, b);
 }
 
 } // lh
