@@ -18,27 +18,28 @@
  * 3. This notice may not be removed or altered from any source distribution.
  **/
 
-#ifndef LOVE_LOVE_H
-#define LOVE_LOVE_H
+#ifndef LOVE_LH_BOOT_H
+#define LOVE_LH_BOOT_H
 
-// LOVE
 #include "common/config.h"
-
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-LOVE_EXPORT const char *love_version();
-LOVE_EXPORT const char *love_codename();
-
-#ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
-LOVE_EXPORT bool love_openConsole(const char *&err);
-#endif
+// Runs a game: the L^ successor of boot.lua + callbacks.lua + the Lua-state
+// setup that src/love.cpp used to do. Exported from liblove so the thin
+// love/lovec executables stay in love.cpp.
+//
+// `console` says the caller is lovec (or any build that writes to a terminal
+// of its own): problems go to stderr only, never to a message box.
+//
+// Answers the process exit code.
+LOVE_EXPORT int love_lh_boot(int argc, char **argv, bool console);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // LOVE_LOVE_H
+#endif // LOVE_LH_BOOT_H

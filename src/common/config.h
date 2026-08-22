@@ -155,20 +155,17 @@
 #	define LOVE_ENABLE_KEYBOARD
 #	define LOVE_ENABLE_MATH
 #	define LOVE_ENABLE_MOUSE
-#	define LOVE_ENABLE_PHYSICS
+// love.physics and love.thread are not ported to L^ yet (see docs/porting/status.md).
+//#	define LOVE_ENABLE_PHYSICS
 #	define LOVE_ENABLE_SENSOR
 #	define LOVE_ENABLE_SOUND
 #	define LOVE_ENABLE_SYSTEM
-#	define LOVE_ENABLE_THREAD
+//#	define LOVE_ENABLE_THREAD
 #	define LOVE_ENABLE_TIMER
 #	define LOVE_ENABLE_TOUCH
 #	define LOVE_ENABLE_VIDEO
 #	define LOVE_ENABLE_WINDOW
 
-#	define LOVE_ENABLE_ENET
-#	define LOVE_ENABLE_LUASOCKET
-#	define LOVE_ENABLE_LUA53
-#	define LOVE_ENABLE_LUAHTTPS
 #endif
 
 // Check we have a sane configuration

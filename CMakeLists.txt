@@ -81,23 +81,27 @@ else()
 	set(LOVE_TARGET_PLATFORM x86)
 endif()
 
-
-if(APPLE)
-	set(LOVE_DEFAULT_JIT FALSE)
-else()
-	set(LOVE_DEFAULT_JIT TRUE)
+# L^ (lhat) runtime. Consumed from a sibling checkout by default; see AGENT.md.
+# The repository may be reached through the megasource/libs/love junction, so
+# resolve the real location before looking for the sibling checkout.
+file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}" LHATOVE_REAL_SOURCE_DIR)
+set(LHATOVE_LHAT_DIR "${LHATOVE_REAL_SOURCE_DIR}/../lhat" CACHE PATH "Path to the lhat repository")
+get_filename_component(LHATOVE_LHAT_DIR "${LHATOVE_LHAT_DIR}" ABSOLUTE)
+if(NOT EXISTS "${LHATOVE_LHAT_DIR}/include/lhat.h")
+	message(FATAL_ERROR "lhat not found at ${LHATOVE_LHAT_DIR} (expected include/lhat.h). Set LHATOVE_LHAT_DIR.")
 endif()
+message(STATUS "lhat: ${LHATOVE_LHAT_DIR}")
 
-option(LOVE_JIT "Use LuaJIT" ${LOVE_DEFAULT_JIT})
+# Only the runtime and the sample stdlib; the driver, LSP and tests stay out.
+set(LHAT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LHAT_BUILD_CLI OFF CACHE BOOL "" FORCE)
+set(LHAT_BUILD_LSP OFF CACHE BOOL "" FORCE)
+set(LHAT_BUILD_STDLIB ON CACHE BOOL "" FORCE)
+set(LHAT_WITH_COMMENTS OFF CACHE BOOL "" FORCE)
+set(LHAT_WITH_RESOLUTIONS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${LHATOVE_LHAT_DIR}" lhat)
 
-if(LOVE_JIT)
-	if(APPLE)
-		message(WARNING "JIT not supported yet on Mac.")
-	endif()
-	message(STATUS "LuaJIT: Enabled")
-else()
-	message(STATUS "LuaJIT: Disabled")
-endif()
+option(LHATOVE_ENABLE_PHYSICS "Build love.physics (not yet ported to L^)" OFF)
 
 message(STATUS "Target platform: ${LOVE_TARGET_PLATFORM}")
 
@@ -110,7 +114,13 @@ add_library(lovedep::Theora INTERFACE IMPORTED)
 add_library(lovedep::Vorbis INTERFACE IMPORTED)
 add_library(lovedep::Ogg INTERFACE IMPORTED)
 add_library(lovedep::Zlib INTERFACE IMPORTED)
-add_library(lovedep::Lua INTERFACE IMPORTED)
+# The L^ runtime as seen by every module: the language, its port layer and
+# the sample stdlib (std.regex / std.load / std.debug / carry). The lhat
+# repository root is on the include path so stdlib headers are reached as
+# "stdlib/regex.h", the spelling lhat itself uses.
+add_library(lovedep::Lhat INTERFACE IMPORTED)
+target_link_libraries(lovedep::Lhat INTERFACE lhat lhatport lhatstdlib)
+target_include_directories(lovedep::Lhat INTERFACE "${LHATOVE_LHAT_DIR}")
 
 if(MEGA)
 	# LOVE_MSVC_DLLS contains runtime DLLs that should be bundled with the love
@@ -145,25 +155,6 @@ if(MEGA)
 	target_link_libraries(lovedep::Vorbis INTERFACE ${MEGA_LIBVORBIS} ${MEGA_LIBVORBISFILE})
 	target_link_libraries(lovedep::Ogg INTERFACE ${MEGA_LIBOGG})
 	target_link_libraries(lovedep::Zlib INTERFACE ${MEGA_ZLIB})
-
-	if(LOVE_JIT)
-		target_include_directories(lovedep::Lua INTERFACE ${MEGA_LUAJIT_INCLUDE})
-		target_link_libraries(lovedep::Lua INTERFACE ${MEGA_LUAJIT_LIB})
-		set(LOVE_EXTRA_DLLS ${LOVE_EXTRA_DLLS} ${MEGA_LUAJIT_DLL})
-		set(LOVE_EXTRA_DEPENDECIES luajit)
-		set(LOVE_MOVE_DLLS
-			${LOVE_MOVE_DLLS}
-			${MEGA_LUAJIT_DLL}
-		)
-	else()
-		# MEGA_LUA51 is a CMake target, so includes are handled
-		# automatically.
-		target_link_libraries(lovedep::Lua INTERFACE ${MEGA_LUA51})
-		set(LOVE_MOVE_DLLS
-			${LOVE_MOVE_DLLS}
-			${MEGA_LUA51}
-		)
-	endif()
 else()
 	if(MSVC OR ANDROID)
 		message(FATAL_ERROR "
@@ -210,16 +201,6 @@ Please see https://github.com/love2d/megasource
 	find_package(ZLIB REQUIRED)
 	target_include_directories(lovedep::Zlib INTERFACE ${ZLIB_INCLUDE_DIRS})
 	target_link_libraries(lovedep::Zlib INTERFACE ${ZLIB_LIBRARY})
-
-	if(LOVE_JIT)
-		find_package(LuaJIT REQUIRED)
-		target_include_directories(lovedep::Lua INTERFACE ${LUAJIT_INCLUDE_DIR})
-		target_link_libraries(lovedep::Lua INTERFACE ${LUAJIT_LIBRARY})
-	else()
-		find_package(Lua51 REQUIRED)
-		target_include_directories(lovedep::Lua INTERFACE ${LUA_INCLUDE_DIR})
-		target_link_libraries(lovedep::Lua INTERFACE ${LUA_LIBRARY})
-	endif()
 endif()
 
 ###
@@ -272,10 +253,6 @@ add_library(love_common STATIC
 	src/common/pixelformat.cpp
 	src/common/pixelformat.h
 	src/common/Range.h
-	src/common/Reference.cpp
-	src/common/Reference.h
-	src/common/runtime.cpp
-	src/common/runtime.h
 	src/common/Stream.cpp
 	src/common/Stream.h
 	src/common/StringMap.cpp
@@ -291,7 +268,7 @@ add_library(love_common STATIC
 	src/common/version.h
 )
 target_link_libraries(love_common PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -335,15 +312,9 @@ add_library(love_audio_root STATIC
 	src/modules/audio/Filter.h
 	src/modules/audio/Effect.cpp
 	src/modules/audio/Effect.h
-	src/modules/audio/wrap_Audio.cpp
-	src/modules/audio/wrap_Audio.h
-	src/modules/audio/wrap_Source.cpp
-	src/modules/audio/wrap_Source.h
-	src/modules/audio/wrap_RecordingDevice.cpp
-	src/modules/audio/wrap_RecordingDevice.h
 )
 target_link_libraries(love_audio_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::OpenAL
 )
 
@@ -400,20 +371,9 @@ add_library(love_data STATIC
 	src/modules/data/DataView.h
 	src/modules/data/HashFunction.cpp
 	src/modules/data/HashFunction.h
-	src/modules/data/wrap_ByteData.cpp
-	src/modules/data/wrap_ByteData.h
-	src/modules/data/wrap_CompressedData.cpp
-	src/modules/data/wrap_CompressedData.h
-	src/modules/data/wrap_Data.cpp
-	src/modules/data/wrap_Data.h
-	src/modules/data/wrap_Data.lua
-	src/modules/data/wrap_DataModule.cpp
-	src/modules/data/wrap_DataModule.h
-	src/modules/data/wrap_DataView.cpp
-	src/modules/data/wrap_DataView.h
 )
 target_link_libraries(love_data PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::Zlib
 )
 
@@ -424,12 +384,9 @@ target_link_libraries(love_data PUBLIC
 add_library(love_event_root STATIC
 	src/modules/event/Event.cpp
 	src/modules/event/Event.h
-	src/modules/event/wrap_Event.cpp
-	src/modules/event/wrap_Event.h
-	src/modules/event/wrap_Event.lua
 )
 target_link_libraries(love_event_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -460,17 +417,9 @@ add_library(love_filesystem_root STATIC
 	src/modules/filesystem/Filesystem.h
 	src/modules/filesystem/NativeFile.cpp
 	src/modules/filesystem/NativeFile.h
-	src/modules/filesystem/wrap_File.cpp
-	src/modules/filesystem/wrap_File.h
-	src/modules/filesystem/wrap_FileData.cpp
-	src/modules/filesystem/wrap_FileData.h
-	src/modules/filesystem/wrap_Filesystem.cpp
-	src/modules/filesystem/wrap_Filesystem.h
-	src/modules/filesystem/wrap_NativeFile.cpp
-	src/modules/filesystem/wrap_NativeFile.h
 )
 target_link_libraries(love_filesystem_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -515,15 +464,9 @@ add_library(love_font_root STATIC
 	src/modules/font/TextShaper.h
 	src/modules/font/TrueTypeRasterizer.cpp
 	src/modules/font/TrueTypeRasterizer.h
-	src/modules/font/wrap_Font.cpp
-	src/modules/font/wrap_Font.h
-	src/modules/font/wrap_GlyphData.cpp
-	src/modules/font/wrap_GlyphData.h
-	src/modules/font/wrap_Rasterizer.cpp
-	src/modules/font/wrap_Rasterizer.h
 )
 target_link_libraries(love_font_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::Freetype
 )
 
@@ -592,35 +535,9 @@ add_library(love_graphics_root STATIC
 	src/modules/graphics/Video.h
 	src/modules/graphics/Volatile.cpp
 	src/modules/graphics/Volatile.h
-	src/modules/graphics/wrap_Buffer.cpp
-	src/modules/graphics/wrap_Buffer.h
-	src/modules/graphics/wrap_Font.cpp
-	src/modules/graphics/wrap_Font.h
-	src/modules/graphics/wrap_Graphics.cpp
-	src/modules/graphics/wrap_Graphics.h
-	src/modules/graphics/wrap_Graphics.lua
-	src/modules/graphics/wrap_GraphicsReadback.cpp
-	src/modules/graphics/wrap_GraphicsReadback.h
-	src/modules/graphics/wrap_Mesh.cpp
-	src/modules/graphics/wrap_Mesh.h
-	src/modules/graphics/wrap_ParticleSystem.cpp
-	src/modules/graphics/wrap_ParticleSystem.h
-	src/modules/graphics/wrap_Quad.cpp
-	src/modules/graphics/wrap_Quad.h
-	src/modules/graphics/wrap_Shader.cpp
-	src/modules/graphics/wrap_Shader.h
-	src/modules/graphics/wrap_SpriteBatch.cpp
-	src/modules/graphics/wrap_SpriteBatch.h
-	src/modules/graphics/wrap_Texture.cpp
-	src/modules/graphics/wrap_Texture.h
-	src/modules/graphics/wrap_TextBatch.cpp
-	src/modules/graphics/wrap_TextBatch.h
-	src/modules/graphics/wrap_Video.cpp
-	src/modules/graphics/wrap_Video.h
-	src/modules/graphics/wrap_Video.lua
 )
 target_link_libraries(love_graphics_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_graphics_opengl STATIC
@@ -725,16 +642,9 @@ add_library(love_image_root STATIC
 	src/modules/image/ImageData.h
 	src/modules/image/ImageDataBase.cpp
 	src/modules/image/ImageDataBase.h
-	src/modules/image/wrap_CompressedImageData.cpp
-	src/modules/image/wrap_CompressedImageData.h
-	src/modules/image/wrap_Image.cpp
-	src/modules/image/wrap_Image.h
-	src/modules/image/wrap_ImageData.cpp
-	src/modules/image/wrap_ImageData.h
-	src/modules/image/wrap_ImageData.lua
 )
 target_link_libraries(love_image_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_image_magpie STATIC
@@ -777,13 +687,9 @@ add_library(love_joystick_root STATIC
 	src/modules/joystick/Joystick.cpp
 	src/modules/joystick/Joystick.h
 	src/modules/joystick/JoystickModule.h
-	src/modules/joystick/wrap_Joystick.cpp
-	src/modules/joystick/wrap_Joystick.h
-	src/modules/joystick/wrap_JoystickModule.cpp
-	src/modules/joystick/wrap_JoystickModule.h
 )
 target_link_libraries(love_joystick_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_joystick_sdl STATIC
@@ -809,11 +715,9 @@ target_link_libraries(love_joystick INTERFACE
 add_library(love_keyboard_root STATIC
 	src/modules/keyboard/Keyboard.cpp
 	src/modules/keyboard/Keyboard.h
-	src/modules/keyboard/wrap_Keyboard.cpp
-	src/modules/keyboard/wrap_Keyboard.h
 )
 target_link_libraries(love_keyboard_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -844,19 +748,9 @@ add_library(love_math STATIC
 	src/modules/math/RandomGenerator.h
 	src/modules/math/Transform.cpp
 	src/modules/math/Transform.h
-	src/modules/math/wrap_BezierCurve.cpp
-	src/modules/math/wrap_BezierCurve.h
-	src/modules/math/wrap_Math.cpp
-	src/modules/math/wrap_Math.h
-	src/modules/math/wrap_Math.lua
-	src/modules/math/wrap_RandomGenerator.cpp
-	src/modules/math/wrap_RandomGenerator.h
-	src/modules/math/wrap_RandomGenerator.lua
-	src/modules/math/wrap_Transform.cpp
-	src/modules/math/wrap_Transform.h
 )
 target_link_libraries(love_math PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 #
@@ -867,13 +761,9 @@ add_library(love_mouse_root STATIC
 	src/modules/mouse/Cursor.cpp
 	src/modules/mouse/Cursor.h
 	src/modules/mouse/Mouse.h
-	src/modules/mouse/wrap_Cursor.cpp
-	src/modules/mouse/wrap_Cursor.h
-	src/modules/mouse/wrap_Mouse.cpp
-	src/modules/mouse/wrap_Mouse.h
 )
 target_link_libraries(love_mouse_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -897,6 +787,9 @@ target_link_libraries(love_mouse INTERFACE
 # love.physics
 #
 
+# The box2d core still carries lua_State in its class signatures; it stays
+# out of the build until it is ported (milestone M4).
+if(LHATOVE_ENABLE_PHYSICS)
 add_library(love_physics_root STATIC
 	src/modules/physics/Body.cpp
 	src/modules/physics/Body.h
@@ -949,51 +842,9 @@ add_library(love_physics_box2d STATIC
 	src/modules/physics/box2d/WheelJoint.h
 	src/modules/physics/box2d/World.cpp
 	src/modules/physics/box2d/World.h
-	src/modules/physics/box2d/wrap_Body.cpp
-	src/modules/physics/box2d/wrap_Body.h
-	src/modules/physics/box2d/wrap_ChainShape.cpp
-	src/modules/physics/box2d/wrap_ChainShape.h
-	src/modules/physics/box2d/wrap_CircleShape.cpp
-	src/modules/physics/box2d/wrap_CircleShape.h
-	src/modules/physics/box2d/wrap_Contact.cpp
-	src/modules/physics/box2d/wrap_Contact.h
-	src/modules/physics/box2d/wrap_DistanceJoint.cpp
-	src/modules/physics/box2d/wrap_DistanceJoint.h
-	src/modules/physics/box2d/wrap_EdgeShape.cpp
-	src/modules/physics/box2d/wrap_EdgeShape.h
-	src/modules/physics/box2d/wrap_FrictionJoint.cpp
-	src/modules/physics/box2d/wrap_FrictionJoint.h
-	src/modules/physics/box2d/wrap_GearJoint.cpp
-	src/modules/physics/box2d/wrap_GearJoint.h
-	src/modules/physics/box2d/wrap_Joint.cpp
-	src/modules/physics/box2d/wrap_Joint.h
-	src/modules/physics/box2d/wrap_MotorJoint.cpp
-	src/modules/physics/box2d/wrap_MotorJoint.h
-	src/modules/physics/box2d/wrap_MouseJoint.cpp
-	src/modules/physics/box2d/wrap_MouseJoint.h
-	src/modules/physics/box2d/wrap_Physics.cpp
-	src/modules/physics/box2d/wrap_Physics.h
-	src/modules/physics/box2d/wrap_PolygonShape.cpp
-	src/modules/physics/box2d/wrap_PolygonShape.h
-	src/modules/physics/box2d/wrap_PrismaticJoint.cpp
-	src/modules/physics/box2d/wrap_PrismaticJoint.h
-	src/modules/physics/box2d/wrap_PulleyJoint.cpp
-	src/modules/physics/box2d/wrap_PulleyJoint.h
-	src/modules/physics/box2d/wrap_RevoluteJoint.cpp
-	src/modules/physics/box2d/wrap_RevoluteJoint.h
-	src/modules/physics/box2d/wrap_RopeJoint.cpp
-	src/modules/physics/box2d/wrap_RopeJoint.h
-	src/modules/physics/box2d/wrap_Shape.cpp
-	src/modules/physics/box2d/wrap_Shape.h
-	src/modules/physics/box2d/wrap_WeldJoint.cpp
-	src/modules/physics/box2d/wrap_WeldJoint.h
-	src/modules/physics/box2d/wrap_WheelJoint.cpp
-	src/modules/physics/box2d/wrap_WheelJoint.h
-	src/modules/physics/box2d/wrap_World.cpp
-	src/modules/physics/box2d/wrap_World.h
 )
 target_link_libraries(love_physics_box2d PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_physics INTERFACE)
@@ -1001,6 +852,7 @@ target_link_libraries(love_physics INTERFACE
 	love_physics_root
 	love_physics_box2d
 )
+endif()
 
 #
 # love.sensor
@@ -1009,11 +861,9 @@ target_link_libraries(love_physics INTERFACE
 add_library(love_sensor_root STATIC
 	src/modules/sensor/Sensor.cpp
 	src/modules/sensor/Sensor.h
-	src/modules/sensor/wrap_Sensor.cpp
-	src/modules/sensor/wrap_Sensor.h
 )
 target_link_libraries(love_sensor_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -1042,16 +892,9 @@ add_library(love_sound_root STATIC
 	src/modules/sound/Sound.h
 	src/modules/sound/SoundData.cpp
 	src/modules/sound/SoundData.h
-	src/modules/sound/wrap_Decoder.cpp
-	src/modules/sound/wrap_Decoder.h
-	src/modules/sound/wrap_Sound.cpp
-	src/modules/sound/wrap_Sound.h
-	src/modules/sound/wrap_SoundData.cpp
-	src/modules/sound/wrap_SoundData.h
-	src/modules/sound/wrap_SoundData.lua
 )
 target_link_libraries(love_sound_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_sound_lullaby STATIC
@@ -1087,11 +930,9 @@ target_link_libraries(love_sound INTERFACE
 add_library(love_system_root STATIC
 	src/modules/system/System.cpp
 	src/modules/system/System.h
-	src/modules/system/wrap_System.cpp
-	src/modules/system/wrap_System.h
 )
 target_link_libraries(love_system_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -1116,22 +957,12 @@ target_link_libraries(love_system INTERFACE
 add_library(love_thread_root STATIC
 	src/modules/thread/Channel.cpp
 	src/modules/thread/Channel.h
-	src/modules/thread/LuaThread.cpp
-	src/modules/thread/LuaThread.h
 	src/modules/thread/Thread.h
-	src/modules/thread/ThreadModule.cpp
-	src/modules/thread/ThreadModule.h
 	src/modules/thread/threads.cpp
 	src/modules/thread/threads.h
-	src/modules/thread/wrap_Channel.cpp
-	src/modules/thread/wrap_Channel.h
-	src/modules/thread/wrap_LuaThread.cpp
-	src/modules/thread/wrap_LuaThread.h
-	src/modules/thread/wrap_ThreadModule.cpp
-	src/modules/thread/wrap_ThreadModule.h
 )
 target_link_libraries(love_thread_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 add_library(love_thread_sdl STATIC
@@ -1157,11 +988,9 @@ target_link_libraries(love_thread INTERFACE
 add_library(love_timer STATIC
 	src/modules/timer/Timer.cpp
 	src/modules/timer/Timer.h
-	src/modules/timer/wrap_Timer.cpp
-	src/modules/timer/wrap_Timer.h
 )
 target_link_libraries(love_timer PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 )
 
 #
@@ -1171,11 +1000,9 @@ target_link_libraries(love_timer PUBLIC
 add_library(love_touch_root STATIC
 	src/modules/touch/Touch.cpp
 	src/modules/touch/Touch.h
-	src/modules/touch/wrap_Touch.cpp
-	src/modules/touch/wrap_Touch.h
 )
 target_link_libraries(love_touch_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -1200,13 +1027,9 @@ add_library(love_video_root STATIC
 	src/modules/video/Video.h
 	src/modules/video/VideoStream.cpp
 	src/modules/video/VideoStream.h
-	src/modules/video/wrap_Video.cpp
-	src/modules/video/wrap_Video.h
-	src/modules/video/wrap_VideoStream.cpp
-	src/modules/video/wrap_VideoStream.h
 )
 target_link_libraries(love_video_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::Theora
 	lovedep::Ogg
 )
@@ -1237,11 +1060,9 @@ target_link_libraries(love_video INTERFACE
 add_library(love_window_root STATIC
 	src/modules/window/Window.cpp
 	src/modules/window/Window.h
-	src/modules/window/wrap_Window.cpp
-	src/modules/window/wrap_Window.h
 )
 target_link_libraries(love_window_root PUBLIC
-	lovedep::Lua
+	lovedep::Lhat
 	lovedep::SDL
 )
 
@@ -1353,38 +1174,6 @@ add_library(love_3p_ddsparse
 #add_library(love_3p_drmp3
 #	src/libraries/dr/dr_mp3.h
 #)
-
-#
-# enet
-#
-
-add_library(love_3p_enet
-	src/libraries/enet/enet.cpp
-	src/libraries/enet/lua-enet.h
-	src/libraries/enet/libenet/callbacks.c
-	src/libraries/enet/libenet/compress.c
-	src/libraries/enet/libenet/host.c
-	src/libraries/enet/libenet/list.c
-	src/libraries/enet/libenet/packet.c
-	src/libraries/enet/libenet/peer.c
-	src/libraries/enet/libenet/protocol.c
-	src/libraries/enet/libenet/unix.c
-	src/libraries/enet/libenet/win32.c
-	src/libraries/enet/libenet/include/enet/enet.h
-	src/libraries/enet/libenet/include/enet/list.h
-	src/libraries/enet/libenet/include/enet/protocol.h
-	src/libraries/enet/libenet/include/enet/time.h
-	src/libraries/enet/libenet/include/enet/types.h
-	src/libraries/enet/libenet/include/enet/unix.h
-	src/libraries/enet/libenet/include/enet/utility.h
-	src/libraries/enet/libenet/include/enet/win32.h
-)
-love_disable_warnings(love_3p_enet)
-target_link_libraries(love_3p_enet lovedep::Lua)
-target_include_directories(love_3p_enet PUBLIC src/libraries/enet/libenet/include)
-if(MINGW)
-	target_link_libraries(love_3p_enet winmm.a)
-endif()
 
 #
 # GLAD
@@ -1518,152 +1307,11 @@ add_library(love_3p_lodepng
 	src/libraries/lodepng/lodepng.h
 )
 
-#
-# luasocket
-#
-
+# Windows import-library suffix (used by liblove below).
 if(MINGW)
 	set(WIN32_LIB_EXT .a)
 else()
 	set(WIN32_LIB_EXT .lib)
-endif()
-
-add_library(love_3p_luasocket
-	src/libraries/luasocket/luasocket.cpp
-	src/libraries/luasocket/luasocket.h
-	src/libraries/luasocket/libluasocket/auxiliar.c
-	src/libraries/luasocket/libluasocket/auxiliar.h
-	src/libraries/luasocket/libluasocket/buffer.c
-	src/libraries/luasocket/libluasocket/buffer.h
-	src/libraries/luasocket/libluasocket/compat.c
-	src/libraries/luasocket/libluasocket/compat.h
-	src/libraries/luasocket/libluasocket/except.c
-	src/libraries/luasocket/libluasocket/except.h
-	src/libraries/luasocket/libluasocket/ftp.lua.h
-	src/libraries/luasocket/libluasocket/headers.lua.h
-	src/libraries/luasocket/libluasocket/http.lua.h
-	src/libraries/luasocket/libluasocket/inet.c
-	src/libraries/luasocket/libluasocket/inet.h
-	src/libraries/luasocket/libluasocket/io.c
-	src/libraries/luasocket/libluasocket/io.h
-	src/libraries/luasocket/libluasocket/ltn12.lua.h
-	src/libraries/luasocket/libluasocket/luasocket.c
-	src/libraries/luasocket/libluasocket/luasocket.h
-	src/libraries/luasocket/libluasocket/mbox.lua.h
-	src/libraries/luasocket/libluasocket/mime.c
-	src/libraries/luasocket/libluasocket/mime.h
-	src/libraries/luasocket/libluasocket/mime.lua.h
-	src/libraries/luasocket/libluasocket/options.c
-	src/libraries/luasocket/libluasocket/options.h
-	src/libraries/luasocket/libluasocket/pierror.h
-	src/libraries/luasocket/libluasocket/select.c
-	src/libraries/luasocket/libluasocket/select.h
-	src/libraries/luasocket/libluasocket/smtp.lua.h
-	src/libraries/luasocket/libluasocket/socket.h
-	src/libraries/luasocket/libluasocket/socket.lua.h
-	src/libraries/luasocket/libluasocket/tcp.c
-	src/libraries/luasocket/libluasocket/tcp.h
-	src/libraries/luasocket/libluasocket/timeout.c
-	src/libraries/luasocket/libluasocket/timeout.h
-	src/libraries/luasocket/libluasocket/tp.lua.h
-	src/libraries/luasocket/libluasocket/udp.c
-	src/libraries/luasocket/libluasocket/udp.h
-	src/libraries/luasocket/libluasocket/url.lua.h
-	src/libraries/luasocket/libluasocket/unix.c
-	src/libraries/luasocket/libluasocket/unix.h
-	src/libraries/luasocket/libluasocket/unixdgram.c
-	src/libraries/luasocket/libluasocket/unixdgram.h
-	src/libraries/luasocket/libluasocket/unixstream.c
-	src/libraries/luasocket/libluasocket/unixstream.h
-)
-target_link_libraries(love_3p_luasocket lovedep::Lua)
-love_disable_warnings(love_3p_luasocket)
-
-if(MSVC OR MINGW)
-	target_sources(love_3p_luasocket PRIVATE
-		src/libraries/luasocket/libluasocket/wsocket.c
-		src/libraries/luasocket/libluasocket/wsocket.h
-	)
-
-	target_link_libraries(love_3p_luasocket
-		ws2_32${WIN32_LIB_EXT}
-	)
-else()
-	target_sources(love_3p_luasocket PRIVATE
-		src/libraries/luasocket/libluasocket/serial.c
-		src/libraries/luasocket/libluasocket/usocket.c
-		src/libraries/luasocket/libluasocket/usocket.h
-	)
-endif()
-
-#
-# APIs from Lua 5.3
-#
-
-add_library(love_3p_lua53
-	src/libraries/lua53/lprefix.h
-	src/libraries/lua53/lstrlib.c
-	src/libraries/lua53/lstrlib.h
-	src/libraries/lua53/lutf8lib.c
-	src/libraries/lua53/lutf8lib.h
-)
-target_link_libraries(love_3p_lua53 lovedep::Lua)
-
-#
-# Lua HTTPS
-#
-
-add_library(love_3p_luahttps
-	# These are platform-dependent but have ifdef guards to make sure they only
-	# compile on supported platforms.
-	src/libraries/luahttps/src/android/AndroidClient.cpp
-	src/libraries/luahttps/src/android/AndroidClient.h
-	src/libraries/luahttps/src/common/config.h
-	src/libraries/luahttps/src/common/Connection.h
-	src/libraries/luahttps/src/common/ConnectionClient.h
-	src/libraries/luahttps/src/common/HTTPRequest.cpp
-	src/libraries/luahttps/src/common/HTTPRequest.h
-	src/libraries/luahttps/src/common/HTTPS.cpp
-	src/libraries/luahttps/src/common/HTTPS.h
-	src/libraries/luahttps/src/common/HTTPSClient.cpp
-	src/libraries/luahttps/src/common/HTTPSClient.h
-	src/libraries/luahttps/src/common/LibraryLoader.h
-	src/libraries/luahttps/src/common/PlaintextConnection.cpp
-	src/libraries/luahttps/src/common/PlaintextConnection.h
-	src/libraries/luahttps/src/generic/CurlClient.cpp
-	src/libraries/luahttps/src/generic/CurlClient.h
-	src/libraries/luahttps/src/generic/LinktimeLibraryLoader.cpp
-	src/libraries/luahttps/src/generic/OpenSSLConnection.cpp
-	src/libraries/luahttps/src/generic/OpenSSLConnection.h
-	src/libraries/luahttps/src/generic/UnixLibraryLoader.cpp
-	src/libraries/luahttps/src/lua/main.cpp
-	src/libraries/luahttps/src/windows/SChannelConnection.cpp
-	src/libraries/luahttps/src/windows/SChannelConnection.h
-	src/libraries/luahttps/src/windows/WindowsLibraryLoader.cpp
-	src/libraries/luahttps/src/windows/WinINetClient.cpp
-	src/libraries/luahttps/src/windows/WinINetClient.h
-)
-target_link_libraries(love_3p_luahttps lovedep::Lua)
-
-if (APPLE)
-	target_sources(love_3p_luahttps PRIVATE
-		src/libraries/luahttps/src/apple/NSURLClient.mm
-		src/libraries/luahttps/src/apple/NSURLClient.h
-	)
-	target_compile_options(love_3p_luahttps PRIVATE -fobjc-arc)
-endif()
-
-if(MSVC)
-	target_link_libraries(love_3p_luahttps
-		ws2_32
-		secur32
-	)
-
-	if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-		target_link_libraries(love_3p_luahttps
-			wininet
-		)
-	endif()
 endif()
 
 #
@@ -1907,14 +1555,18 @@ if(MINGW)
 endif()
 
 add_library(liblove SHARED
-	src/modules/love/love.cpp
+	src/modules/love/lh_love.cpp
 	src/modules/love/love.h
-	# These are here so they show up in Visual Studio:
-	src/modules/love/arg.lua
+	src/lh/lh.cpp
+	src/lh/lh.h
+	src/lh/PhysfsLoader.cpp
+	src/lh/PhysfsLoader.h
+	src/lh/Boot.cpp
+	src/lh/Boot.h
+	src/lh/Boot.lh.h
+	# Reference copies of the Lua-era scripts, kept visible in Visual Studio:
 	src/modules/love/boot.lua
 	src/modules/love/callbacks.lua
-	src/modules/love/jitsetup.lua
-	src/scripts/nogame.lua
 )
 set_target_properties(liblove PROPERTIES
 	C_VISIBILITY_PRESET hidden
@@ -1934,7 +1586,6 @@ set(LIBLOVE_DEPENDENCIES
 	love_keyboard
 	love_math
 	love_mouse
-	love_physics
 	love_sensor
 	love_sound
 	love_system
@@ -1944,16 +1595,15 @@ set(LIBLOVE_DEPENDENCIES
 	love_video
 	love_window
 )
+if(LHATOVE_ENABLE_PHYSICS)
+	list(APPEND LIBLOVE_DEPENDENCIES love_physics)
+endif()
 set(LIBLOVE_LIBRARIES
 	love_3p_box2d
 	love_3p_ddsparse
-	love_3p_enet
 	love_3p_glad
 	love_3p_glslang
 	love_3p_lodepng
-	love_3p_luasocket
-	love_3p_lua53
-	love_3p_luahttps
 	love_3p_lz4
 	love_3p_noise1234
 	love_3p_physfs
@@ -1963,9 +1613,6 @@ set(LIBLOVE_LIBRARIES
 )
 target_link_libraries(liblove ${LIBLOVE_DEPENDENCIES} ${LIBLOVE_LIBRARIES})
 
-if(LOVE_EXTRA_DEPENDECIES)
-	add_dependencies(liblove ${LOVE_EXTRA_DEPENDECIES})
-endif()
 
 #
 # Group projects in Visual Studio
@@ -1973,10 +1620,11 @@ endif()
 
 love_group_projects(NAME "liblove" NESTED TARGETS ${LIBLOVE_DEPENDENCIES})
 love_group_projects(NAME "liblove/libraries" NESTED TARGETS ${LIBLOVE_LIBRARIES})
-love_group_projects(NAME "liblove" TARGETS liblove ${LOVE_EXTRA_DEPENDECIES})
+love_group_projects(NAME "liblove" TARGETS liblove)
+love_group_projects(NAME "lhat" TARGETS lhat lhatport lhatthread lhatstdlib)
 
-love_group_projects(NAME "lovedep" TARGETS lovedep::SDL lovedep::Freetype lovedep::Harfbuzz lovedep::OpenAL lovedep::Modplug lovedep::Theora lovedep::Vorbis lovedep::Ogg lovedep::Zlib lovedep::Lua)
-love_group_projects(NAME "lovedep" TARGETS lua51 alcommon al-excommon harfbuzz-subset zlib)
+love_group_projects(NAME "lovedep" TARGETS lovedep::SDL lovedep::Freetype lovedep::Harfbuzz lovedep::OpenAL lovedep::Modplug lovedep::Theora lovedep::Vorbis lovedep::Ogg lovedep::Zlib lovedep::Lhat)
+love_group_projects(NAME "lovedep" TARGETS alcommon al-excommon harfbuzz-subset zlib)
 
 
 if(MSVC)
@@ -2017,6 +1665,7 @@ set_target_properties(love PROPERTIES
 
 if(MSVC OR MINGW)
 	add_executable(lovec src/love.cpp)
+	target_compile_definitions(lovec PRIVATE LOVE_LH_CONSOLE_EXE)
 	target_link_libraries(lovec liblove)
 	set_target_properties(lovec PROPERTIES
 		OUTPUT_NAME ${LOVE_CONSOLE_EXE_NAME})
