@@ -11,12 +11,14 @@ public^let^ run = p^ {
     test.isTrue("getProcessorCount is at least one", love.system.getProcessorCount() >= 1)
 
     # the OS is one of the names LOVE knows
-    let^ os = love.system.getOS()
-    var^ known = false^
-    for^ name in^ { "OS X", "Windows", "Linux", "Android", "iOS", "Web" } {
-        if^ name = os { known := true^ }
+    do^{
+        let^ os = love.system.getOS()
+        var^ known = false^
+        for^ name in^ { "OS X", "Windows", "Linux", "Android", "iOS", "Web" } {
+            if^ name = os { known := true^ }
+        }
+        test.isTrue($"getOS answers a known system ({os})", known)
     }
-    test.isTrue($"getOS answers a known system ({os})", known)
 
     # the clipboard round trips
     let^ before = love.system.getClipboardText()
@@ -25,13 +27,15 @@ public^let^ run = p^ {
     love.system.setClipboardText(before)
 
     # power: a known state, a battery percentage in range when it is known
-    let^ state, seconds, percent = love.system.getPowerInfo()
-    var^ knownState = false^
-    for^ name in^ { "unknown", "battery", "nobattery", "charging", "charged" } {
-        if^ name = state { knownState := true^ }
+    do^{
+        let^ state, seconds, percent = love.system.getPowerInfo()
+        var^ known = false^
+        for^ name in^ { "unknown", "battery", "nobattery", "charging", "charged" } {
+            if^ name = state { known := true^ }
+        }
+        test.isTrue($"getPowerInfo answers a known state ({state})", known)
+        if^ percent >= 0 { test.range("battery percentage", percent, 0, 100) }
     }
-    test.isTrue($"getPowerInfo answers a known state ({state})", knownState)
-    if^ percent >= 0 { test.range("battery percentage", percent, 0, 100) }
 
     # locales: a list of strings, "xx" or "xx_YY"
     let^ locales = love.system.getPreferredLocales()

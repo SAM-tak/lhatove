@@ -122,3 +122,4 @@ return^ {
 - タプルを返す呼び出しは `$"..."` の補間スロットへ直接書けない（静的エラー）。`let^ x, y = body.getPosition()` で受けてから補間する
 - `love.thread`: スレッド本体は `.lh` ファイル（`newThread("worker.lh")`、型検査は newThread 時）か改行入りのコード文字列。本体は `let^ args = ...` で引数表を受け、`args[1]` を `isa^` で絞る。Channel の `pop/demand/peek` は `any^` を返すので `isa^` で絞る（`if^ v isa^ t^{ x : number^ } { ... }`）。table と閉包は複製されて渡る（元と共有しない）。LOVE オブジェクトを含む table は渡せない。`performAtomic(p^c:love.thread.Channel, extra:any^ { ... }, 100)` のように extra は最大 3 つ
 - `love.graphics`: Canvas は `newCanvas(w, h)` が返す Texture（`isCanvas()`）。`setCanvas(c)` / `setCanvas()`。ピクセルを読むには `love.graphics.readbackTexture(c)` → ImageData。`draw(texture, quad, x, y, ...)` は第 2 引数に Quad。`Shader.send(name, ...)` は数値列・`{...}` 表・Texture・Transform を受ける。Mesh の頂点は `{x, y, u, v, r, g, b, a}`（後ろ 6 つ省略可）
+- ブロックは `do^{ ... }`。裸の `{ ... }` はテーブル literal なので文にならない。同じ名前を二度作りたい時（`known` を 2 回など）は `do^` で囲んでスコープを分ける

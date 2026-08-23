@@ -25,21 +25,23 @@ public^let^ run = p^ {
 
     # a blank image is transparent black, and a written pixel reads back
     let^ blank = love.image.newImageData(8, 8)
-    let^ r, g, b, a = blank.getPixel(0, 0)
-    test.isTrue("a blank pixel is transparent black", r = 0 and^ g = 0 and^ b = 0 and^ a = 0)
-    blank.setPixel(1, 1, 1, 0.5, 0.25, 1)
-    let^ r2, g2, b2, a2 = blank.getPixel(1, 1)
-    test.number("the written red", 1, r2)
-    test.near("the written green", 0.5, g2, 0.01)
-    test.near("the written blue", 0.25, b2, 0.01)
-    test.number("the written alpha", 1, a2)
+    do^{
+        let^ r, g, b, a = blank.getPixel(0, 0)
+        test.isTrue("a blank pixel is transparent black", r = 0 and^ g = 0 and^ b = 0 and^ a = 0)
+        blank.setPixel(1, 1, 1, 0.5, 0.25, 1)
+        let^ r2, g2, b2, a2 = blank.getPixel(1, 1)
+        test.number("the written red", 1, r2)
+        test.near("the written green", 0.5, g2, 0.01)
+        test.near("the written blue", 0.25, b2, 0.01)
+        test.number("the written alpha", 1, a2)
 
-    # mapPixel walks every pixel
-    blank.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^ -> (number^, number^, number^, number^) {
-        return^ 0, 1, 0, 1
-    })
-    let^ r3, g3, b3, a3 = blank.getPixel(4, 4)
-    test.isTrue("mapPixel wrote every pixel", r3 = 0 and^ g3 = 1 and^ b3 = 0 and^ a3 = 1)
+        # mapPixel walks every pixel
+        blank.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^ -> (number^, number^, number^, number^) {
+            return^ 0, 1, 0, 1
+        })
+        let^ r3, g3, b3, a3 = blank.getPixel(4, 4)
+        test.isTrue("mapPixel wrote every pixel", r3 = 0 and^ g3 = 1 and^ b3 = 0 and^ a3 = 1)
+    }
 
     test.begin("love.graphics (fonts)")
 

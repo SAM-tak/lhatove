@@ -140,4 +140,4 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - `testing/` の移植: `testing/lh/suite/` に upstream の TestSuite/TestMethod を L^ で置き直す。`lib/test.lh` が assertion（`isTrue` / `number` / `near` / `range` / `text` / `notNil`）を持ち、`tests/<module>.lh` が `public^let^ run` を公開、`main.lh` が全部呼んで pass なら exit 0・fail なら exit 1。Lua の `assertEquals(any, any)` は L^ に無い（`any^` は渡すか絞るかだけ）ので、比較は型ごとに分ける
 - `require^` は **要求元のユニットからの相対パス**。`tests/x.lh` から `lib/test.lh` を読むには `require^ "../lib/test.lh"`（`..` は PhysFS 越しでも通る — U3 の残り）
 - `testing/lh/suite` は M6 で全モジュールに広げた（450 チェック）。移植中に見つけて直したもの: `love.graphics.validateShader` が壊れたコードで投げる例外を捕まえていなかった（プロセスが fastfail）→ `(false, message)` を答える、`getScissor` が scissor を切った後も最後の矩形を答えていた → 0 を答える、`Shape.setCategory` / `setMask` に引数なしアームが無かった（LÖVE の「全部と衝突」）
-- L^ の制約が 2 つ見つかった: 親モジュールと子モジュールを同じスコープに import できない（`love` と `love.graphics`）、裸の `{ ... }` はブロック文でなくテーブル literal
+- L^ の制約が 1 つ見つかった: 親モジュールと子モジュールを同じスコープに import できない（`love` と `love.graphics`）。もう 1 件は綴りの誤りだった — **ブロックは `do^{ ... }`**（02 の 8.7）。裸の `{ ... }` はテーブル literal なので文にならない
