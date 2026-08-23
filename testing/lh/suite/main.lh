@@ -1,0 +1,64 @@
+# The L^ port of testing/ -- the beginning of it. main.lua's TestSuite runs
+# one module's tests per frame and draws a progress bar; this runs them all
+# in load, prints what failed, and quits with 0 when everything passed and
+# 1 when something did not, so a build can read the exit code.
+#
+# The modules ported so far: love.data, love.math, love.filesystem,
+# love.timer. The rest of testing/tests/*.lua is still Lua.
+module^ suite
+
+import^ love.graphics
+import^ love.event
+import^ love.timer
+
+let^ test = require^ "lib/test.lh"
+let^ dataTests = require^ "tests/data.lh"
+let^ mathTests = require^ "tests/math.lh"
+let^ filesystemTests = require^ "tests/filesystem.lh"
+let^ timerTests = require^ "tests/timer.lh"
+
+var^ frames = 0
+var^ summary = "running..."
+var^ failed = false^
+
+public^let^ load = p^ {
+    let^ started = love.timer.getTime()
+
+    dataTests.run()
+    mathTests.run()
+    filesystemTests.run()
+    timerTests.run()
+
+    let^ problems = test.problems()
+    let^ elapsed = love.timer.getTime() - started
+    failed := problems.length^ > 0
+
+    for^ line in^ problems { print($"FAIL {line}") }
+    summary := $"{test.count() - problems.length^}/{test.count()} checks passed in {(elapsed * 1000).round()} ms"
+    print(summary)
+}
+
+public^let^ update = p^dt:number^ {
+    frames := frames + 1
+    # A couple of frames so the window has something on it before it goes.
+    if^ frames = 3 {
+        if^ failed { love.event.quit(1) else^: love.event.quit(0) }
+    }
+}
+
+public^let^ draw = p^ {
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print("lhatove test suite", 20, 20)
+    if^ failed {
+        love.graphics.setColor(1, 0.4, 0.4, 1)
+    else^:
+        love.graphics.setColor(0.4, 1, 0.5, 1)
+    }
+    love.graphics.print(summary, 20, 44)
+    love.graphics.setColor(1, 1, 1, 1)
+    var^ y = 76
+    for^ line in^ test.problems() {
+        love.graphics.print(line, 20, y)
+        y := y + 16
+    }
+}

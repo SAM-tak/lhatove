@@ -137,3 +137,5 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - ドロップからの再起動: `love.boot.restartInto(path)`（nogame.lua の `_noGameRestartInfo` 相当）が `quit "restart"` にゲームパスを添え、次の boot が `args.game` として使う。`filedropped` / `directorydropped` コールバックを追加
 - Boot.lh の run は `dispatch` の答えが nil^ でなければ返す（数値 = 終了コード、`"restart"` = 再起動）
 - nogame.lh: 埋め込み画像を持たない代わりに love.physics で組む — 静的アンカーから伸びる6連リンクの各リンクに文字（n o g a m e）、末端に浮力（`setGravityScale(-1.2)`）の風船、背景に流れる雲。クリックで風船を弾き、Esc で終了、ゲームをドロップで起動
+- `testing/` の移植: `testing/lh/suite/` に upstream の TestSuite/TestMethod を L^ で置き直す。`lib/test.lh` が assertion（`isTrue` / `number` / `near` / `range` / `text` / `notNil`）を持ち、`tests/<module>.lh` が `public^let^ run` を公開、`main.lh` が全部呼んで pass なら exit 0・fail なら exit 1。Lua の `assertEquals(any, any)` は L^ に無い（`any^` は渡すか絞るかだけ）ので、比較は型ごとに分ける
+- `require^` は **要求元のユニットからの相対パス**。`tests/x.lh` から `lib/test.lh` を読むには `require^ "../lib/test.lh"`（`..` は PhysFS 越しでも通る — U3 の残り）
