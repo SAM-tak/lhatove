@@ -139,5 +139,6 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - nogame.lh: 埋め込み画像を持たない代わりに love.physics で組む — 静的アンカーから伸びる6連リンクの各リンクに文字（n o g a m e）、末端に浮力（`setGravityScale(-1.2)`）の風船、背景に流れる雲。クリックで風船を弾き、Esc で終了、ゲームをドロップで起動
 - `testing/` の移植: `testing/lh/suite/` に upstream の TestSuite/TestMethod を L^ で置き直す。`lib/test.lh` が assertion（`isTrue` / `number` / `near` / `range` / `text` / `notNil`）を持ち、`tests/<module>.lh` が `public^let^ run` を公開、`main.lh` が全部呼んで pass なら exit 0・fail なら exit 1。Lua の `assertEquals(any, any)` は L^ に無い（`any^` は渡すか絞るかだけ）ので、比較は型ごとに分ける
 - `require^` は **要求元のユニットからの相対パス**。`tests/x.lh` から `lib/test.lh` を読むには `require^ "../lib/test.lh"`（`..` は PhysFS 越しでも通る — U3 の残り）
-- `testing/lh/suite` は M6 で全モジュールに広げた（450 チェック）。移植中に見つけて直したもの: `love.graphics.validateShader` が壊れたコードで投げる例外を捕まえていなかった（プロセスが fastfail）→ `(false, message)` を答える、`getScissor` が scissor を切った後も最後の矩形を答えていた → 0 を答える、`Shape.setCategory` / `setMask` に引数なしアームが無かった（LÖVE の「全部と衝突」）
+- `testing/lh/suite` は M6 で全モジュールに広げた（451 チェック）。移植中に見つけて直したもの: `love.graphics.validateShader` が壊れたコードで投げる例外を捕まえていなかった（プロセスが fastfail）→ `(false, message)` を答える、`getScissor` が scissor を切った後も最後の矩形を答えていた → 0 を答える、`Shape.setCategory` / `setMask` に引数なしアームが無かった（LÖVE の「全部と衝突」）
 - L^ の制約が 1 つ見つかった: 親モジュールと子モジュールを同じスコープに import できない（`love` と `love.graphics`）。もう 1 件は綴りの誤りだった — **ブロックは `do^{ ... }`**（02 の 8.7）。裸の `{ ... }` はテーブル literal なので文にならない
+- lhat `995d0e8` で解消: 親と子の同時 import（`import^ love` と `import^ love.graphics`）、登録型どうしの重なり判定（`newThread` は `p^File;` / `p^FileData;` の 2 アームへ戻した）。`testing/lh/suite` は 451 チェック

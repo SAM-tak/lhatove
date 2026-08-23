@@ -12,7 +12,7 @@
 | M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
 | M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | **完了**（2026-08-23）。`testing/lh/physics` が begin/end/presolve/postsolve・contact filter・area query・ray cast・joint・userData を通す（exit=7、約 5 秒）。途中見つけた lhat の install 型爆発は `fea90e4` で解消（[lhat-issues.md](lhat-issues.md)） |
 | M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | **完了**（2026-08-23）。`testing/lh/thread`（file/code thread・Channel で table/closure 往復・performAtomic・threaderror、exit=8）、`testing/lh/shader`（Canvas 読み戻し・Shader uniform・Quad・Mesh・SpriteBatch・ParticleSystem・TextBatch・状態系・Video、exit=9） |
-| M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植） | 引数なし起動で nogame 表示 | **完了**（2026-08-24）。nogame.lh（physics のチェーン + 雲 + ドロップで restart）、restart（`love.event.restart(payload)` → 再 boot → `love.event.restartValue()`、`testing/lh/restart` exit=10）、Lua 残骸 294 ファイル削除、`testing/lh/suite`（バインド済み全モジュールを移植、450 チェック、pass=0 / fail=1） |
+| M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植） | 引数なし起動で nogame 表示 | **完了**（2026-08-24）。nogame.lh（physics のチェーン + 雲 + ドロップで restart）、restart（`love.event.restart(payload)` → 再 boot → `love.event.restartValue()`、`testing/lh/restart` exit=10）、Lua 残骸 294 ファイル削除、`testing/lh/suite`（バインド済み全モジュールを移植、451 チェック、pass=0 / fail=1） |
 
 ## モジュール別
 

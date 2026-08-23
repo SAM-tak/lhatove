@@ -379,7 +379,8 @@ bool lhopen_love_thread(Context &ctx)
 	binding.program = ctx.program;
 
 	return ctx.func(m, "newThread", "p^string^ -> love.thread.Thread;", lh_newThread, nullptr)
-		&& ctx.func(m, "newThread", "p^love.filesystem.File|love.filesystem.FileData -> love.thread.Thread;", lh_newThread, nullptr)
+		&& ctx.func(m, "newThread", "p^love.filesystem.File -> love.thread.Thread;", lh_newThread, nullptr)
+		&& ctx.func(m, "newThread", "p^love.filesystem.FileData -> love.thread.Thread;", lh_newThread, nullptr)
 		&& ctx.func(m, "newChannel", "p^ -> love.thread.Channel;", lh_newChannel, nullptr)
 		&& ctx.func(m, "getChannel", "p^string^ -> love.thread.Channel;", lh_getChannel, nullptr)
 		&& ctx.member(m, "Thread", "start", "p^self^, ...;", lh_Thread_start, nullptr)
