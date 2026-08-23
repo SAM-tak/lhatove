@@ -1,9 +1,0 @@
-# A small helper unit, reached with require^ "lib/vec.lh" (U3: the path goes
-# through the loader as written, PhysFS and all).
-module^ realgame.vec
-
-import^ std.math
-
-public^let^ length = f^x:number^, y:number^ -> number^ { return^ std.math.sqrt(x * x + y * y) }
-
-public^let^ lerp = f^a:number^, b:number^, t:number^ -> number^ { return^ a + (b - a) * t }

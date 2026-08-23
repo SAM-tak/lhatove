@@ -8,8 +8,7 @@ import^ love.event
 import^ love.filesystem
 import^ love.window
 import^ love.timer
-
-let^ vec = require^ "lib/vec.lh"
+import^ std.math
 
 var^ frames = 0
 var^ logo : love.graphics.Texture|nil^ = nil^
@@ -29,8 +28,8 @@ public^let^ load = p^ {
     love.filesystem.write("lhatove-m2.txt", "written by realgame") catch^ nil^
     let^ back = love.filesystem.read("lhatove-m2.txt") catch^ "(read failed)"
     let^ info = love.filesystem.getInfo("lhatove-m2.txt")
-    let^ size = if^ info isa^ nil^: -1 el^: info.size ;
-    status := $"read back: {back} ({size} bytes); vec.length(3, 4) = {vec.length(3, 4)}"
+    let^ size = info?.size ?? -1
+    status := $"read back: {back} ({size} bytes); std.math.hypot(3, 4) = {std.math.hypot(3, 4)}"
     print(status)
     love.filesystem.remove("lhatove-m2.txt")
 
@@ -40,7 +39,7 @@ public^let^ load = p^ {
 }
 
 public^let^ update = p^dt:number^ {
-    frames := frames + 1
+    frames += 1
     if^ frames = 120 { love.event.quit(4) }
 }
 

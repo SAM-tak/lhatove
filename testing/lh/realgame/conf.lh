@@ -3,7 +3,7 @@ return^ {
     identity = "lhatove-realgame",
     version = "12.0",
     window = {
-        title = "lhatove real game",
+        title = "lôve real game",
         width = 640,
         height = 480,
         resizable = true^,
