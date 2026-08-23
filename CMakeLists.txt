@@ -162,9 +162,6 @@ Please see https://github.com/love2d/megasource
 ")
 	endif()
 
-	# required for enet
-	add_definitions(-D HAS_SOCKLEN_T)
-
 	find_package(SDL3 3.1.3 REQUIRED CONFIG)
 	target_include_directories(lovedep::SDL INTERFACE ${SDL3_INCLUDE_DIRS})
 	target_link_libraries(lovedep::SDL INTERFACE ${SDL3_LIBRARIES})
@@ -1598,9 +1595,6 @@ add_library(liblove SHARED
 	src/lh/Watchdog.cpp
 	src/lh/Watchdog.h
 	src/lh/ErrorScreen.h
-	# Reference copies of the Lua-era scripts, kept visible in Visual Studio:
-	src/modules/love/boot.lua
-	src/modules/love/callbacks.lua
 )
 set_target_properties(liblove PROPERTIES
 	C_VISIBILITY_PRESET hidden

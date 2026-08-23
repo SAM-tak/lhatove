@@ -53,7 +53,9 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 
 ### 旧 Lua コード
 
-`wrap_*.cpp` / `runtime.cpp` / `Reference.cpp` / `*.lua` はビルドから除外済みの参照用残置。移植の対訳元として読む。編集・復活はしない。移植完了後に削除する。
+`wrap_*.cpp` / `runtime.cpp` / `Reference.cpp` / `LuaThread` / `boot.lua` / `callbacks.lua` / `nogame.lua` と luasocket / enet / lua53 / luahttps は M6 で削除済み（`git log -- src/modules/*/wrap_*.cpp` で読める）。対訳元が要る時は upstream の love2d/love 12.0 か、このリポジトリの履歴を見る。
+
+`testing/*.lua`（upstream のテストスイート）は L^ への移植元として残置。
 
 ### コメント・コミット
 
@@ -81,7 +83,7 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 
 > `git clone https://github.com/love2d/megasource.git`
 
-## 動作確認（M5 時点）
+## 動作確認（M6 時点）
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
