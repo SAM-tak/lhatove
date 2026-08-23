@@ -1,7 +1,7 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `fea90e4`（2026-08-23）。
+基準: lhat HEAD `9adc06d`（2026-08-24）。
 
 ## 未解決
 
@@ -9,7 +9,8 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 提案
 
-- 同じ位置に **異なる hostdata 型** を置いたアーム（`newThread(love.filesystem.File)` と `newThread(love.filesystem.FileData)`）が登録で「重なる」と拒否される。fea90e4 で実行時の解決はタグで効くようになったので、登録時の重複判定もタグ違いを「交わらない」と見てよいはず。lhatove は `p^File|FileData -> Thread;` の合併 1 アームで回避（実害なし）
+- 同じ位置に **異なる hostdata 型** を置いたアーム（`newThread(love.filesystem.File)` と `newThread(love.filesystem.FileData)`）が登録で「重なる」と拒否される。**`9adc06d` でも再現**（2 アームに戻すと `love.thread.newThread : p^love.filesystem.FileData -> love.thread.Thread;` が MEMBERS 相で拒否）。原因は検査器側: `type.c` の `disjoint_in` が host **value** 型（8.9）はタグ比較で分けるのに、host **data** 型（8.8）は `LHAT_TYPE_TABLE` のまま構造で見るため、「共有する名前が一つも無ければ重なる」規則に落ちて `File` と `FileData`（`type` / `typeOf` / `getSize` を共有）が交わると判定される。`LhatType` は `v.table.hostdata_tag` を持っているので、`LHAT_TYPE_HOSTVALUE` と同じ 2 行（タグが違えば交わらない）で足りるはず。`fea90e4` が実行時の解決をタグにしたのと同じ理屈。lhatove は `p^File|FileData -> Thread;` の合併 1 アームで回避（実害なし）
+  - 補足: ホスト登録側に `overload^` に当たる印は無い（`lhat_register_func` を同名で複数回呼ぶのがオーバーロード）。`overload^` は `def^` 内のメンバ用で、しかも 14.12 の「重なりの禁」はそのまま効くので、印を足しても上記は通らない
 
 ## 解決済み
 
