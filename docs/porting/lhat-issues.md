@@ -1,13 +1,11 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `3a4376c`（2026-08-23）。
+基準: lhat HEAD `fea90e4`（2026-08-23）。
 
 ## 未解決
 
-- **`lhat_program_install` が、検査済み型を名指す箇所ごとにランタイム型を作り直す（共有しない）**。相互参照する hostdata 型（love.physics の World/Body/Shape/Joint/Contact — `Body.getShapes -> Shape`、`Shape.getBody -> Body`、`Joint.getBodies -> (Body, Body)`…）で生成数が爆発し、lhatove は physics 登録だけで起動直後 **live 265 万オブジェクト**（physics を外すと 1,491）。全オブジェクトが L^ から到達可能なので毎回の collection が全走査になり、`World.update` 内の nested `lhat_machine_call` が 1 回 370ms（`LhatRunResult.live` 2,651,118）。再現 [repro/install_blowup.c](repro/install_blowup.c): 5 型 × 8 メンバ相互参照で live 6,124,940、4×4 で 20,290、3×4 で 4,852、相互参照を `number^` に置き換えると 140。`3a4376c` は終了するようにはなったが、生成量は依然指数的。期待: 検査済み型 1 つにつきランタイム型 1 つ（memo/hash-cons）。lhatove 側の暫定回避は無し（physics のシグネチャは相互参照が本質）。影響は physics に限らない: `testing/lh/m3` の `ImageData.mapPixel`（64×64 = 4096 回の nested call）も修正まで 20 分超かかる（`LHATOVE_SKIP_REGISTRATIONS=love.physics.*` なら 1 秒）
-- `lhat_machine_call` 自体は 3 引数でも 7 引数でも、コルーチン内・深い入れ子・registry 経由の closure でも正常（[repro/call_arity.c](repro/call_arity.c) 20 万回通過）— 上記の遅さをハングと誤認したもの
-- **`$"..."` 補間にタプルを返す呼び出しを書くと、検査は通るが実行時に fault する**: `$"gravity={world.getGravity()}"`（`f^self^ -> (number^, number^)`）が check を通過し、実行時に「this call and what it called disagree on how many values come back」で止まる。13.8改ではタプルは引数位置に置けない（`pack^` か `...`）ので、補間スロットも同じ静的エラーにしてほしい。回避: `let^ gx, gy = world.getGravity()` で受けてから補間（`testing/lh/physics/main.lh`）
+（なし）
 
 ## 提案
 
@@ -15,6 +13,9 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 解決済み
 
+- `lhat_program_install` のランタイム型爆発（相互参照する hostdata 型をメンバ付きテーブルとして再帰展開）→ `fea90e4 fix: a registered type lowers to one nominal node, not its members`（hostdata_tag を持つ型は `LHAT_TYPE_RT_HOSTDATA` の葉 1 個。5 型×8 メンバ相互参照が test_program に pin、live < 1000）。lhatove: 起動直後 live 2,651,187 → 2,477、`testing/lh/physics` 完走 ≈10 分 → 5 秒、`m3` の mapPixel も即時。副産物: hostdata 引数のオーバーロード解決がタグ比較で効くようになった。再現 [repro/install_blowup.c](repro/install_blowup.c)
+- `$"..."` 補間スロットのタプル → 同コミットで検査器が `TUPLE_MISPLACED` を静的に報告（02 の 13.8改「置けない」一覧に補間の穴を追記）。lhatove 側は `let^ gx, gy = world.getGravity()` で受ける綴りのまま
+- `lhat_machine_call` の「ハング」は上記の遅さの誤認。[repro/call_arity.c](repro/call_arity.c) は 3/7 引数・コルーチン内・registry 経由で 20 万回通過する確認として残置
 - `lhat_program_install` の無限ループ（自型を返すメンバ + 自型を取るメンバ、実態は 3^32 歩）→ `3a4376c fix: a host type that answers and takes itself installs`（program.c の独自型下ろしを `lhat_machine_rt_from_checked` に一本化、`lhat_machine_make_type` は廃止）。再現 [repro/install_loop.c](repro/install_loop.c) は通過。`Transform.apply` を型付きに戻した
 - ホスト登録署名の `Self^` → 同コミットで `lhat_register_member` / `_hostvalue_member` の署名中の `Self^` が登録先の型に解決される。lhatove の Transform メンバは `p^self^, Self^ -> Self^;` 綴り。モジュール関数 / global では従来どおり誤り
 - 可変長アームと他アームの重複判定 → 同コミットで「書かれた位置で型が交わらない、または片方に置き場の無い個数がある」なら別アーム。`print` は `p^string^;` + `p^string^, number^, ...;` + `p^string^, love.graphics.Font, ...;` の3アーム。`f(string^, ...)` と `f(string^, Font, ...)` の組は引き続き拒否（2引数の呼び出しが両方に収まるため）— 尾の前に型の交わらない位置を置く

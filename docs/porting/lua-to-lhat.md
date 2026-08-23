@@ -111,4 +111,4 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - Shape の `rayCast` は `(hit:bool^, nx, ny, fraction)` タプル（タプル|nil^ の合併を避けた）。`World.rayCastAny/Closest` は `t^{ shape, x, y, nx, ny, fraction }|nil^`
 - 非対応（12.0 で deprecated）: body 無しの `newCircleShape(x, y, r)` 系、`newFixture`、`Fixture:getShape`、`ChainShape:getChildEdge`、`MouseJoint` の setFrequency/setDampingRatio（コアに実装が無い）
 - デバッグ補助を追加: `LHATOVE_WATCHDOG=<秒>`（フレームが止まると主スレッドのスタックを base+offset で stderr へ書き、`scripts/symbolize.c` で .pdb から名前解決。RelWithDebInfo 推奨）、`LHATOVE_GC_STATS=<n>`（n フレーム毎）、`LHATOVE_SKIP_REGISTRATIONS=love.physics.*`（前方一致）
-- lhat 側の未解決（[lhat-issues.md](lhat-issues.md)）: install が検査済み型を名指す箇所ごとにランタイム型を作るため、相互参照する physics の 5 型で live 265 万オブジェクト → nested call が 1 回 370ms。修正までソークテストは遅い（動作は正しい）
+- lhat `fea90e4` で解消: install が hostdata 型をメンバ付きテーブルとして再帰展開していた型爆発（physics の相互参照 5 型で live 265 万 → 2,477、nested call 370ms → 即時）。副産物として hostdata 引数のオーバーロード解決がタグ比較で効く。補間スロットのタプルも静的エラーになった

@@ -1,4 +1,4 @@
-// lhat repro: lhat_program_install builds a runtime type anew for every
+// lhat repro (fixed in fea90e4): lhat_program_install built a runtime type anew for every
 // place a checked type is named, so hostdata types that name each other
 // (World/Body/Shape/Joint/Contact in love.physics) cost millions of live
 // objects -- and every later collection walks them all, which is what makes
@@ -11,7 +11,7 @@
 // shape), the machine holds 6.1 million live objects for 40 registrations;
 // 5 x 4 holds 131 thousand, 4 x 4 holds 20 thousand. The same 40
 // registrations with the cross references replaced by number^ hold 140.
-// Seen at lhat HEAD 3a4376c (2026-08-23).
+// Seen at lhat HEAD 3a4376c, fixed at fea90e4 (2026-08-23): live objects 140 either way now.
 
 #include <stdio.h>
 #include <stdlib.h>
