@@ -1,0 +1,19 @@
+# love.event -- the L^ port of testing/tests/event.lua, minus what would
+# end the suite (quit and restart are what testing/lh/restart is for).
+module^ suite.tests.event
+
+import^ love.event
+
+let^ test = require^ "../lib/test.lh"
+
+public^let^ run = p^ {
+    test.begin("love.event")
+
+    # pump and clear are safe to call at any time and answer nothing
+    love.event.pump()
+    love.event.clear()
+    test.isTrue("pump and clear leave the suite running", true^)
+
+    # restartValue answers nil^ unless the run before handed something over
+    test.isTrue("no restart value in a plain run", love.event.restartValue() isa^ nil^)
+}

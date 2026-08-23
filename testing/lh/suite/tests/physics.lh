@@ -1,0 +1,194 @@
+# love.physics -- the L^ port of testing/tests/physics.lua, for the five
+# types the binding gives L^ (the deprecated body-less shapes and
+# newFixture have no L^ spelling at all).
+module^ suite.tests.physics
+
+import^ love.physics
+
+let^ test = require^ "../lib/test.lh"
+
+public^let^ run = p^ {
+    test.begin("love.physics")
+
+    # the meter round trips
+    let^ meter = love.physics.getMeter()
+    love.physics.setMeter(64)
+    test.number("setMeter round trips", 64, love.physics.getMeter())
+
+    let^ world = love.physics.newWorld(0, 100, true^)
+    test.text("type", "World", world.type())
+    let^ gx, gy = world.getGravity()
+    test.number("gravity x", 0, gx)
+    test.number("gravity y", 100, gy)
+    world.setGravity(0, 200)
+    let^ _gx2, gy2 = world.getGravity()
+    test.number("setGravity", 200, gy2)
+    world.setGravity(0, 100)
+    test.isTrue("sleeping is allowed", world.isSleepingAllowed())
+    test.isFalse("a fresh world is not locked", world.isLocked())
+    test.number("no bodies yet", 0, world.getBodyCount())
+
+    # bodies
+    let^ ground, groundShape = love.physics.newRectangleBody(world, "static", 200, 400, 400, 20)
+    let^ box, boxShape = love.physics.newRectangleBody(world, "dynamic", 200, 100, 40, 40)
+    let^ ball, ballShape = love.physics.newCircleBody(world, "dynamic", 260, 100, 20)
+    test.number("three bodies", 3, world.getBodyCount())
+    test.text("body type", "static", ground.getType())
+    test.text("dynamic body type", "dynamic", box.getType())
+    test.isTrue("a dynamic body has mass", box.getMass() > 0)
+    test.number("the ground has none", 0, ground.getMass())
+
+    let^ bx, by = box.getPosition()
+    test.number("position x", 200, bx)
+    test.number("position y", 100, by)
+    box.setPosition(210, 90)
+    let^ bx2, by2 = box.getPosition()
+    test.number("setPosition x", 210, bx2)
+    test.number("setPosition y", 90, by2)
+    box.setAngle(1)
+    test.near("setAngle", 1, box.getAngle(), 0.001)
+    box.setTransform(200, 100, 0)
+    let^ tx, ty, ta = box.getTransform()
+    test.isTrue("setTransform sets all three", tx = 200 and^ ty = 100 and^ ta = 0)
+
+    box.setLinearVelocity(5, 6)
+    let^ vx, vy = box.getLinearVelocity()
+    test.number("linear velocity x", 5, vx)
+    test.number("linear velocity y", 6, vy)
+    box.setAngularVelocity(2)
+    test.near("angular velocity", 2, box.getAngularVelocity(), 0.001)
+    box.setLinearVelocity(0, 0)
+    box.setAngularVelocity(0)
+
+    box.setBullet(true^)
+    test.isTrue("bullet", box.isBullet())
+    box.setBullet(false^)
+    box.setFixedRotation(true^)
+    test.isTrue("fixed rotation", box.isFixedRotation())
+    box.setFixedRotation(false^)
+    test.isTrue("a fresh body is awake", box.isAwake())
+    test.isTrue("and active", box.isActive())
+
+    # local and world points
+    let^ wx, wy = box.getWorldPoint(0, 0)
+    test.number("the body's own origin is its position", 200, wx)
+    let^ lx, ly = box.getLocalPoint(200, 100)
+    test.isTrue("and back again", lx = 0 and^ ly = 0)
+    let^ points = box.getWorldPoints(0, 0, 10, 0)
+    test.number("getWorldPoints answers a pair per point", 4, points.length^)
+
+    # shapes
+    test.text("shape type", "polygon", boxShape.getType())
+    test.text("circle shape type", "circle", ballShape.getType())
+    test.number("the circle's radius", 20, ballShape.getRadius())
+    test.isTrue("a shape knows its body", ballShape.getBody() = ball)
+    test.number("the body knows its shapes", 1, box.getShapes().length^)
+    boxShape.setFriction(0.3)
+    test.near("friction", 0.3, boxShape.getFriction(), 0.001)
+    boxShape.setRestitution(0.4)
+    test.near("restitution", 0.4, boxShape.getRestitution(), 0.001)
+    boxShape.setDensity(2)
+    test.near("density", 2, boxShape.getDensity(), 0.001)
+    box.resetMassData()
+    boxShape.setSensor(true^)
+    test.isTrue("sensor", boxShape.isSensor())
+    boxShape.setSensor(false^)
+    test.isTrue("a point inside the box is inside", boxShape.testPoint(200, 100))
+    test.isFalse("a point far away is not", boxShape.testPoint(0, 0))
+    let^ px = boxShape.getPoints()
+    test.number("a rectangle has four corners", 8, px.length^)
+
+    # filter bits are 1-based indices in L^
+    boxShape.setCategory(3)
+    test.number("one category bit", 1, boxShape.getCategory().length^)
+    boxShape.setMask(2, 4)
+    test.number("two mask bits", 2, boxShape.getMask().length^)
+    boxShape.setGroupIndex(-2)
+    test.number("group index", -2, boxShape.getGroupIndex())
+    boxShape.setCategory(1)
+    boxShape.setMask()
+    boxShape.setGroupIndex(0)
+
+    let^ lowx, lowy, highx, highy = boxShape.getBoundingBox()
+    test.isTrue("the bounding box holds the shape", lowx < 200 and^ highx > 200)
+    let^ cx, cy, mass, inertia = boxShape.getMassData()
+    test.isTrue("the mass data has mass", mass > 0)
+
+    # user data is any L^ value
+    boxShape.setUserData("the box")
+    let^ data = boxShape.getUserData()
+    if^ data isa^ string^ {
+        test.text("shape user data", "the box", data)
+    else^:
+        test.isTrue("shape user data comes back as it went in", false^)
+    }
+    box.setUserData({ name = "box", hits = 0 })
+    let^ bodydata = box.getUserData()
+    if^ bodydata isa^ t^{ name : string^, hits : number^ } {
+        test.text("body user data", "box", bodydata.name)
+    else^:
+        test.isTrue("body user data comes back as a table", false^)
+    }
+
+    # joints
+    let^ joint = love.physics.newDistanceJoint(box, ball, 200, 100, 260, 100, false^)
+    test.text("joint type", "distance", joint.getType())
+    test.number("the joint's length", 60, joint.getLength())
+    let^ ax1, ay1, ax2, ay2 = joint.getAnchors()
+    test.number("anchor x", 200, ax1)
+    test.number("the other anchor x", 260, ax2)
+    let^ bodyA, bodyB = joint.getBodies()
+    test.isTrue("the joint knows its bodies", bodyA = box and^ bodyB = ball)
+    test.isFalse("collideConnected", joint.getCollideConnected())
+    joint.setUserData("the joint")
+    test.number("the world counts the joint", 1, world.getJointCount())
+    test.number("the body lists it", 1, box.getJoints().length^)
+
+    # a joint kind's own members raise on another kind, so only its own
+    joint.setLength(50)
+    test.number("setLength", 50, joint.getLength())
+
+    # stepping the world moves what falls
+    let^ before = ball.getY()
+    for^ i from^ 1 to^ 30 { world.update(1 / 60) }
+    test.isTrue("gravity moved the ball down", ball.getY() > before)
+
+    # queries
+    var^ visited = 0
+    world.queryShapesInArea(0, 380, 400, 420, p^s:love.physics.Shape -> bool^ {
+        visited := visited + 1
+        return^ true^
+    })
+    test.isTrue("the area query found the ground", visited >= 1)
+    test.isTrue("getShapesInArea agrees", world.getShapesInArea(0, 380, 400, 420).length^ >= 1)
+
+    var^ hits = 0
+    world.rayCast(200, 0, 200, 500, p^s:love.physics.Shape, x:number^, y:number^, nx:number^, ny:number^, fraction:number^ -> number^ {
+        hits := hits + 1
+        return^ 1
+    })
+    test.isTrue("the ray hit something", hits >= 1)
+    let^ closest = world.rayCastClosest(200, 0, 200, 500)
+    if^ closest isa^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
+        test.range("the closest hit is on the ray", closest.fraction, 0, 1)
+    else^:
+        test.isTrue("rayCastClosest answers a hit", false^)
+    }
+    test.isTrue("a ray into nothing answers nil^", world.rayCastClosest(0, 0, 0, 1) isa^ nil^)
+
+    # the distance between two shapes
+    let^ distance, dx1, dy1, dx2, dy2 = love.physics.getDistance(boxShape, groundShape)
+    test.isTrue("the distance is not negative", distance >= 0)
+
+    # destroying
+    joint.destroy()
+    test.isTrue("a destroyed joint says so", joint.isDestroyed())
+    test.number("the world no longer counts it", 0, world.getJointCount())
+    ball.destroy()
+    test.isTrue("a destroyed body says so", ball.isDestroyed())
+    test.number("the world no longer counts it", 2, world.getBodyCount())
+    world.destroy()
+    test.isTrue("a destroyed world says so", world.isDestroyed())
+
+    love.physics.setMeter(meter)
+}

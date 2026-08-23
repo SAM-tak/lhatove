@@ -1,0 +1,21 @@
+# love (the module itself) -- the L^ port of testing/tests/love.lua.
+#
+# This unit imports `love` and nothing else on purpose: a unit that has
+# `import^ love` cannot also have `import^ love.graphics` (the name is
+# already defined), so what lives on the love table itself is tested apart
+# from what lives in its submodules. See docs/porting/lhat-issues.md.
+module^ suite.tests.love
+
+import^ love
+
+let^ test = require^ "../lib/test.lh"
+
+public^let^ run = p^ {
+    test.begin("love")
+
+    let^ major, minor, revision, codename = love.getVersion()
+    test.number("version major", 12, major)
+    test.isTrue("version minor is a number", minor >= 0)
+    test.isTrue("version revision is a number", revision >= 0)
+    test.isTrue("the version has a codename", codename.length > 0)
+}

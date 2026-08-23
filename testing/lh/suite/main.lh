@@ -3,8 +3,9 @@
 # in load, prints what failed, and quits with 0 when everything passed and
 # 1 when something did not, so a build can read the exit code.
 #
-# The modules ported so far: love.data, love.math, love.filesystem,
-# love.timer. The rest of testing/tests/*.lua is still Lua.
+# Every module the L^ bindings cover has its tests here; what upstream
+# tests of an unbound API (Buffers, compute shaders, ByteData, mounts) is
+# left for when those are bound.
 module^ suite
 
 import^ love.graphics
@@ -12,10 +13,20 @@ import^ love.event
 import^ love.timer
 
 let^ test = require^ "lib/test.lh"
+let^ loveTests = require^ "tests/love.lh"
 let^ dataTests = require^ "tests/data.lh"
 let^ mathTests = require^ "tests/math.lh"
 let^ filesystemTests = require^ "tests/filesystem.lh"
 let^ timerTests = require^ "tests/timer.lh"
+let^ systemTests = require^ "tests/system.lh"
+let^ eventTests = require^ "tests/event.lh"
+let^ inputTests = require^ "tests/input.lh"
+let^ windowTests = require^ "tests/window.lh"
+let^ audioTests = require^ "tests/audio.lh"
+let^ imageTests = require^ "tests/image.lh"
+let^ graphicsTests = require^ "tests/graphics.lh"
+let^ physicsTests = require^ "tests/physics.lh"
+let^ threadTests = require^ "tests/thread.lh"
 
 var^ frames = 0
 var^ summary = "running..."
@@ -24,10 +35,20 @@ var^ failed = false^
 public^let^ load = p^ {
     let^ started = love.timer.getTime()
 
+    loveTests.run()
     dataTests.run()
     mathTests.run()
     filesystemTests.run()
     timerTests.run()
+    systemTests.run()
+    eventTests.run()
+    inputTests.run()
+    windowTests.run()
+    audioTests.run()
+    imageTests.run()
+    graphicsTests.run()
+    physicsTests.run()
+    threadTests.run()
 
     let^ problems = test.problems()
     let^ elapsed = love.timer.getTime() - started

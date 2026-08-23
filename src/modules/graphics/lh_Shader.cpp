@@ -228,7 +228,18 @@ static LhatValue lh_validateShader(LhatMachine *machine, void *context, const Lh
 	}
 	Shader::CompileOptions options;
 	std::string err;
-	bool ok = instance()->validateShader(gles, stages, options, err);
+	bool ok = false;
+	// The compiler throws on code it cannot even parse, which is exactly
+	// what this function is asked about -- so that is an answer, not a fault.
+	try
+	{
+		ok = instance()->validateShader(gles, stages, options, err);
+	}
+	catch (const love::Exception &e)
+	{
+		ok = false;
+		err = e.what();
+	}
 	LhatValue message = lhat_nil();
 	lh::makeString(machine, err, &message);
 	LhatValue items[2] = {lhat_bool(ok), message};

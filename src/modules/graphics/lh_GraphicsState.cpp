@@ -235,8 +235,11 @@ static LhatValue lh_getScissor(LhatMachine *machine, void *context, const LhatVa
 	(void) context;
 	(void) args;
 	(void) count;
+	// The rectangle Graphics keeps is the last one set, whether or not the
+	// scissor is on; a scissor that is off answers zeros here.
 	FRect rect = {0, 0, 0, 0};
-	instance()->getScissor(rect);
+	if (!instance()->getScissor(rect))
+		rect = {0, 0, 0, 0};
 	float values[4] = {rect.x, rect.y, rect.w, rect.h};
 	return numberTuple(machine, values, 4);
 }

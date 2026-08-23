@@ -255,11 +255,13 @@ static LhatValue bitList(LhatMachine *machine, uint16 bits)
 	return numberList(machine, indices);
 }
 
+// setCategory() with no bits puts the shape back in category 1, and
+// setMask() with none lets it collide with everything (wrap_Shape.cpp).
 static LhatValue lh_Shape_setCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
 {
 	(void) context;
 	SHAPE_SELF();
-	uint16 bits = 0;
+	uint16 bits = count > 1 ? 0 : 1;
 	if (!bitsOf(machine, args, count, bits))
 		return lhat_nil();
 	return lh::guard(machine, [&]() {
@@ -560,8 +562,10 @@ bool lhPhysicsShape(lh::Context &ctx)
 		&& ctx.member(m, S, "computeMass", "f^self^, number^ -> (number^, number^, number^, number^);", lh_Shape_computeMass, nullptr)
 		&& ctx.member(m, S, "setFilterData", "p^self^, number^, number^, number^;", lh_Shape_setFilterData, nullptr)
 		&& ctx.member(m, S, "getFilterData", "f^self^ -> (number^, number^, number^);", lh_Shape_getFilterData, nullptr)
+		&& ctx.member(m, S, "setCategory", "p^self^;", lh_Shape_setCategory, nullptr)
 		&& ctx.member(m, S, "setCategory", "p^self^, number^, ...;", lh_Shape_setCategory, nullptr)
 		&& ctx.member(m, S, "getCategory", "f^self^ -> t^{...:number^};", lh_Shape_getCategory, nullptr)
+		&& ctx.member(m, S, "setMask", "p^self^;", lh_Shape_setMask, nullptr)
 		&& ctx.member(m, S, "setMask", "p^self^, number^, ...;", lh_Shape_setMask, nullptr)
 		&& ctx.member(m, S, "getMask", "f^self^ -> t^{...:number^};", lh_Shape_getMask, nullptr)
 		&& ctx.member(m, S, "setUserData", "p^self^, any^;", lh_Shape_setUserData, nullptr)

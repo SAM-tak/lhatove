@@ -1,0 +1,123 @@
+# love.thread and love.video -- the L^ port of testing/tests/thread.lua and
+# video.lua. The thread here is short and joined at once, so the suite
+# stays a single frame's worth of work.
+module^ suite.tests.thread
+
+import^ love.thread
+import^ love.graphics
+import^ love.timer
+
+let^ test = require^ "../lib/test.lh"
+
+public^let^ run = p^ {
+    test.begin("love.thread")
+
+    # a channel of one's own carries what a game would put in it
+    let^ channel = love.thread.newChannel()
+    test.text("type", "Channel", channel.type())
+    test.number("a fresh channel is empty", 0, channel.getCount())
+
+    let^ id = channel.push(42)
+    test.isTrue("push answers an id", id > 0)
+    test.number("one value waiting", 1, channel.getCount())
+    let^ peeked = channel.peek()
+    if^ peeked isa^ number^ {
+        test.number("peek answers without taking", 42, peeked)
+    else^:
+        test.isTrue("peek answers the number", false^)
+    }
+    test.number("peek left it there", 1, channel.getCount())
+    let^ popped = channel.pop()
+    if^ popped isa^ number^ {
+        test.number("pop answers the number", 42, popped)
+    else^:
+        test.isTrue("pop answers the number", false^)
+    }
+    test.number("pop took it", 0, channel.getCount())
+    test.isTrue("popping an empty channel answers nil^", channel.pop() isa^ nil^)
+
+    # a table crosses as a copy
+    channel.push({ name = "carried", count = 3 })
+    let^ table = channel.pop()
+    if^ table isa^ t^{ name : string^, count : number^ } {
+        test.text("a table carries its strings", "carried", table.name)
+        test.number("and its numbers", 3, table.count)
+    else^:
+        test.isTrue("a table crosses a channel", false^)
+    }
+
+    # performAtomic runs with the channel locked
+    var^ inside = 0
+    channel.performAtomic(p^c:love.thread.Channel, extra:any^ {
+        c.push("first")
+        c.push("second")
+        inside := c.getCount()
+    }, 0)
+    test.number("performAtomic saw both pushes", 2, inside)
+    channel.clear()
+    test.number("clear empties the channel", 0, channel.getCount())
+
+    # named channels are shared by name
+    let^ named = love.thread.getChannel("suite")
+    named.push("hello")
+    test.number("the same name answers the same channel", 1, love.thread.getChannel("suite").getCount())
+    love.thread.getChannel("suite").clear()
+
+    # a thread from code, given its work through a channel
+    let^ worker = love.thread.newThread("import^ love.thread\nlet^ args = ...\nlet^ out = love.thread.getChannel(\"suite.out\")\nlet^ n = args[1]\nif^ n isa^ number^ { out.push(n * 2) }\nout.push(\"done\")\n")
+    test.text("type", "Thread", worker.type())
+    test.isFalse("a thread that was not started is not running", worker.isRunning())
+    worker.start(21)
+    worker.wait()
+    test.isFalse("a joined thread has stopped", worker.isRunning())
+    test.isTrue("a thread that worked has no error", worker.getError() isa^ nil^)
+
+    let^ out = love.thread.getChannel("suite.out")
+    let^ doubled = out.pop()
+    if^ doubled isa^ number^ {
+        test.number("the thread did the work", 42, doubled)
+    else^:
+        test.isTrue("the thread answered a number", false^)
+    }
+    let^ word = out.pop()
+    if^ word isa^ string^ {
+        test.text("and said so", "done", word)
+    else^:
+        test.isTrue("the thread answered a string", false^)
+    }
+    out.clear()
+
+    # a thread that panics keeps its message for getError
+    let^ broken = love.thread.newThread("panic^ \"suite thread\"\n")
+    broken.start()
+    broken.wait()
+    let^ error = broken.getError()
+    if^ error isa^ string^ {
+        test.isTrue("a thread that failed says why", error.length > 0)
+    else^:
+        test.isTrue("a thread that failed has an error", false^)
+    }
+
+    test.begin("love.video")
+
+    let^ video = love.graphics.newVideo("assets/sample.ogv", { audio = false^ }) catch^ nil^
+    if^ video isa^ nil^ {
+        test.isTrue("newVideo reads the file", false^)
+    else^:
+        test.text("type", "Video", video.type())
+        test.isTrue("the video has a width", video.getWidth() > 0)
+        let^ w, h = video.getDimensions()
+        test.number("getDimensions agrees", video.getWidth(), w)
+        test.isTrue("it knows its filename", video.getFilename().length > 0)
+        test.isFalse("a fresh video is not playing", video.isPlaying())
+        video.play()
+        test.isTrue("play starts it", video.isPlaying())
+        video.pause()
+        test.isFalse("pause stops it", video.isPlaying())
+        video.seek(0.2)
+        test.near("seek then tell", 0.2, video.tell(), 0.1)
+        video.rewind()
+        test.near("rewind goes back to the start", 0, video.tell(), 0.05)
+        test.isTrue("no audio source was asked for", video.getSource() isa^ nil^)
+    }
+}

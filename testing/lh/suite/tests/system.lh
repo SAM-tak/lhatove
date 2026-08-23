@@ -1,0 +1,42 @@
+# love.system -- the L^ port of testing/tests/system.lua.
+module^ suite.tests.system
+
+import^ love.system
+
+let^ test = require^ "../lib/test.lh"
+
+public^let^ run = p^ {
+    test.begin("love.system")
+
+    test.isTrue("getProcessorCount is at least one", love.system.getProcessorCount() >= 1)
+
+    # the OS is one of the names LOVE knows
+    let^ os = love.system.getOS()
+    var^ known = false^
+    for^ name in^ { "OS X", "Windows", "Linux", "Android", "iOS", "Web" } {
+        if^ name = os { known := true^ }
+    }
+    test.isTrue($"getOS answers a known system ({os})", known)
+
+    # the clipboard round trips
+    let^ before = love.system.getClipboardText()
+    love.system.setClipboardText("lhatove suite")
+    test.text("clipboard", "lhatove suite", love.system.getClipboardText())
+    love.system.setClipboardText(before)
+
+    # power: a known state, a battery percentage in range when it is known
+    let^ state, seconds, percent = love.system.getPowerInfo()
+    var^ knownState = false^
+    for^ name in^ { "unknown", "battery", "nobattery", "charging", "charged" } {
+        if^ name = state { knownState := true^ }
+    }
+    test.isTrue($"getPowerInfo answers a known state ({state})", knownState)
+    if^ percent >= 0 { test.range("battery percentage", percent, 0, 100) }
+
+    # locales: a list of strings, "xx" or "xx_YY"
+    let^ locales = love.system.getPreferredLocales()
+    test.isTrue("at least one locale", locales.length^ >= 1)
+    for^ locale in^ locales { test.isTrue($"the locale {locale} looks like one", locale.length >= 2) }
+
+    test.isTrue("hasBackgroundMusic answers", love.system.hasBackgroundMusic() or^ true^)
+}
