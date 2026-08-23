@@ -86,13 +86,14 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
 ```powershell
-.\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（Esc で終了）
+.\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（物理で振れる n o g a m e。ゲームを窓へドロップで起動、Esc で終了）
 .\build\love\Release\lovec.exe --dump-host-api      # lhat-host.json（LSP 用ホスト API）を書き出す
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
 .\build\love\Release\lovec.exe testing\lh\physics    # box2d: 接触コールバック4種・filter・query・rayCast・joint・userData、exit=7（約 5 秒）
 .\build\love\Release\lovec.exe testing\lh\thread     # love.thread: file/code スレッド・Channel（table/closure の carry）・performAtomic・threaderror、exit=8
 .\build\love\Release\lovec.exe testing\lh\shader     # Canvas 読み戻し・Shader uniform・Quad/Mesh/SpriteBatch/ParticleSystem/TextBatch・状態系・Video、exit=9
+.\build\love\Release\lovec.exe testing\lh\restart    # love.event.restart + restartValue、2 周目で exit=10
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5
