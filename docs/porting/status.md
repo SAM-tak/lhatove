@@ -31,7 +31,7 @@
 | audio | 3 | lh_Audio.cpp | M3: newSource(path,type | SoundData)、play/stop/pause、volume、Source{play stop pause isPlaying looping volume pitch seek tell getDuration clone}。効果・フィルタ・queueable は未 |
 | sound | 3 | lh_Sound.cpp | M3: newSoundData(path | samples,rate,bits,ch)、SoundData 諸元。Decoder・サンプルアクセスは未 |
 | data | 5 | lh_Data.cpp | M3: encode/decode(base64,hex)・hash・compress/decompress（文字列）。ByteData/DataView は未 |
-| math | 4 | lh_Math.cpp | M3: random系・RandomGenerator・noise・gamma/linear・colorTo/FromBytes・isConvex・Transform（apply は暫定 any^）。BezierCurve・triangulate は未 |
+| math | 4 | lh_Math.cpp | M3: random系・RandomGenerator・noise・gamma/linear・colorTo/FromBytes・isConvex・Transform。BezierCurve・triangulate は未 |
 | system | 1 | lh_System.cpp | M3: getOS/getProcessorCount/clipboard/getPowerInfo/openURL/vibrate/locales |
 | touch | 1 | lh_Touch.cpp | M3: getTouches/getPosition/getPressure（id は整数） |
 | sensor | 1 | lh_Sensor.cpp | M3: hasSensor/isEnabled/setEnabled/getData |

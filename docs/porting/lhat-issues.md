@@ -1,39 +1,21 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `763c137`（2026-08-23）。
+基準: lhat HEAD `3a4376c`（2026-08-23）。
 
 ## 未解決
 
-### `lhat_program_install` が無限ループ（自型を返すメンバ + 自型を取るメンバ）
-
-hostdata 型 T に「T を返すメンバ」（`translate : p^self^, number^, number^ -> m.T;`）と
-「T を引数に取るメンバ」（`apply : p^self^, m.T -> m.T;`）が共存すると `lhat_program_install` が返らない。
-どちらか一方だけなら正常。T の実行時型を `translate` の戻り値のために構築 → T のメンバを辿る → `apply` の
-引数 T → また T を構築 … と、構築中の型を覚えていないための循環。
-
-再現: [repro/install_loop.c](repro/install_loop.c)（lhat.lib + lhatport.lib とリンクして実行 → `installing...` で停止）。
-
-lhatove 側の暫定: `love.math.Transform.apply` の引数を `any^` にして実行時検査（lhat 修正後に戻す）。
-
-`Self^` で回避できないか試した結果: ホスト登録の署名に `Self^` を書くと **登録が拒否される**
-（`lhat_type_of_text` に所有者型を解決する文脈が無い）。修正案は2段:
-(1) 実行時型構築で構築中の型を覚えて後方参照にする（本命。`Source.clone() -> Source` など自型を返すメンバは今後も増え、
-自型を取るメンバと同居した時点で再発する）
-(2) `lhat_register_member` の署名で `Self^` を所有者型として解決（署名が短く書ける）
+（なし）
 
 ## 提案
 
-### 可変長アームと他アームの重複判定
-
-`host_arms_overlap`（program.c）は「可変長アームは全てと重複」と単純化しているため、
-`newSoundData(path:string^)` と `newSoundData(samples:number^, ...)` のように先頭引数の型で明らかに
-区別できる組も登録拒否される。先頭から順に disjoint な位置があれば区別可、とできると
-LÖVE 風の API（`print(text, ...)` / `print(text, font, ...)` など）がそのまま書ける。
-現状 lhatove は可変長尾の実行時判別（`fontInTail`）や固定アーム化で回避中
+（なし）
 
 ## 解決済み
 
+- `lhat_program_install` の無限ループ（自型を返すメンバ + 自型を取るメンバ、実態は 3^32 歩）→ `3a4376c fix: a host type that answers and takes itself installs`（program.c の独自型下ろしを `lhat_machine_rt_from_checked` に一本化、`lhat_machine_make_type` は廃止）。再現 [repro/install_loop.c](repro/install_loop.c) は通過。`Transform.apply` を型付きに戻した
+- ホスト登録署名の `Self^` → 同コミットで `lhat_register_member` / `_hostvalue_member` の署名中の `Self^` が登録先の型に解決される。lhatove の Transform メンバは `p^self^, Self^ -> Self^;` 綴り。モジュール関数 / global では従来どおり誤り
+- 可変長アームと他アームの重複判定 → 同コミットで「書かれた位置で型が交わらない、または片方に置き場の無い個数がある」なら別アーム。`print` は `p^string^;` + `p^string^, number^, ...;` + `p^string^, love.graphics.Font, ...;` の3アーム。`f(string^, ...)` と `f(string^, Font, ...)` の組は引き続き拒否（2引数の呼び出しが両方に収まるため）— 尾の前に型の交わらない位置を置く
 - `lhat_type_of_text` の heap-use-after-free（構造型メンバ名がソースバッファを指したまま解放）→ `10e810e fix: a type's member names are the arena's own, not the source's`
 - `stdlib/*.h` に `extern "C"` ガード無し → 追加済み。lhatove 側の包み込みは撤去
 - `stdlib/math.h` のインストール漏れ → 追加済み

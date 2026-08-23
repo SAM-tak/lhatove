@@ -342,10 +342,9 @@ struct GraphicsBinding
 
 static GraphicsBinding binding;
 
-// The Font a print call may pass right after its text. Both spellings --
-// print(text, x, y, ...) and print(text, font, x, y, ...) -- are one
-// variadic registration, since two variadic arms would overlap (14.12);
-// the tail is read here instead.
+// The Font a print call may pass right after its text. print(text, x, ...)
+// and print(text, font, x, ...) are two arms, told apart at the second
+// position; one host function serves both and finds the font here.
 static Font *fontInTail(const LhatValue *arguments, size_t count, size_t index)
 {
 	if (index >= count || !lhat_is_object_kind(arguments[index], LHAT_OBJECT_HOSTDATA))
@@ -728,8 +727,11 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.func(m, "polygon", "p^string^, number^, number^, number^, number^, number^, number^, ...;", lh_polygon, nullptr)
 		&& ctx.func(m, "points", "p^number^, number^, ...;", lh_points, nullptr)
 		&& ctx.func(m, "setPointSize", "p^number^;", lh_setPointSize, nullptr)
-		&& ctx.func(m, "print", "p^string^, ...;", lh_print, nullptr)
+		&& ctx.func(m, "print", "p^string^;", lh_print, nullptr)
+		&& ctx.func(m, "print", "p^string^, number^, ...;", lh_print, nullptr)
+		&& ctx.func(m, "print", "p^string^, love.graphics.Font, ...;", lh_print, nullptr)
 		&& ctx.func(m, "printf", "p^string^, number^, number^, number^, ...;", lh_printf, nullptr)
+		&& ctx.func(m, "printf", "p^string^, love.graphics.Font, number^, number^, number^, ...;", lh_printf, nullptr)
 		&& ctx.func(m, "push", "p^;", lh_push, nullptr)
 		&& ctx.func(m, "pop", "p^;", lh_pop, nullptr)
 		&& ctx.func(m, "translate", "p^number^, number^;", lh_translate, nullptr)

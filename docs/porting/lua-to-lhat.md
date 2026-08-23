@@ -95,7 +95,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 - モジュール生成順は boot.lua どおり: filesystem → timer → event → keyboard → joystick → mouse → touch → sound → system → sensor → audio(OpenAL、失敗時 null) → image → data → font → window → graphics → math。conf.lh の `modules.*` で個別に切れる
 - コールバック追加: joystick/gamepad 系（`love.joystick.Joystick` hostdata が引数）、touch 系（id は整数）、`sensorupdated`。`Variant::LUSERDATA` は整数へ変換（touch id）
-- **lhat の制約2件**（[lhat-issues.md](lhat-issues.md)）: (1) 可変長アームは他アームと常に重複扱い → 省略可能引数は固定アーム列挙か可変長尾の実行時判別 (2) 「自型を返すメンバ + 自型を取るメンバ」で install が無限ループ → `Transform.apply` は暫定 `any^`
+- lhat `3a4376c` で解消: 自型メンバは `Self^` 綴り（`Transform` の全メンバ）、可変長アームは位置で区別（`print` = `string^` / `string^, number^, ...` / `string^, Font, ...` の3アーム）。当初の回避（`apply` の `any^`、固定アーム化）は撤去 or 任意
 - ImageData のピクセル: `getPixel -> (r,g,b,a)` タプル、`setPixel(x,y,r,g,b[,a])`、`mapPixel(f^x,y,r,g,b,a -> (r,g,b,a))`（ピクセル毎にネスト呼び出し。host value 色型は見送り — タプルで足りる）
 - `love.data` は文字列 in/out（ByteData 等のコンテナは必要になった時点で）
 - デバッグ補助: `LHATOVE_TRACE=1`（起動列をトレース）、`LHATOVE_SKIP_REGISTRATIONS=a,b`（登録を外して二分探索）、`Runtime::failedRegistrar()` は拒否された登録名と署名を含む
