@@ -129,3 +129,11 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - Mesh は標準頂点形式（x, y, u, v, r, g, b, a）のみ。頂点は 8 数 or 表で指定
 - Video: `love.graphics.newVideo(path[, {audio = false^, dpiscale}])`。wrap_Graphics.lua と同じく同ファイルから audio Source を作って同期、無ければ DeltaSync。VideoStream 型は公開しない
 - 未対応: Buffer / compute shader / drawInstanced / テクスチャ配列・立方体・3D / カスタム頂点形式 / captureScreenshot / Shader の `Buffer` uniform / ParticleSystem の setQuads 以外の細目（clone はあり）
+
+## M6 で確定した実装事項
+
+- restart: `love.event.restart([payload])` が `quit` メッセージを `"restart"` 付きで積み、`love.event.dispatch` が `"restart"` 文字列を返す → run が返し、`boot` は `LOVE_LH_RESTART`（Boot.h の負値）を返す。`love.cpp` の `do { love_lh_boot(...) } while (code == LOVE_LH_RESTART)` が再 boot。payload は `lh::variantOf` で Variant 化してプロセス側 static に置き、次の boot の `love.event.restartValue()` が `pushVariant` で戻す（table/closure は carry の複製、LOVE オブジェクトは拒否）
+- `love.event.restartValue` は `love.event` に置く。`love` テーブル直下のホスト関数は `import^ love` を要し、それが `import^ love.graphics` 等のサブモジュール import と衝突する（「this table belongs to the machine」）ため
+- ドロップからの再起動: `love.boot.restartInto(path)`（nogame.lua の `_noGameRestartInfo` 相当）が `quit "restart"` にゲームパスを添え、次の boot が `args.game` として使う。`filedropped` / `directorydropped` コールバックを追加
+- Boot.lh の run は `dispatch` の答えが nil^ でなければ返す（数値 = 終了コード、`"restart"` = 再起動）
+- nogame.lh: 埋め込み画像を持たない代わりに love.physics で組む — 静的アンカーから伸びる6連リンクの各リンクに文字（n o g a m e）、末端に浮力（`setGravityScale(-1.2)`）の風船、背景に流れる雲。クリックで風船を弾き、Esc で終了、ゲームをドロップで起動

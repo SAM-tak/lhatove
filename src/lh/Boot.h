@@ -35,11 +35,39 @@ extern "C"
 // `console` says the caller is lovec (or any build that writes to a terminal
 // of its own): problems go to stderr only, never to a message box.
 //
-// Answers the process exit code.
+// Answers the process exit code, or LOVE_LH_RESTART when the game asked to
+// be restarted (love.event.restart): call again with the same arguments.
+// What the game handed restart() waits in between as a carried value the
+// next run uncarries for love.restartValue(); a game path the no-game
+// screen was given by a drop replaces the arguments.
+#define LOVE_LH_RESTART (-0x4c48)
+
 LOVE_EXPORT int love_lh_boot(int argc, char **argv, bool console);
 
 #ifdef __cplusplus
 }
+
+#include "common/Variant.h"
+#include <string>
+
+namespace love
+{
+namespace lh
+{
+
+// What a restart carries over, set by love.event's dispatch when a quit
+// message says "restart" and read by the next boot. The payload is a
+// Variant so that a carried L^ value (lh::Carried) or a scalar survives
+// the machine; a LOVE object is refused at love.event.restart.
+void setRestartPayload(const Variant &payload);
+void setRestartGamePath(const std::string &path);
+
+// What the run before handed love.event.restart -- nil on a first run.
+// love.event.restartValue() answers this.
+const Variant &restartPayload();
+
+} // lh
+} // love
 #endif
 
 #endif // LOVE_LH_BOOT_H

@@ -93,12 +93,18 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	// The whole run lives in liblove; restart (milestone M6) will loop here.
+	// The whole run lives in liblove; a restart comes back here and goes
+	// round again.
+	int code;
+	do
+	{
 #ifdef LOVE_LH_CONSOLE_EXE
-	return love_lh_boot(argc, argv, true);
+		code = love_lh_boot(argc, argv, true);
 #else
-	return love_lh_boot(argc, argv, false);
+		code = love_lh_boot(argc, argv, false);
 #endif
+	} while (code == LOVE_LH_RESTART);
+	return code;
 }
 
 #endif // LOVE_BUILD_EXE

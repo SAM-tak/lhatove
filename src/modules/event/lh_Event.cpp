@@ -28,6 +28,7 @@
 
 #include "Event.h"
 #include "lh/lh.h"
+#include "lh/Boot.h"
 
 #include "common/Object.h"
 
@@ -71,7 +72,12 @@ static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValu
 		if (message->name == "quit")
 		{
 			// callbacks.lua: `if c or not love.quit or not love.quit() then
-			// return a or 0, b` -- the third argument forces the quit.
+			// return a or 0, b` -- the third argument forces the quit. A
+			// first argument "restart" asks for another boot, with the
+			// second argument carried over (Boot.h); the no-game screen's
+			// drop sends the game path third.
+			const Variant &first = message->args.empty() ? Variant() : message->args[0];
+			bool restart = first.getType() == Variant::STRING || first.getType() == Variant::SMALLSTRING;
 			bool forced = message->args.size() > 2 && message->args[2].getType() == Variant::BOOLEAN && message->args[2].getData().boolean;
 			LhatRunResult asked;
 			bool vetoed = false;
@@ -83,6 +89,18 @@ static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValu
 			}
 			if (!vetoed)
 			{
+				if (restart)
+				{
+					lh::setRestartPayload(message->args.size() > 1 ? message->args[1] : Variant());
+					if (message->args.size() > 2 && (message->args[2].getType() == Variant::STRING || message->args[2].getType() == Variant::SMALLSTRING))
+					{
+						const Variant::Data &d = message->args[2].getData();
+						lh::setRestartGamePath(message->args[2].getType() == Variant::STRING ? std::string(d.string->str, d.string->len) : std::string(d.smallstring.str, d.smallstring.len));
+					}
+					LhatValue word = lhat_nil();
+					lh::makeString(machine, "restart", &word);
+					return word;
+				}
 				int code = 0;
 				if (!message->args.empty() && message->args[0].getType() == Variant::NUMBER)
 					code = (int) message->args[0].getData().number;
@@ -110,7 +128,10 @@ static LhatValue lh_quit(LhatMachine *machine, void *context, const LhatValue *a
 	(void) context;
 	return lh::guard(machine, [&]() {
 		std::vector<Variant> args;
-		if (count > 0 && lhat_is_number(arguments[0]))
+		const char *word = count > 0 ? lh::stringOf(arguments[0]) : nullptr;
+		if (word != nullptr)
+			args.emplace_back(std::string(word)); // "restart"
+		else if (count > 0 && lhat_is_number(arguments[0]))
 			args.emplace_back(lhat_number_as_real(arguments[0]));
 		else
 			args.emplace_back(0.0);
@@ -118,6 +139,42 @@ static LhatValue lh_quit(LhatMachine *machine, void *context, const LhatValue *a
 		instance()->push(m);
 		return lhat_bool(true);
 	});
+}
+
+// quit("restart") / restart([payload]): the run answers "restart" and the
+// executable boots again; the payload comes back from love.restartValue().
+// A LOVE object cannot cross (its module is gone by then); tables and
+// closures cross as copies, but a closure's code dies with the program, so
+// only data belongs in the payload.
+static LhatValue lh_restart(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	const EventBinding *binding = (const EventBinding *) context;
+	Variant payload;
+	if (count > 0 && !lhat_is_nil(arguments[0]))
+	{
+		std::string why;
+		if (!lh::variantOf(machine, *binding->registry, arguments[0], payload, why))
+			return lh::raise(machine, "The restart payload cannot cross: " + why);
+		if (payload.getType() == Variant::LOVEOBJECT && !payload.getData().objectproxy.type->isa(lh::Carried::type))
+			return lh::raise(machine, "A LOVE object cannot be a restart payload");
+	}
+	return lh::guard(machine, [&]() {
+		std::vector<Variant> args = {Variant("restart", 7), payload};
+		StrongRef<Message> m(new Message("quit", args), Acquire::NORETAIN);
+		instance()->push(m);
+		return lhat_nil();
+	});
+}
+
+// restartValue() -> what the run before handed restart(), nil on a first
+// run. It lives here rather than on `love` itself: a member of the `love`
+// table would need `import^ love`, which the submodule imports refuse.
+static LhatValue lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) arguments;
+	(void) count;
+	const EventBinding *binding = (const EventBinding *) context;
+	return lh::pushVariant(machine, *binding->registry, lh::restartPayload());
 }
 
 static LhatValue lh_clear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
@@ -148,9 +205,13 @@ bool lhopen_love_event(Context &ctx)
 	const char *m = "love.event";
 	return ctx.func(m, "pump", "p^;", lh_pump, nullptr)
 		&& ctx.func(m, "pump", "p^number^;", lh_pump, nullptr)
-		&& ctx.func(m, "dispatch", "p^t^{} -> number^|nil^;", lh_dispatch, &binding)
+		&& ctx.func(m, "dispatch", "p^t^{} -> number^|string^|nil^;", lh_dispatch, &binding)
 		&& ctx.func(m, "quit", "p^ -> bool^;", lh_quit, nullptr)
 		&& ctx.func(m, "quit", "p^number^ -> bool^;", lh_quit, nullptr)
+		&& ctx.func(m, "quit", "p^string^ -> bool^;", lh_quit, nullptr)
+		&& ctx.func(m, "restart", "p^;", lh_restart, &binding)
+		&& ctx.func(m, "restart", "p^any^;", lh_restart, &binding)
+		&& ctx.func(m, "restartValue", "p^ -> any^;", lh_restartValue, &binding)
 		&& ctx.func(m, "clear", "p^;", lh_clear, nullptr);
 }
 

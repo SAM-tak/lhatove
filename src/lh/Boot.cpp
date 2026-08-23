@@ -210,13 +210,18 @@ static const Callback callbacks[] = {
 	{"touchmoved", "p^number^, number^, number^, number^, number^, number^, ...;"},
 	{"sensorupdated", "p^string^, number^, number^, number^;"},
 	{"threaderror", "p^love.thread.Thread, string^;"},
+	{"filedropped", "p^string^;"},
+	{"directorydropped", "p^string^;"},
 };
 
 struct BootState
 {
 	LhatValue handlers = lhat_nil(); // parked at L^.modules.love.boot.handlers
 	std::string handlersSignature;   // outlives the program (program.h)
+	const TypeRegistry *registry = nullptr;
 };
+
+static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
 
 static LhatValue lh_boot_handlers(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
 {
@@ -250,6 +255,9 @@ static LhatValue lh_boot_noquit(LhatMachine *machine, void *context, const LhatV
 // has to outlive it.
 static BootState bootState;
 
+static LhatValue lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
+static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
+
 static bool lhopen_love_boot(Context &ctx)
 {
 	if (ctx.types())
@@ -268,8 +276,10 @@ static bool lhopen_love_boot(Context &ctx)
 	}
 	signature += " };";
 	bootState.handlersSignature = signature;
+	bootState.registry = ctx.registry;
 
-	return ctx.func("love.boot", "handlers", bootState.handlersSignature.c_str(), lh_boot_handlers, &bootState);
+	return ctx.func("love.boot", "handlers", bootState.handlersSignature.c_str(), lh_boot_handlers, &bootState)
+		&& ctx.func("love.boot", "restartInto", "p^string^;", lh_boot_restartInto, &bootState);
 }
 
 // 05 の 5.6: a module^ unit's exports answer their types. Every callback the
@@ -435,9 +445,57 @@ private:
 	std::vector<Module *> held;
 };
 
+// What one run leaves for the next (Boot.h's contract). Process state on
+// purpose: it has to outlive the runtime it came from.
+struct RestartState
+{
+	Variant payload;       // what love.event.restart was given
+	std::string gamepath;  // the no-game screen's drop, for the next boot
+	bool asked = false;
+};
+
+static RestartState restartState;
+
+void setRestartPayload(const Variant &payload)
+{
+	restartState.payload = payload;
+	restartState.asked = true;
+}
+
+void setRestartGamePath(const std::string &path)
+{
+	restartState.gamepath = path;
+	restartState.asked = true;
+}
+
+// A run's answer as the process exit code: a number is one, "restart" asks
+// for another boot, anything else is 0.
 static int exitCodeOf(LhatValue value)
 {
+	const char *text = lh::stringOf(value);
+	if (text != nullptr && strcmp(text, "restart") == 0)
+		return LOVE_LH_RESTART;
 	return lhat_is_integer(value) ? (int) lhat_as_integer(value) : 0;
+}
+
+const Variant &restartPayload()
+{
+	return restartState.payload;
+}
+
+// love.boot.restartInto(path): the no-game screen restarting with a
+// dropped game, as nogame.lua returned _noGameRestartInfo.
+static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+{
+	(void) context;
+	std::string path = lh::optString(arguments, count, 0, "");
+	auto event = Module::getInstance<love::event::Event>(Module::M_EVENT);
+	if (event == nullptr)
+		return lh::raise(machine, "love.event is not loaded");
+	std::vector<Variant> args = {Variant("restart", 7), Variant(), Variant(path)};
+	StrongRef<love::event::Message> message(new love::event::Message("quit", args), Acquire::NORETAIN);
+	event->push(message);
+	return lhat_nil();
 }
 
 // The last path component, as love.path.leaf.
@@ -519,6 +577,15 @@ static int boot(int argc, char **argv, bool console)
 	tracing = getenv("LHATOVE_TRACE") != nullptr;
 	startWatchdog();
 	Arguments args = parseArguments(argc, argv);
+
+	// A restart with a game dropped on the no-game screen runs that game;
+	// the payload stays for love.restartValue().
+	if (!restartState.gamepath.empty())
+	{
+		args.game = restartState.gamepath;
+		restartState.gamepath.clear();
+	}
+	restartState.asked = false;
 
 #ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
 	if (args.console)
