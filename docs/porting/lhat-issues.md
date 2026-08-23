@@ -5,7 +5,7 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 未解決
 
-（なし）
+- **親モジュールとその子モジュールを同じスコープに import できない**: `import^ love` と `import^ love.graphics` を同じユニットに書くと「this name is already defined in this scope: love」。LÖVE の API は `love.getVersion()` と `love.graphics.*` を同じファイルで使うのが普通なので、ゲーム側で必ず当たる。lhatove の回避: `love` テーブル直下のホスト関数は `getVersion` だけにし、他は必ず子モジュールへ置く（`love.event.restartValue` など）。テストも `testing/lh/suite/tests/love.lh` だけ `import^ love` にして分離。期待: 子モジュールを import した後でも親の直下メンバーが読めること
 
 ## 提案
 

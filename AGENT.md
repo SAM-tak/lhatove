@@ -96,7 +96,7 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe testing\lh\thread     # love.thread: file/code スレッド・Channel（table/closure の carry）・performAtomic・threaderror、exit=8
 .\build\love\Release\lovec.exe testing\lh\shader     # Canvas 読み戻し・Shader uniform・Quad/Mesh/SpriteBatch/ParticleSystem/TextBatch・状態系・Video、exit=9
 .\build\love\Release\lovec.exe testing\lh\restart    # love.event.restart + restartValue、2 周目で exit=10
-.\build\love\Release\lovec.exe testing\lh\suite      # L^ 版テストスイート（data/math/filesystem/timer、165 チェック）、pass=0 / fail=1
+.\build\love\Release\lovec.exe testing\lh\suite      # L^ 版テストスイート（バインド済み全モジュール、450 チェック）、pass=0 / fail=1
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5
