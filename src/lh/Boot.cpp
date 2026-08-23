@@ -46,6 +46,7 @@
 #include "modules/math/MathModule.h"
 #include "modules/physics/box2d/Physics.h"
 #include "modules/thread/ThreadModule.h"
+#include "modules/video/theora/Video.h"
 #include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
 #include "modules/window/sdl/Window.h"
@@ -353,7 +354,7 @@ struct Conf
 	{
 		bool audio = true, data = true, event = true, filesystem = true, font = true, graphics = true;
 		bool image = true, joystick = true, keyboard = true, math = true, mouse = true, sensor = true;
-		bool physics = true, sound = true, system = true, thread = true, timer = true, touch = true, window = true;
+		bool physics = true, sound = true, system = true, thread = true, timer = true, touch = true, video = true, window = true;
 	} modules;
 };
 
@@ -400,6 +401,7 @@ static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
 		conf.modules.thread = fieldBool(machine, modules, "thread", true);
 		conf.modules.timer = fieldBool(machine, modules, "timer", true);
 		conf.modules.touch = fieldBool(machine, modules, "touch", true);
+		conf.modules.video = fieldBool(machine, modules, "video", true);
 		conf.modules.window = fieldBool(machine, modules, "window", true);
 	}
 }
@@ -756,6 +758,8 @@ static int boot(int argc, char **argv, bool console)
 			modules.add(new love::image::Image());
 		if (conf.modules.data)
 			modules.add(new love::data::DataModule());
+		if (conf.modules.video)
+			modules.add(new love::video::theora::Video());
 		if (conf.modules.font)
 			modules.add(new love::font::freetype::Font());
 		if (conf.modules.window)

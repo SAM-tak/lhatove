@@ -11,7 +11,7 @@
 | M2 | 実ゲーム対応（PhysfsLoader 完全化・conf.lh・filesystem/image/font・エラー画面・fused） | ディスク上の実ゲームディレクトリ + zip 読込 | **完了**（2026-08-23）。`testing/lh/realgame` をディレクトリ・.love・fused exe の3形態で確認。blue screen・nogame 動作 |
 | M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
 | M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | **完了**（2026-08-23）。`testing/lh/physics` が begin/end/presolve/postsolve・contact filter・area query・ray cast・joint・userData を通す（exit=7、約 5 秒）。途中見つけた lhat の install 型爆発は `fea90e4` で解消（[lhat-issues.md](lhat-issues.md)） |
-| M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | 未着手 |
+| M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | **完了**（2026-08-23）。`testing/lh/thread`（file/code thread・Channel で table/closure 往復・performAtomic・threaderror、exit=8）、`testing/lh/shader`（Canvas 読み戻し・Shader uniform・Quad・Mesh・SpriteBatch・ParticleSystem・TextBatch・状態系・Video、exit=9） |
 | M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植開始） | 引数なし起動で nogame 表示 | 未着手 |
 
 ## モジュール別
@@ -24,7 +24,7 @@
 | window | 1 | lh_Window.cpp | M1-2: setMode(w,h[,settings])/getMode/title/isOpen/close/fullscreen/DPI/focus/vsync |
 | keyboard | 1 | lh_Keyboard.cpp | M1: isDown/isScancodeDown/keyRepeat/textInput |
 | mouse | 2 | lh_Mouse.cpp 他 | M1: position/isDown/visible（Cursor は未） |
-| graphics | 12 | lh_Graphics.cpp | M1: 即時描画。M2: Texture（newImage/draw/寸法/setFilter）、Font（setFont/getFont、print/printf の font 引数）。Canvas/Shader/Mesh/SpriteBatch/Quad 等は未 |
+| graphics | 12 | lh_Graphics.cpp / lh_GraphicsState.cpp / lh_Shader.cpp / lh_Mesh.cpp / lh_ParticleSystem.cpp / lh_Video.cpp | M1: 即時描画。M2: Texture・Font。M5: Canvas（`newCanvas` → Texture、setCanvas/getCanvas、readbackTexture）、Shader（newShader/validateShader、send/sendColor/hasUniform）、Quad、Mesh（標準頂点形式のみ）、SpriteBatch、ParticleSystem、TextBatch、Video（newVideo）、状態系（blend/scissor/stencil/colorMask/defaultFilter/lineStyle/lineJoin/wireframe/shear/applyTransform/transformPoint/ellipse/arc/getRendererInfo/getStats/reset）。Buffer/compute/カスタム頂点形式/テクスチャ配列・立方体/drawInstanced/captureScreenshot は未 |
 | filesystem | 4 | lh_Filesystem.cpp | M2: read/write/append/exists/getInfo/getDirectoryItems/createDirectory/remove/identity/source/isFused/load/newFile(File)/newFileData(FileData)。mount/lines/enumerate は未 |
 | image | 3 | lh_Image.cpp | M2-3: newImageData(path | w,h)、寸法、getPixel/setPixel/mapPixel。CompressedImageData・encode/paste は未 |
 | font | 3 | （graphics 側で newFont）| M2: love.graphics.newFont(size | path,size)、Font.getWidth/getHeight/getLineHeight。Rasterizer/GlyphData 直接公開は未 |
@@ -38,5 +38,5 @@
 | joystick | 2 | lh_Joystick.cpp | M3: getJoysticks/getJoystickCount、Joystick{connected name id guid axes buttons hats isDown isGamepad gamepadAxis isGamepadDown vibration}、joystick/gamepad コールバック |
 | physics/box2d | 21 | lh_Physics.cpp / lh_World.cpp / lh_Body.cpp / lh_Shape.cpp / lh_Joint.cpp / lh_Contact.cpp（コア脱 Lua 済み） | M4: World/Body/Shape/Joint/Contact の 5 型（shape/joint の種別は 1 型に平坦化）、newWorld/newBody/new*Body/new*Shape/new*Joint/getDistance/meter/compute*、コールバック・filter・query・rayCast、userData。deprecated API（body 無し shape・newFixture・getChildEdge）は非対応 |
 | thread | 3 | lh_Thread.cpp / LhThread.cpp（LuaThread 置換） | M5: newThread(path \| code \| File \| FileData)、Thread{start wait getError isRunning}、newChannel/getChannel、Channel{push supply pop demand peek getCount hasRead clear performAtomic}、`threaderror` コールバック。値は `lh::variantOf`（スカラー・LOVE オブジェクトはそのまま、table/closure は `lhat_carry` の複製） |
-| video | 2 | lh_Video.cpp 他 | 未着手 |
+| video | 2 | graphics/lh_Video.cpp | M5: `love.graphics.newVideo(path[, {audio, dpiscale}])` → Video{play pause rewind seek tell isPlaying 寸法 getSource/setSource getFilename setFilter}。love.video.VideoStream は直接公開しない |
 | luasocket / enet / luahttps / lua53 | - | 恒久廃止 | 確定 |

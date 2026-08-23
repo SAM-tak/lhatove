@@ -112,3 +112,20 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - 非対応（12.0 で deprecated）: body 無しの `newCircleShape(x, y, r)` 系、`newFixture`、`Fixture:getShape`、`ChainShape:getChildEdge`、`MouseJoint` の setFrequency/setDampingRatio（コアに実装が無い）
 - デバッグ補助を追加: `LHATOVE_WATCHDOG=<秒>`（フレームが止まると主スレッドのスタックを base+offset で stderr へ書き、`scripts/symbolize.c` で .pdb から名前解決。RelWithDebInfo 推奨）、`LHATOVE_GC_STATS=<n>`（n フレーム毎）、`LHATOVE_SKIP_REGISTRATIONS=love.physics.*`（前方一致）
 - lhat `fea90e4` で解消: install が hostdata 型をメンバ付きテーブルとして再帰展開していた型爆発（physics の相互参照 5 型で live 265 万 → 2,477、nested call 370ms → 即時）。副産物として hostdata 引数のオーバーロード解決がタグ比較で効く。補間スロットのタプルも静的エラーになった
+
+## M5 で確定した実装事項
+
+- love.thread: `LhThread`（`LuaThread` の後継、`Threadable`）が OS スレッド上に専用 `LhatMachine` を作り（`lh::Runtime::spawnMachine` = `lhat_machine_new` + `lhat_program_install` + 専用 `ParkingLot`）、Program を共有して走る（std.thread と同形）。スレッド本体はファイル（`lhat_program_check` で unit 化 → 診断は newThread 時に panic）か文字列コード（`lhat_program_load_text`、Thread が proto を所有）。引数は script の `...` で受ける
+- Program への書込（check / compile / load / install）は `lh::programMutex()` で直列化。実行中の machine は proto を読むだけ
+- Channel の値は `lh::variantOf`: nil/bool/number/string はそのまま、hostdata は `Variant::LOVEOBJECT`、table/closure は `lhat_carry` の複製を `lh::Carried`（love::Object）で包んで `Variant` に載せ、取り出す側の machine で `lhat_uncarry`。LOVE オブジェクトを含む table は運べない（carry が拒否 → panic）
+- `ParkingLot::lotOf(machine)`: 値を係留する binding は machine から lot を引く（physics のコールバック等）。`physicsBinding.lot` は廃止
+- `threaderror` コールバック追加（`p^love.thread.Thread, string^`）。thread の fault は `lh::describeRun` でメッセージ化
+- `performAtomic(fn, ...)` は extra 引数の個数でアーム分け（0〜3、`any^`）。可変長型の手続き型に固定引数の閉包は適合しないため
+- 同位置に異なる hostdata 型を置くアームは登録で拒否される（File vs FileData）→ `p^File|FileData` の合併 1 アーム（[lhat-issues.md](lhat-issues.md) 提案）
+- `std.thread` / `std.async` は登録しない
+- graphics: Canvas は独立型にせず `newCanvas` が render target 付き `Texture` を返す（12.0 と同じ）。`setCanvas(...)` は 1 本の可変長アーム（Texture 列 + 省略可の depth/stencil bool）— `p^Texture, ...` と `p^t^{...:Texture}, ...` は登録で重なると判定されるため。`getScissor` は未設定時 0 の 4 組、`rayCast` 系と同じ「nil^ の代わりに値」方針
+- `draw` は `p^D;` / `p^D, number^, ...;` / `p^Texture, Quad, ...;` の 3 アーム（D = Texture|Mesh|SpriteBatch|ParticleSystem|TextBatch|Video の合併）。`add(x, y, ...)` と `add(quad, x, y, ...)` も同様に先頭位置で分ける
+- Shader.send は uniform の型に従う: float（数値列 or 要素ごとの number 表）、int/uint、bool、matrix（列優先の平坦表 / 行の表 / mat4 は Transform）、sampler（Texture）
+- Mesh は標準頂点形式（x, y, u, v, r, g, b, a）のみ。頂点は 8 数 or 表で指定
+- Video: `love.graphics.newVideo(path[, {audio = false^, dpiscale}])`。wrap_Graphics.lua と同じく同ファイルから audio Source を作って同期、無ければ DeltaSync。VideoStream 型は公開しない
+- 未対応: Buffer / compute shader / drawInstanced / テクスチャ配列・立方体・3D / カスタム頂点形式 / captureScreenshot / Shader の `Buffer` uniform / ParticleSystem の setQuads 以外の細目（clone はあり）

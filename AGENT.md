@@ -41,7 +41,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - lhat の登録は check 前に完結が必須。レジストラは **2相**（TYPES 相で `lhat_register_type` / `lhat_register_hostdata_type`、MEMBERS 相でメンバ・関数登録）。シグネチャは既登録型しか参照できないため
 - 登録 context は per-registration の構造体を渡す。ファイルスコープ static 変数は使わない（雛形: `../lhat/stdlib/io.c`）
 - C 側で保持する L^ 値は GC ルートにならない。永続値は `lhat_machine_register` で `L^.modules.love.*` に係留する
-- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math`。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は M5 で判断
+- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math`。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は登録しない（スレッドは love.thread。M5 で決定）
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
 - 前提 lhat は HEAD `fea90e4` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個）
@@ -81,7 +81,7 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 
 > `git clone https://github.com/love2d/megasource.git`
 
-## 動作確認（M4 時点）
+## 動作確認（M5 時点）
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
@@ -91,6 +91,8 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
 .\build\love\Release\lovec.exe testing\lh\physics    # box2d: 接触コールバック4種・filter・query・rayCast・joint・userData、exit=7（約 5 秒）
+.\build\love\Release\lovec.exe testing\lh\thread     # love.thread: file/code スレッド・Channel（table/closure の carry）・performAtomic・threaderror、exit=8
+.\build\love\Release\lovec.exe testing\lh\shader     # Canvas 読み戻し・Shader uniform・Quad/Mesh/SpriteBatch/ParticleSystem/TextBatch・状態系・Video、exit=9
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5

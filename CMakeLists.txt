@@ -508,6 +508,12 @@ add_library(love_graphics_root STATIC
 	src/modules/graphics/Graphics.cpp
 	src/modules/graphics/Graphics.h
 	src/modules/graphics/lh_Graphics.cpp
+	src/modules/graphics/lh_Graphics.h
+	src/modules/graphics/lh_GraphicsState.cpp
+	src/modules/graphics/lh_Shader.cpp
+	src/modules/graphics/lh_Mesh.cpp
+	src/modules/graphics/lh_ParticleSystem.cpp
+	src/modules/graphics/lh_Video.cpp
 	src/modules/graphics/GraphicsReadback.cpp
 	src/modules/graphics/GraphicsReadback.h
 	src/modules/graphics/Mesh.cpp

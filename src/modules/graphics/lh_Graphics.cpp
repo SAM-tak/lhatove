@@ -27,13 +27,15 @@
 // per arity, 02 の 14.12) where the set is small, and as a variadic tail
 // where it is the nine-number transform every draw call takes.
 
-#include "Graphics.h"
-#include "lh/lh.h"
+#include "lh_Graphics.h"
 
 #include "Font.h"
-#include "Texture.h"
-#include "common/Matrix.h"
-#include "common/Vector.h"
+#include "Shader.h"
+#include "Mesh.h"
+#include "SpriteBatch.h"
+#include "ParticleSystem.h"
+#include "TextBatch.h"
+#include "Video.h"
 #include "modules/filesystem/Filesystem.h"
 #include "modules/filesystem/FileData.h"
 #include "modules/font/Font.h"
@@ -47,10 +49,13 @@ namespace love
 namespace graphics
 {
 
-#define instance() (Module::getInstance<Graphics>(Module::M_GRAPHICS))
+#define instance() graphicsInstance()
+
+GraphicsBinding graphicsBinding;
+#define binding graphicsBinding
 
 // The x, y, r, sx, sy, ox, oy, kx, ky tail of a draw call, from `first` on.
-static Matrix4 transformOf(const LhatValue *args, size_t count, size_t first)
+Matrix4 transformOf(const LhatValue *args, size_t count, size_t first)
 {
 	float x = (float) lh::optNumber(args, count, first + 0, 0.0);
 	float y = (float) lh::optNumber(args, count, first + 1, 0.0);
@@ -64,7 +69,7 @@ static Matrix4 transformOf(const LhatValue *args, size_t count, size_t first)
 	return Matrix4(x, y, a, sx, sy, ox, oy, kx, ky);
 }
 
-static bool drawModeOf(LhatMachine *machine, LhatValue value, Graphics::DrawMode &mode)
+bool drawModeOf(LhatMachine *machine, LhatValue value, Graphics::DrawMode &mode)
 {
 	const char *name = lh::stringOf(value);
 	if (name == nullptr || !Graphics::getConstant(name, mode))
@@ -75,7 +80,7 @@ static bool drawModeOf(LhatMachine *machine, LhatValue value, Graphics::DrawMode
 	return true;
 }
 
-static Colorf colorOf(const LhatValue *args, size_t count, size_t first)
+Colorf colorOf(const LhatValue *args, size_t count, size_t first)
 {
 	return Colorf(
 		(float) lh::optNumber(args, count, first + 0, 0.0),
@@ -84,7 +89,17 @@ static Colorf colorOf(const LhatValue *args, size_t count, size_t first)
 		(float) lh::optNumber(args, count, first + 3, 1.0));
 }
 
-static LhatValue colorTuple(LhatMachine *machine, Colorf c)
+LhatValue numberTuple(LhatMachine *machine, const float *values, size_t count)
+{
+	std::vector<LhatValue> items(count);
+	for (size_t i = 0; i < count; i++)
+		items[i] = lhat_real(values[i]);
+	LhatValue out = lhat_nil();
+	lh::makeTuple(machine, items.data(), count, &out);
+	return out;
+}
+
+LhatValue colorTuple(LhatMachine *machine, Colorf c)
 {
 	LhatValue parts[4] = {lhat_real(c.r), lhat_real(c.g), lhat_real(c.b), lhat_real(c.a)};
 	LhatValue out = lhat_nil();
@@ -270,7 +285,7 @@ static LhatValue lh_circle(LhatMachine *machine, void *context, const LhatValue 
 }
 
 // Reads x1, y1, x2, y2, ... from `first` on. An odd count drops the last.
-static std::vector<Vector2> verticesOf(const LhatValue *args, size_t count, size_t first)
+std::vector<Vector2> verticesOf(const LhatValue *args, size_t count, size_t first)
 {
 	std::vector<Vector2> vertices;
 	for (size_t i = first; i + 1 < count; i += 2)
@@ -333,14 +348,6 @@ static LhatValue lh_setPointSize(LhatMachine *machine, void *context, const Lhat
 // ---------------------------------------------------------------------------
 // Text
 // ---------------------------------------------------------------------------
-
-struct GraphicsBinding
-{
-	lh::Errors *errors;
-	lh::TypeRegistry *registry;
-};
-
-static GraphicsBinding binding;
 
 // The Font a print call may pass right after its text. print(text, x, ...)
 // and print(text, font, x, ...) are two arms, told apart at the second
@@ -472,12 +479,36 @@ static LhatValue lh_origin(LhatMachine *machine, void *context, const LhatValue 
 // Objects: Texture (love.graphics.newImage) and Font
 // ---------------------------------------------------------------------------
 
-static Texture *checkTexture(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
+Texture *checkTexture(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
 {
 	Texture *texture = index < count ? lh::checkObject<Texture>(arguments[index], *binding.registry) : nullptr;
 	if (texture == nullptr)
 		lh::raise(machine, "Expected a Texture");
 	return texture;
+}
+
+Quad *checkQuad(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
+{
+	Quad *quad = index < count ? lh::checkObject<Quad>(arguments[index], *binding.registry) : nullptr;
+	if (quad == nullptr)
+		lh::raise(machine, "Expected a Quad");
+	return quad;
+}
+
+bool numbersOf(LhatValue table, std::vector<float> &out)
+{
+	if (!lhat_is_object_kind(table, LHAT_OBJECT_TABLE))
+		return false;
+	const LhatTable *t = (const LhatTable *) lhat_as_object(table);
+	size_t n = lhat_table_length(t);
+	out.clear();
+	out.reserve(n);
+	for (size_t i = 1; i <= n; i++)
+	{
+		LhatValue v = lhat_table_get(t, lhat_integer((int64_t) i));
+		out.push_back((float) lh::optNumber(&v, 1, 0, 0.0));
+	}
+	return true;
 }
 
 static Font *checkFont(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index)
@@ -578,13 +609,27 @@ static LhatValue lh_Texture_setFilter(LhatMachine *machine, void *context, const
 	});
 }
 
-// draw(drawable, x, y, r, sx, sy, ox, oy, kx, ky)
+// draw(drawable, x, y, r, sx, sy, ox, oy, kx, ky) / draw(texture, quad, x, y, ...)
 static LhatValue lh_draw(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
 {
 	(void) context;
 	Drawable *drawable = count > 0 ? lh::checkObject<Drawable>(arguments[0], *binding.registry) : nullptr;
 	if (drawable == nullptr)
 		return lh::raise(machine, "Expected a Drawable");
+	if (count > 1 && lhat_is_object_kind(arguments[1], LHAT_OBJECT_HOSTDATA))
+	{
+		Quad *quad = checkQuad(machine, arguments, count, 1);
+		Texture *texture = lh::checkObject<Texture>(arguments[0], *binding.registry);
+		if (quad == nullptr)
+			return lhat_nil();
+		if (texture == nullptr)
+			return lh::raise(machine, "Only a Texture can be drawn with a Quad");
+		Matrix4 m = transformOf(arguments, count, 2);
+		return lh::guard(machine, [&]() {
+			instance()->draw(texture, quad, m);
+			return lhat_nil();
+		});
+	}
 	Matrix4 m = transformOf(arguments, count, 1);
 	return lh::guard(machine, [&]() {
 		instance()->draw(drawable, m);
@@ -699,6 +744,10 @@ bool lhopen_love_graphics(Context &ctx)
 
 	if (!ctx.objectType(m, "Drawable", Drawable::type) || !ctx.objectType(m, "Texture", Texture::type) || !ctx.objectType(m, "Font", Font::type))
 		return false;
+	// The other types first, in both phases: the draw arms below name them.
+	if (!lhGraphicsQuad(ctx) || !lhGraphicsShader(ctx) || !lhGraphicsMesh(ctx) || !lhGraphicsSpriteBatch(ctx)
+		|| !lhGraphicsParticleSystem(ctx) || !lhGraphicsTextBatch(ctx) || !lhGraphicsVideo(ctx) || !lhGraphicsState(ctx))
+		return false;
 	if (ctx.types())
 		return true;
 
@@ -745,7 +794,9 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.member(m, "Texture", "getHeight", "f^self^ -> number^;", lh_Texture_getHeight, nullptr)
 		&& ctx.member(m, "Texture", "getDimensions", "f^self^ -> (number^, number^);", lh_Texture_getDimensions, nullptr)
 		&& ctx.member(m, "Texture", "setFilter", "p^self^, string^, ...;", lh_Texture_setFilter, nullptr)
-		&& ctx.func(m, "draw", "p^love.graphics.Texture, ...;", lh_draw, nullptr)
+		&& ctx.func(m, "draw", "p^" LH_DRAWABLE ";", lh_draw, nullptr)
+		&& ctx.func(m, "draw", "p^" LH_DRAWABLE ", number^, ...;", lh_draw, nullptr)
+		&& ctx.func(m, "draw", "p^love.graphics.Texture, love.graphics.Quad, ...;", lh_draw, nullptr)
 		&& ctx.func(m, "newFont", "p^number^ -> love.graphics.Font;", lh_newFont, nullptr)
 		&& ctx.func(m, "newFont", "p^string^, number^ -> love.graphics.Font|love.Error.IO;", lh_newFont, nullptr)
 		&& ctx.func(m, "setFont", "p^love.graphics.Font;", lh_setFont, nullptr)
