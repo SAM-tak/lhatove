@@ -9,7 +9,7 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 提案
 
-（なし）
+- 同じ位置に **異なる hostdata 型** を置いたアーム（`newThread(love.filesystem.File)` と `newThread(love.filesystem.FileData)`）が登録で「重なる」と拒否される。fea90e4 で実行時の解決はタグで効くようになったので、登録時の重複判定もタグ違いを「交わらない」と見てよいはず。lhatove は `p^File|FileData -> Thread;` の合併 1 アームで回避（実害なし）
 
 ## 解決済み
 

@@ -36,28 +36,23 @@ namespace box2d
 // Listeners over parked procedures
 // ---------------------------------------------------------------------------
 
-static LhatMachine *machineOf()
-{
-	return physicsBinding.lot != nullptr ? physicsBinding.lot->machine() : nullptr;
-}
-
 // begin/end/presolve: fn(shapeA, shapeB, contact); postsolve adds the
 // normal and tangent impulses of the (at most two) manifold points.
 class ContactCallback : public World::ContactListener
 {
 public:
 
-	ContactCallback(LhatValue fn, bool postsolve)
-		: parked(new lh::Parked(physicsBinding.lot, fn), Acquire::NORETAIN)
+	// The world is used by the machine that set the callback, which is the
+	// one the listener calls back into.
+	ContactCallback(LhatMachine *machine, LhatValue fn, bool postsolve)
+		: parked(new lh::Parked(lh::ParkingLot::lotOf(machine), fn), Acquire::NORETAIN)
+		, machine(machine)
 		, postsolve(postsolve)
 	{
 	}
 
 	void onContact(Shape *a, Shape *b, Contact *contact, const std::vector<float> &impulses) override
 	{
-		LhatMachine *machine = machineOf();
-		if (machine == nullptr)
-			return;
 		LhatValue args[7];
 		args[0] = pushShape(machine, a);
 		args[1] = pushShape(machine, b);
@@ -77,6 +72,7 @@ public:
 private:
 
 	StrongRef<lh::Parked> parked;
+	LhatMachine *machine;
 	bool postsolve;
 };
 
@@ -85,16 +81,14 @@ class ContactFilter : public World::ContactFilterListener
 {
 public:
 
-	ContactFilter(LhatValue fn)
-		: parked(new lh::Parked(physicsBinding.lot, fn), Acquire::NORETAIN)
+	ContactFilter(LhatMachine *machine, LhatValue fn)
+		: parked(new lh::Parked(lh::ParkingLot::lotOf(machine), fn), Acquire::NORETAIN)
+		, machine(machine)
 	{
 	}
 
 	bool shouldCollide(Shape *a, Shape *b) override
 	{
-		LhatMachine *machine = machineOf();
-		if (machine == nullptr)
-			return true;
 		LhatValue args[2] = {pushShape(machine, a), pushShape(machine, b)};
 		LhatValue answer = lhat_nil();
 		if (!callParked(machine, parked.get(), args, 2, &answer))
@@ -107,6 +101,7 @@ public:
 private:
 
 	StrongRef<lh::Parked> parked;
+	LhatMachine *machine;
 };
 
 // Query and ray cast procedures are arguments of the call in progress, so
@@ -217,7 +212,7 @@ static LhatValue lh_World_setCallbacks(LhatMachine *machine, void *context, cons
 		size_t index = i + 1;
 		if (index < count && lhat_is_object_kind(args[index], LHAT_OBJECT_SUBROUTINE))
 		{
-			StrongRef<ContactCallback> listener(new ContactCallback(args[index], kinds[i] == World::CALLBACK_POSTSOLVE), Acquire::NORETAIN);
+			StrongRef<ContactCallback> listener(new ContactCallback(machine, args[index], kinds[i] == World::CALLBACK_POSTSOLVE), Acquire::NORETAIN);
 			w->setCallback(kinds[i], listener.get());
 		}
 		else
@@ -256,7 +251,7 @@ static LhatValue lh_World_setContactFilter(LhatMachine *machine, void *context, 
 	WORLD_SELF();
 	if (count >= 2 && lhat_is_object_kind(args[1], LHAT_OBJECT_SUBROUTINE))
 	{
-		StrongRef<ContactFilter> filter(new ContactFilter(args[1]), Acquire::NORETAIN);
+		StrongRef<ContactFilter> filter(new ContactFilter(machine, args[1]), Acquire::NORETAIN);
 		w->setContactFilter(filter.get());
 	}
 	else

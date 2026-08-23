@@ -790,7 +790,6 @@ bool lhopen_love_physics(Context &ctx)
 
 	physicsBinding.errors = ctx.errors;
 	physicsBinding.registry = ctx.registry;
-	physicsBinding.lot = ctx.lot;
 
 	const char *W = "love.physics.World";
 	const char *B = "love.physics.Body";

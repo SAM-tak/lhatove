@@ -972,7 +972,12 @@ target_link_libraries(love_system INTERFACE
 add_library(love_thread_root STATIC
 	src/modules/thread/Channel.cpp
 	src/modules/thread/Channel.h
+	src/modules/thread/LhThread.cpp
+	src/modules/thread/LhThread.h
 	src/modules/thread/Thread.h
+	src/modules/thread/ThreadModule.cpp
+	src/modules/thread/ThreadModule.h
+	src/modules/thread/lh_Thread.cpp
 	src/modules/thread/threads.cpp
 	src/modules/thread/threads.h
 )

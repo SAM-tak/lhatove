@@ -30,11 +30,6 @@ ThreadModule::ThreadModule()
 {
 }
 
-LuaThread *ThreadModule::newThread(const std::string &name, love::Data *data)
-{
-	return new LuaThread(name, data);
-}
-
 Channel *ThreadModule::newChannel()
 {
 	return new Channel();

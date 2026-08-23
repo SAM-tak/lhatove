@@ -45,6 +45,7 @@
 #include "modules/data/DataModule.h"
 #include "modules/math/MathModule.h"
 #include "modules/physics/box2d/Physics.h"
+#include "modules/thread/ThreadModule.h"
 #include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
 #include "modules/window/sdl/Window.h"
@@ -96,6 +97,7 @@ bool lhopen_love_touch(Context &ctx);
 bool lhopen_love_sensor(Context &ctx);
 bool lhopen_love_joystick(Context &ctx);
 bool lhopen_love_physics(Context &ctx);
+bool lhopen_love_thread(Context &ctx);
 static bool lhopen_love_boot(Context &ctx);
 
 static const Registrar registrars[] = {
@@ -116,6 +118,7 @@ static const Registrar registrars[] = {
 	lhopen_love_sensor,
 	lhopen_love_joystick,
 	lhopen_love_physics,
+	lhopen_love_thread,
 	lhopen_love_window,
 	lhopen_love_graphics,
 };
@@ -205,6 +208,7 @@ static const Callback callbacks[] = {
 	{"touchreleased", "p^number^, number^, number^, number^, number^, number^, ...;"},
 	{"touchmoved", "p^number^, number^, number^, number^, number^, number^, ...;"},
 	{"sensorupdated", "p^string^, number^, number^, number^;"},
+	{"threaderror", "p^love.thread.Thread, string^;"},
 };
 
 struct BootState
@@ -349,7 +353,7 @@ struct Conf
 	{
 		bool audio = true, data = true, event = true, filesystem = true, font = true, graphics = true;
 		bool image = true, joystick = true, keyboard = true, math = true, mouse = true, sensor = true;
-		bool physics = true, sound = true, system = true, timer = true, touch = true, window = true;
+		bool physics = true, sound = true, system = true, thread = true, timer = true, touch = true, window = true;
 	} modules;
 };
 
@@ -393,6 +397,7 @@ static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
 		conf.modules.sensor = fieldBool(machine, modules, "sensor", true);
 		conf.modules.sound = fieldBool(machine, modules, "sound", true);
 		conf.modules.system = fieldBool(machine, modules, "system", true);
+		conf.modules.thread = fieldBool(machine, modules, "thread", true);
 		conf.modules.timer = fieldBool(machine, modules, "timer", true);
 		conf.modules.touch = fieldBool(machine, modules, "touch", true);
 		conf.modules.window = fieldBool(machine, modules, "window", true);
@@ -714,6 +719,8 @@ static int boot(int argc, char **argv, bool console)
 	love::window::Window *window = nullptr;
 	try
 	{
+		if (conf.modules.thread)
+			modules.add(new love::thread::ThreadModule());
 		if (conf.modules.timer)
 			modules.add(new love::timer::Timer());
 		if (conf.modules.event)

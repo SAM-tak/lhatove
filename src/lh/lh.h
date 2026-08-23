@@ -33,9 +33,11 @@
 #include "common/int.h"
 
 #include <lhat.h>
+#include "stdlib/carry.h"
 
 #include <functional>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -120,6 +122,12 @@ typedef bool (*Registrar)(Context &ctx);
 // Program + machine
 // ---------------------------------------------------------------------------
 
+// The one lock every write to a LhatProgram takes: a check, a compile, a
+// load, and an install onto a new machine (love.thread starts one per OS
+// thread from the same program). Machines only read protos while running,
+// and lhat keeps compiled protos where they are, so readers need nothing.
+std::mutex &programMutex();
+
 // Owns one LhatProgram and, once compiled, one LhatMachine.
 class Runtime
 {
@@ -162,6 +170,12 @@ public:
 	// line, and the traceback when frames are standing.
 	std::string describe(const LhatRunResult &ran) const;
 
+	// Makes the machine `program` was compiled for run on another OS thread:
+	// a fresh machine with the program installed and a ParkingLot of its
+	// own, or nullptr. The caller disposes it with disposeMachine.
+	static LhatMachine *spawnMachine(LhatProgram *program);
+	static void disposeMachine(LhatMachine *machine);
+
 private:
 
 	LhatProgram *program_;
@@ -191,10 +205,16 @@ public:
 	virtual ~ParkingLot();
 
 	// Makes the registry table on `machine` and parks it at love.registry.
+	// The lot is then what lotOf(machine) answers.
 	bool attach(LhatMachine *machine);
 
 	// Forgets the machine: slots given back after this are not written.
 	void detach();
+
+	// The lot attached to `machine`, or nullptr. A binding that parks
+	// values asks this rather than keeping a lot of its own, since every
+	// love.thread worker has a machine and a lot apiece.
+	static ParkingLot *lotOf(LhatMachine *machine);
 
 	LhatMachine *machine() const { return machine_; }
 
@@ -245,6 +265,9 @@ private:
 	uint32 slot_;
 };
 
+// The same rendering for any machine (a love.thread worker reports this way).
+std::string describeRun(LhatMachine *machine, const LhatRunResult &ran);
+
 // ---------------------------------------------------------------------------
 // Values
 // ---------------------------------------------------------------------------
@@ -274,8 +297,34 @@ bool fieldIs(LhatMachine *machine, LhatValue table, const char *name, LhatValueT
 
 // A love::Variant (what events and channels carry) as a value on `machine`.
 // Objects come back as fresh hostdata; tables are copied; light userdata is
-// refused (nil).
+// refused (nil); a Carried object is put back together here.
 LhatValue pushVariant(LhatMachine *machine, const TypeRegistry &registry, const Variant &v);
+
+// The reverse, for what a Channel takes: nil, bool, number and string as
+// themselves, a wrapper as its LOVE object, and any other value (a table, a
+// closure) as a Carried object -- lhat_carry's copy, which no machine owns.
+// False with `why` when the value cannot cross (hostdata inside a table, a
+// coroutine, an error value).
+bool variantOf(LhatMachine *machine, const TypeRegistry &registry, LhatValue value, Variant &out, std::string &why);
+
+// A carried L^ value as a love::Object, so a Variant can hold it across
+// threads. Uncarry as many times as wanted; the copy is freed with this.
+class Carried : public love::Object
+{
+public:
+
+	static love::Type type;
+
+	// Takes the copy over.
+	explicit Carried(LhatCarried *carried);
+	virtual ~Carried();
+
+	LhatValue get(LhatMachine *machine) const;
+
+private:
+
+	LhatCarried *carried;
+};
 
 // ---------------------------------------------------------------------------
 // Objects

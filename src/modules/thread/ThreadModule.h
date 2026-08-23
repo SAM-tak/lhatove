@@ -32,7 +32,6 @@
 
 #include "Thread.h"
 #include "Channel.h"
-#include "LuaThread.h"
 #include "threads.h"
 
 namespace love
@@ -45,7 +44,6 @@ public:
 
 	ThreadModule();
 	virtual ~ThreadModule() {}
-	virtual LuaThread *newThread(const std::string &name, love::Data *data);
 	virtual Channel *newChannel();
 	virtual Channel *getChannel(const std::string &name);
 

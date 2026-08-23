@@ -261,10 +261,17 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	return true;
 }
 
+std::mutex &programMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+
 const LhatUnit *Runtime::check(const char *path)
 {
 	if (program_ == nullptr)
 		return nullptr;
+	std::lock_guard<std::mutex> hold(programMutex());
 	return lhat_program_check(program_, path);
 }
 
@@ -319,6 +326,7 @@ std::string Runtime::diagnostics() const
 
 bool Runtime::compile()
 {
+	std::lock_guard<std::mutex> hold(programMutex());
 	if (program_ == nullptr || !lhat_program_compile(program_))
 		return false;
 
@@ -342,6 +350,21 @@ bool Runtime::compile()
 love::Type ParkingLot::type("lh.ParkingLot", &Object::type);
 love::Type Parked::type("lh.Parked", &Object::type);
 
+// Which lot is attached to which machine. A lot is retained here from
+// attach to detach, so a machine spawned for a love.thread worker keeps its
+// lot alive for as long as it runs.
+static std::mutex &lotsMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+
+static std::map<LhatMachine *, StrongRef<ParkingLot>> &lots()
+{
+	static std::map<LhatMachine *, StrongRef<ParkingLot>> held;
+	return held;
+}
+
 ParkingLot::ParkingLot()
 	: machine_(nullptr)
 	, table_(nullptr)
@@ -362,14 +385,30 @@ bool ParkingLot::attach(LhatMachine *machine)
 		return false;
 	machine_ = machine;
 	table_ = (LhatTable *) lhat_as_object(table);
+	{
+		std::lock_guard<std::mutex> hold(lotsMutex());
+		lots()[machine].set(this);
+	}
 	return true;
 }
 
 void ParkingLot::detach()
 {
+	if (machine_ != nullptr)
+	{
+		std::lock_guard<std::mutex> hold(lotsMutex());
+		lots().erase(machine_);
+	}
 	machine_ = nullptr;
 	table_ = nullptr;
 	pending_.clear();
+}
+
+ParkingLot *ParkingLot::lotOf(LhatMachine *machine)
+{
+	std::lock_guard<std::mutex> hold(lotsMutex());
+	auto it = lots().find(machine);
+	return it != lots().end() ? it->second.get() : nullptr;
 }
 
 uint32 ParkingLot::park(LhatValue value)
@@ -447,6 +486,11 @@ LhatValue Parked::get() const
 
 std::string Runtime::describe(const LhatRunResult &ran) const
 {
+	return describeRun(machine_, ran);
+}
+
+std::string describeRun(LhatMachine *machine, const LhatRunResult &ran)
+{
 	std::string text = lhat_run_status_message(ran.status);
 	if (ran.status == LHAT_RUN_PANIC)
 		text += ": " + valueText(ran.value);
@@ -455,15 +499,47 @@ std::string Runtime::describe(const LhatRunResult &ran) const
 
 	// 04 の 11.6改: the frames still standing, readable until the machine is
 	// run again or disposed.
-	if (machine_ != nullptr && lhat_machine_fault_depth(machine_) >= 2)
+	if (machine != nullptr && lhat_machine_fault_depth(machine) >= 2)
 	{
-		size_t needed = lhat_machine_traceback(machine_, nullptr, 0);
+		size_t needed = lhat_machine_traceback(machine, nullptr, 0);
 		std::vector<char> spelt(needed + 1);
-		lhat_machine_traceback(machine_, spelt.data(), spelt.size());
+		lhat_machine_traceback(machine, spelt.data(), spelt.size());
 		text += "\n";
 		text += spelt.data();
 	}
 	return text;
+}
+
+LhatMachine *Runtime::spawnMachine(LhatProgram *program)
+{
+	if (program == nullptr)
+		return nullptr;
+	LhatMachine *machine = lhat_machine_new();
+	if (machine == nullptr)
+		return nullptr;
+	// 05 の 8.7: a registration becomes an object on the heap of the machine
+	// it is installed on, so every machine installs for itself. The lot is
+	// retained by the lots table until detach.
+	StrongRef<ParkingLot> lot(new ParkingLot(), Acquire::NORETAIN);
+	{
+		std::lock_guard<std::mutex> hold(programMutex());
+		if (!lhat_program_install(program, machine) || !lot->attach(machine))
+		{
+			lhat_machine_dispose(machine);
+			return nullptr;
+		}
+	}
+	return machine;
+}
+
+void Runtime::disposeMachine(LhatMachine *machine)
+{
+	if (machine == nullptr)
+		return;
+	ParkingLot *lot = ParkingLot::lotOf(machine);
+	if (lot != nullptr)
+		lot->detach();
+	lhat_machine_dispose(machine);
 }
 
 // ---------------------------------------------------------------------------
@@ -575,6 +651,8 @@ LhatValue pushVariant(LhatMachine *machine, const TypeRegistry &registry, const 
 	case Variant::LOVEOBJECT:
 		if (data.objectproxy.type == nullptr || data.objectproxy.object == nullptr)
 			return lhat_nil();
+		if (data.objectproxy.type->isa(Carried::type))
+			return ((const Carried *) data.objectproxy.object)->get(machine);
 		return pushObject(machine, registry, *data.objectproxy.type, data.objectproxy.object);
 	case Variant::TABLE:
 	{
@@ -680,6 +758,80 @@ LhatValue catchexcept(LhatMachine *machine, const LhatErrorKind *kind, const std
 	{
 		return fail(machine, kind, e.what());
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Carrying
+// ---------------------------------------------------------------------------
+
+love::Type Carried::type("lh.Carried", &Object::type);
+
+Carried::Carried(LhatCarried *carried)
+	: carried(carried)
+{
+}
+
+Carried::~Carried()
+{
+	if (carried != nullptr)
+		lhat_carried_free(carried);
+}
+
+LhatValue Carried::get(LhatMachine *machine) const
+{
+	LhatValue out = lhat_nil();
+	if (carried == nullptr || !lhat_uncarry(machine, carried, &out))
+		return lhat_nil();
+	return out;
+}
+
+bool variantOf(LhatMachine *machine, const TypeRegistry &registry, LhatValue value, Variant &out, std::string &why)
+{
+	(void) machine;
+	if (lhat_is_nil(value))
+	{
+		out = Variant();
+		return true;
+	}
+	if (lhat_is_bool(value))
+	{
+		out = Variant(lhat_as_bool(value));
+		return true;
+	}
+	if (lhat_is_number(value))
+	{
+		out = Variant(lhat_is_integer(value) ? (double) lhat_as_integer(value) : lhat_as_real(value));
+		return true;
+	}
+	size_t length = 0;
+	const char *text = stringOf(value, &length);
+	if (text != nullptr)
+	{
+		out = Variant(text, length);
+		return true;
+	}
+	if (lhat_is_object_kind(value, LHAT_OBJECT_HOSTDATA))
+	{
+		const LhatHostData *data = (const LhatHostData *) lhat_as_object(value);
+		love::Type *type = registry.typeFor(data->tag);
+		if (type == nullptr || data->pointer == nullptr || data->released)
+		{
+			why = "the object is not one LOVE can carry";
+			return false;
+		}
+		out = Variant(type, (love::Object *) data->pointer);
+		return true;
+	}
+	LhatCarried *carried = nullptr;
+	const char *refused = nullptr;
+	if (!lhat_carry(value, &carried, &refused))
+	{
+		why = refused != nullptr ? refused : "out of memory";
+		return false;
+	}
+	StrongRef<Carried> holder(new Carried(carried), Acquire::NORETAIN);
+	out = Variant(&Carried::type, holder.get());
+	return true;
 }
 
 // ---------------------------------------------------------------------------

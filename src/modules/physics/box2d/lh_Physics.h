@@ -53,7 +53,6 @@ struct PhysicsBinding
 {
 	lh::Errors *errors = nullptr;
 	lh::TypeRegistry *registry = nullptr;
-	lh::ParkingLot *lot = nullptr;
 };
 
 extern PhysicsBinding physicsBinding;

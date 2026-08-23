@@ -37,6 +37,6 @@
 | sensor | 1 | lh_Sensor.cpp | M3: hasSensor/isEnabled/setEnabled/getData |
 | joystick | 2 | lh_Joystick.cpp | M3: getJoysticks/getJoystickCount、Joystick{connected name id guid axes buttons hats isDown isGamepad gamepadAxis isGamepadDown vibration}、joystick/gamepad コールバック |
 | physics/box2d | 21 | lh_Physics.cpp / lh_World.cpp / lh_Body.cpp / lh_Shape.cpp / lh_Joint.cpp / lh_Contact.cpp（コア脱 Lua 済み） | M4: World/Body/Shape/Joint/Contact の 5 型（shape/joint の種別は 1 型に平坦化）、newWorld/newBody/new*Body/new*Shape/new*Joint/getDistance/meter/compute*、コールバック・filter・query・rayCast、userData。deprecated API（body 無し shape・newFixture・getChildEdge）は非対応 |
-| thread | 3 | lh_Thread.cpp 他（LuaThread 置換含む） | 未着手 |
+| thread | 3 | lh_Thread.cpp / LhThread.cpp（LuaThread 置換） | M5: newThread(path \| code \| File \| FileData)、Thread{start wait getError isRunning}、newChannel/getChannel、Channel{push supply pop demand peek getCount hasRead clear performAtomic}、`threaderror` コールバック。値は `lh::variantOf`（スカラー・LOVE オブジェクトはそのまま、table/closure は `lhat_carry` の複製） |
 | video | 2 | lh_Video.cpp 他 | 未着手 |
 | luasocket / enet / luahttps / lua53 | - | 恒久廃止 | 確定 |

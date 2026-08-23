@@ -30,6 +30,8 @@
 #include "FileData.h"
 #include "lh/lh.h"
 
+#include <mutex>
+
 #include <string>
 #include <vector>
 
@@ -267,7 +269,12 @@ static LhatValue lh_load(LhatMachine *machine, void *context, const LhatValue *a
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
 	LhatProto *proto = nullptr;
-	switch (lhat_program_load_file(b->program, path.c_str(), &proto))
+	LhatLoadStatus status;
+	{
+		std::lock_guard<std::mutex> hold(lh::programMutex());
+		status = lhat_program_load_file(b->program, path.c_str(), &proto);
+	}
+	switch (status)
 	{
 	case LHAT_LOAD_OK:
 		break;

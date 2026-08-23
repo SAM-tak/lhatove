@@ -430,7 +430,7 @@ static LhatValue lh_Body_setUserData(LhatMachine *machine, void *context, const 
 		b->setUserData(nullptr);
 	else
 	{
-		StrongRef<lh::Parked> parked(new lh::Parked(physicsBinding.lot, args[1]), Acquire::NORETAIN);
+		StrongRef<lh::Parked> parked(new lh::Parked(lh::ParkingLot::lotOf(machine), args[1]), Acquire::NORETAIN);
 		b->setUserData(parked.get());
 	}
 	return lhat_nil();
