@@ -136,7 +136,7 @@ public:
 	 * @returns The lower limit.
 	 * @returns The upper limit.
 	 **/
-	int getLimits(lua_State *L);
+	void getLimits(float &x, float &y) const;
 
 	/**
 	 * Gets the reference angle.

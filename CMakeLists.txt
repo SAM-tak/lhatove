@@ -101,7 +101,6 @@ set(LHAT_WITH_COMMENTS OFF CACHE BOOL "" FORCE)
 set(LHAT_WITH_RESOLUTIONS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${LHATOVE_LHAT_DIR}" lhat)
 
-option(LHATOVE_ENABLE_PHYSICS "Build love.physics (not yet ported to L^)" OFF)
 
 message(STATUS "Target platform: ${LOVE_TARGET_PLATFORM}")
 
@@ -797,9 +796,6 @@ target_link_libraries(love_mouse INTERFACE
 # love.physics
 #
 
-# The box2d core still carries lua_State in its class signatures; it stays
-# out of the build until it is ported (milestone M4).
-if(LHATOVE_ENABLE_PHYSICS)
 add_library(love_physics_root STATIC
 	src/modules/physics/Body.cpp
 	src/modules/physics/Body.h
@@ -852,6 +848,13 @@ add_library(love_physics_box2d STATIC
 	src/modules/physics/box2d/WheelJoint.h
 	src/modules/physics/box2d/World.cpp
 	src/modules/physics/box2d/World.h
+	src/modules/physics/box2d/lh_Physics.cpp
+	src/modules/physics/box2d/lh_Physics.h
+	src/modules/physics/box2d/lh_World.cpp
+	src/modules/physics/box2d/lh_Body.cpp
+	src/modules/physics/box2d/lh_Shape.cpp
+	src/modules/physics/box2d/lh_Joint.cpp
+	src/modules/physics/box2d/lh_Contact.cpp
 )
 target_link_libraries(love_physics_box2d PUBLIC
 	lovedep::Lhat
@@ -862,7 +865,6 @@ target_link_libraries(love_physics INTERFACE
 	love_physics_root
 	love_physics_box2d
 )
-endif()
 
 #
 # love.sensor
@@ -1582,6 +1584,8 @@ add_library(liblove SHARED
 	src/lh/Boot.h
 	src/lh/Boot.lh.h
 	src/lh/ErrorScreen.cpp
+	src/lh/Watchdog.cpp
+	src/lh/Watchdog.h
 	src/lh/ErrorScreen.h
 	# Reference copies of the Lua-era scripts, kept visible in Visual Studio:
 	src/modules/love/boot.lua
@@ -1605,6 +1609,7 @@ set(LIBLOVE_DEPENDENCIES
 	love_keyboard
 	love_math
 	love_mouse
+	love_physics
 	love_sensor
 	love_sound
 	love_system
@@ -1614,9 +1619,6 @@ set(LIBLOVE_DEPENDENCIES
 	love_video
 	love_window
 )
-if(LHATOVE_ENABLE_PHYSICS)
-	list(APPEND LIBLOVE_DEPENDENCIES love_physics)
-endif()
 set(LIBLOVE_LIBRARIES
 	love_3p_box2d
 	love_3p_ddsparse

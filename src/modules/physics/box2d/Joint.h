@@ -22,7 +22,7 @@
 #define LOVE_PHYSICS_BOX2D_JOINT_H
 
 // LOVE
-#include "common/runtime.h"
+#include "common/Object.h"
 #include "physics/Joint.h"
 
 // Box2D
@@ -81,12 +81,12 @@ public:
 	 * Gets the anchor positions of the Joint in world
 	 * coordinates. This is useful for debugdrawing the joint.
 	 **/
-	int getAnchors(lua_State *L);
+	void getAnchors(float &x1, float &y1, float &x2, float &y2) const;
 
 	/**
 	 * Gets the reaction force on body2 at the joint anchor.
 	 **/
-	int getReactionForce(lua_State *L);
+	void getReactionForce(float dt, float &x, float &y) const;
 
 	/**
 	 * Gets the reaction torque on body2.
@@ -98,15 +98,14 @@ public:
 	bool getCollideConnected() const;
 
 	/**
-	 * This function stores an in-C reference to arbitrary Lua data in the Box2D
-	 * Joint object.
+	 * Keeps an arbitrary host object alongside the Joint.
 	 **/
-	int setUserData(lua_State *L);
+	void setUserData(love::Object *data);
 
 	/**
-	 * Gets the data set with setUserData. If no data is set, nil is returned.
+	 * Gets the data set with setUserData, or nullptr.
 	 **/
-	int getUserData(lua_State *L);
+	love::Object *getUserData() const;
 
 	/**
 	 * Joints require pointers to a Box2D joint objects at
@@ -130,8 +129,8 @@ protected:
 
 	World *world;
 
-	// Reference to arbitrary data.
-	Reference* ref = nullptr;
+	// Arbitrary host data kept alive with the joint.
+	StrongRef<love::Object> userdata;
 
 private:
 

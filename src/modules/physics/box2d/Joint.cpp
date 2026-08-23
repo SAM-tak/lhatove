@@ -20,9 +20,6 @@
 
 #include "Joint.h"
 
-// STD
-#include <bitset>
-
 // Module
 #include "Body.h"
 #include "World.h"
@@ -52,8 +49,6 @@ Joint::Joint(Body *body1, Body *body2)
 
 Joint::~Joint()
 {
-	if (ref)
-		delete ref;
 }
 
 Joint::Type Joint::getType() const
@@ -118,22 +113,21 @@ bool Joint::isValid() const
 	return joint != nullptr;
 }
 
-int Joint::getAnchors(lua_State *L)
+void Joint::getAnchors(float &x1, float &y1, float &x2, float &y2) const
 {
-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorA().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorA().y));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorB().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetAnchorB().y));
-	return 4;
+	b2Vec2 a = Physics::scaleUp(joint->GetAnchorA());
+	b2Vec2 b = Physics::scaleUp(joint->GetAnchorB());
+	x1 = a.x;
+	y1 = a.y;
+	x2 = b.x;
+	y2 = b.y;
 }
 
-int Joint::getReactionForce(lua_State *L)
+void Joint::getReactionForce(float dt, float &x, float &y) const
 {
-	float dt = (float)luaL_checknumber(L, 1);
 	b2Vec2 v = Physics::scaleUp(joint->GetReactionForce(dt));
-	lua_pushnumber(L, v.x);
-	lua_pushnumber(L, v.y);
-	return 2;
+	x = v.x;
+	y = v.y;
 }
 
 float Joint::getReactionTorque(float dt)
@@ -164,9 +158,8 @@ void Joint::destroyJoint(bool implicit)
 		world->world->DestroyJoint(joint);
 	joint = nullptr;
 
-	// Remove userdata reference to avoid it sticking around after GC
-	if (ref)
-		ref->unref();
+	// Drop the host data so it does not outlive the joint.
+	userdata.set(nullptr);
 
 	// Release the reference of the Box2D joint.
 	this->release();
@@ -182,26 +175,14 @@ bool Joint::getCollideConnected() const
 	return joint->GetCollideConnected();
 }
 
-int Joint::setUserData(lua_State *L)
+void Joint::setUserData(love::Object *data)
 {
-	love::luax_assert_argc(L, 1, 1);
-
-	if(!ref)
-		ref = new Reference();
-
-	ref->ref(L);
-
-	return 0;
+	userdata.set(data);
 }
 
-int Joint::getUserData(lua_State *L)
+love::Object *Joint::getUserData() const
 {
-	if (ref != nullptr)
-		ref->push(L);
-	else
-		lua_pushnil(L);
-
-	return 1;
+	return userdata.get();
 }
 
 } // box2d

@@ -30,6 +30,7 @@
 #include "common/Exception.h"
 #include "common/Object.h"
 #include "common/Variant.h"
+#include "common/int.h"
 
 #include <lhat.h>
 
@@ -87,12 +88,15 @@ private:
 	std::map<const LhatHostDataTag *, love::Type *> types;
 };
 
+class ParkingLot;
+
 struct Context
 {
 	LhatProgram *program = nullptr;
 	Phase phase = Phase::TYPES;
 	Errors *errors = nullptr;
 	TypeRegistry *registry = nullptr;
+	ParkingLot *lot = nullptr;     // where a binding parks values it must keep
 	std::string *failed = nullptr; // the registration that refused, for the report
 
 	bool types() const { return phase == Phase::TYPES; }
@@ -131,6 +135,7 @@ public:
 	LhatMachine *machine() const { return machine_; }
 	Errors &errors() { return errors_; }
 	TypeRegistry &registry() { return registry_; }
+	ParkingLot *lot() const { return lot_.get(); }
 
 	// Registers love.Error, then runs every registrar through both phases.
 	// False if any refused.
@@ -163,7 +168,81 @@ private:
 	LhatMachine *machine_;
 	Errors errors_;
 	TypeRegistry registry_;
+	StrongRef<ParkingLot> lot_;
 	std::string failedRegistrar_;
+};
+
+// ---------------------------------------------------------------------------
+// Parking
+// ---------------------------------------------------------------------------
+
+// The host holds no GC roots (05 の 8.8), so an L^ value the engine keeps
+// across calls -- a Body's user data, a World's contact callback -- is parked
+// in a table at L^.modules.love.registry under an integer slot. The lot owns
+// the slots; a Parked object is one slot, given back when it dies. This is
+// what common/Reference.h was for Lua.
+class ParkingLot : public love::Object
+{
+public:
+
+	static love::Type type;
+
+	ParkingLot();
+	virtual ~ParkingLot();
+
+	// Makes the registry table on `machine` and parks it at love.registry.
+	bool attach(LhatMachine *machine);
+
+	// Forgets the machine: slots given back after this are not written.
+	void detach();
+
+	LhatMachine *machine() const { return machine_; }
+
+	// A slot holding `value`, or 0 when the table refused. Runs the sweep
+	// first; call only from a safe point (inside a host function).
+	uint32 park(LhatValue value);
+
+	// The value in `slot`; nil for 0 or when detached.
+	LhatValue get(uint32 slot) const;
+
+	// Gives the slot back at the next safe point. A wrapper's dispose may run
+	// inside the collector, where the host must not write a table, so the
+	// write waits for the next park() or sweep().
+	void releaseLater(uint32 slot);
+
+	// Writes nil into every slot given back since the last sweep.
+	void sweep();
+
+private:
+
+	LhatMachine *machine_;
+	LhatTable *table_;
+	uint32 next_;
+	std::vector<uint32> free_;
+	std::vector<uint32> pending_;
+};
+
+// One parked value, as a love::Object so the engine can hold it the way it
+// holds any other (StrongRef, userdata slots, listener fields).
+class Parked : public love::Object
+{
+public:
+
+	static love::Type type;
+
+	Parked(ParkingLot *lot, LhatValue value);
+	virtual ~Parked();
+
+	// False when the lot refused the value.
+	bool ok() const { return slot_ != 0; }
+
+	LhatValue get() const;
+	ParkingLot *lot() const { return lot_.get(); }
+
+private:
+
+	StrongRef<ParkingLot> lot_;
+	uint32 slot_;
 };
 
 // ---------------------------------------------------------------------------

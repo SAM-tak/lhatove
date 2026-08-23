@@ -66,11 +66,11 @@ void MotorJoint::setLinearOffset(float x, float y)
 	joint->SetLinearOffset(Physics::scaleDown(b2Vec2(x, y)));
 }
 
-int MotorJoint::getLinearOffset(lua_State *L) const
+void MotorJoint::getLinearOffset(float &x, float &y) const
 {
-	lua_pushnumber(L, Physics::scaleUp(joint->GetLinearOffset().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetLinearOffset().y));
-	return 2;
+	b2Vec2 v = Physics::scaleUp(joint->GetLinearOffset());
+	x = v.x;
+	y = v.y;
 }
 
 void MotorJoint::setAngularOffset(float angularOffset)

@@ -263,13 +263,10 @@ public:
 	MotorJoint *newMotorJoint(Body *body1, Body *body2, float correctionFactor, bool collideConnected);
 
 	/**
-	 * Calculates the distance between two Fixtures.
-	 * @param fixtureA The first Fixture.
-	 * @param fixtureB The sceond Fixture.
-	 * @return The distance between them, and the two points closest
-	 *         to each other.
+	 * Calculates the distance between two Shapes and the two points
+	 * closest to each other. Throws when either Shape is not in a World.
 	 **/
-	int getDistance(lua_State *L);
+	static float getDistance(Shape *shapeA, Shape *shapeB, float &ax, float &ay, float &bx, float &by);
 
 	/**
 	 * Sets the number of pixels in one meter.

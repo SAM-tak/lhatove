@@ -61,7 +61,7 @@ public:
 	 *
 	 * The result can be directly passed into love.graphics.line().
 	 **/
-	int getPoints(lua_State *L);
+	void getPoints(float &x1, float &y1, float &x2, float &y2) const;
 };
 
 } // box2d

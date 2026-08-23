@@ -120,7 +120,7 @@ public:
 	 * @returns The X component of the axis unit vector.
 	 * @returns The Y component of the axis unit vector.
 	 **/
-	int getAxis(lua_State *L);
+	void getAxis(float &x, float &y) const;
 
 private:
 

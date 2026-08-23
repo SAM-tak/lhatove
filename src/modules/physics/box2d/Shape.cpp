@@ -26,7 +26,6 @@
 #include "Physics.h"
 
 // STD
-#include <bitset>
 
 namespace love
 {
@@ -129,9 +128,6 @@ Shape::~Shape()
 			break;
 		}
 	}
-
-	if (ref)
-		delete ref;
 }
 
 void Shape::destroy(bool implicit)
@@ -154,9 +150,8 @@ void Shape::destroy(bool implicit)
 	shape = nullptr;
 	body = nullptr;
 
-	// Remove userdata reference to avoid it sticking around after GC
-	if (ref)
-		ref->unref();
+	// Drop the host's data so it does not outlive the fixture.
+	userdata.set(nullptr);
 
 	// Box2D fixture destroyed. Release its reference to the love Shape.
 	release();
@@ -265,22 +260,20 @@ void Shape::getFilterData(int *v)
 	v[2] = (int) f.groupIndex;
 }
 
-int Shape::setCategory(lua_State *L)
+void Shape::setCategory(uint16 bits)
 {
 	throwIfFixtureNotValid();
 	b2Filter f = fixture->GetFilterData();
-	f.categoryBits = (uint16)getBits(L);
+	f.categoryBits = bits;
 	fixture->SetFilterData(f);
-	return 0;
 }
 
-int Shape::setMask(lua_State *L)
+void Shape::setMask(uint16 bits)
 {
 	throwIfFixtureNotValid();
 	b2Filter f = fixture->GetFilterData();
-	f.maskBits = ~(uint16)getBits(L);
+	f.maskBits = ~bits;
 	fixture->SetFilterData(f);
-	return 0;
 }
 
 void Shape::setGroupIndex(int index)
@@ -298,83 +291,26 @@ int Shape::getGroupIndex() const
 	return f.groupIndex;
 }
 
-int Shape::getCategory(lua_State *L)
+uint16 Shape::getCategory() const
 {
 	throwIfFixtureNotValid();
-	return pushBits(L, fixture->GetFilterData().categoryBits);
+	return fixture->GetFilterData().categoryBits;
 }
 
-int Shape::getMask(lua_State *L)
+uint16 Shape::getMask() const
 {
 	throwIfFixtureNotValid();
-	return pushBits(L, ~(fixture->GetFilterData().maskBits));
+	return ~(fixture->GetFilterData().maskBits);
 }
 
-uint16 Shape::getBits(lua_State *L)
+void Shape::setUserData(love::Object *data)
 {
-	// Get number of args.
-	bool istable = lua_istable(L, 1);
-	int argc = istable ? (int) luax_objlen(L, 1) : lua_gettop(L);
-
-	// The new bitset.
-	std::bitset<16> b;
-
-	for (int i = 1; i <= argc; i++)
-	{
-		size_t bpos = 0;
-
-		if (istable)
-		{
-			lua_rawgeti(L, 1, i);
-			bpos = (size_t) (lua_tointeger(L, -1) - 1);
-			lua_pop(L, 1);
-		}
-		else
-			bpos = (size_t) (lua_tointeger(L, i) - 1);
-
-		if (bpos >= 16)
-			luaL_error(L, "Values must be in range 1-16.");
-
-		b.set(bpos, true);
-	}
-
-	return (uint16)b.to_ulong();
+	userdata.set(data);
 }
 
-int Shape::pushBits(lua_State *L, uint16 bits)
+love::Object *Shape::getUserData() const
 {
-	// Create a bitset.
-	std::bitset<16> b((int)bits);
-
-	// Push all set bits.
-	for (int i = 0; i<16; i++)
-		if (b.test(i))
-			lua_pushinteger(L, i+1);
-
-	// Count number of set bits.
-	return (int)b.count();
-}
-
-int Shape::setUserData(lua_State *L)
-{
-	love::luax_assert_argc(L, 1, 1);
-
-	if(!ref)
-		ref = new Reference();
-
-	ref->ref(L);
-
-	return 0;
-}
-
-int Shape::getUserData(lua_State *L)
-{
-	if (ref != nullptr)
-		ref->push(L);
-	else
-		lua_pushnil(L);
-
-	return 1;
+	return userdata.get();
 }
 
 bool Shape::testPoint(float x, float y) const
@@ -391,104 +327,85 @@ bool Shape::testPoint(float x, float y, float r, float px, float py) const
 	return shape->TestPoint(transform, Physics::scaleDown(point));
 }
 
-int Shape::rayCast(lua_State *L) const
+bool Shape::rayCast(float x1, float y1, float x2, float y2, float maxFraction, int childIndex, float &nx, float &ny, float &fraction) const
 {
-	float p1x = Physics::scaleDown((float)luaL_checknumber(L, 1));
-	float p1y = Physics::scaleDown((float)luaL_checknumber(L, 2));
-	float p2x = Physics::scaleDown((float)luaL_checknumber(L, 3));
-	float p2y = Physics::scaleDown((float)luaL_checknumber(L, 4));
-	float maxFraction = (float)luaL_checknumber(L, 5);
-
+	throwIfFixtureNotValid();
 	b2RayCastInput input;
 	b2RayCastOutput output;
-	input.p1.Set(p1x, p1y);
-	input.p2.Set(p2x, p2y);
+	input.p1 = Physics::scaleDown(b2Vec2(x1, y1));
+	input.p2 = Physics::scaleDown(b2Vec2(x2, y2));
 	input.maxFraction = maxFraction;
-
-	if (lua_isnoneornil(L, 7))
-	{
-		throwIfFixtureNotValid();
-		int childIndex = (int) luaL_optinteger(L, 6, 1) - 1; // Convert from 1-based index
-		if (!fixture->RayCast(&output, input, childIndex))
-			return 0; // Nothing hit.
-	}
-	else
-	{
-		throwIfShapeNotValid();
-		float x = Physics::scaleDown((float)luaL_checknumber(L, 6));
-		float y = Physics::scaleDown((float)luaL_checknumber(L, 7));
-		float r = (float)luaL_checknumber(L, 8);
-		int childIndex = (int) luaL_optinteger(L, 9, 1) - 1; // Convert from 1-based index
-	
-		b2Transform transform(b2Vec2(x, y), b2Rot(r));
-		
-		if (!shape->RayCast(&output, input, transform, childIndex))
-			return 0; // No hit.
-	}
-
-	lua_pushnumber(L, output.normal.x);
-	lua_pushnumber(L, output.normal.y);
-	lua_pushnumber(L, output.fraction);
-	return 3;
+	if (!fixture->RayCast(&output, input, childIndex))
+		return false;
+	nx = output.normal.x;
+	ny = output.normal.y;
+	fraction = output.fraction;
+	return true;
 }
 
-int Shape::computeAABB(lua_State *L) const
+bool Shape::rayCast(float x1, float y1, float x2, float y2, float maxFraction, float x, float y, float r, int childIndex, float &nx, float &ny, float &fraction) const
 {
 	throwIfShapeNotValid();
-	float x = Physics::scaleDown((float)luaL_checknumber(L, 1));
-	float y = Physics::scaleDown((float)luaL_checknumber(L, 2));
-	float r = (float)luaL_checknumber(L, 3);
-	int childIndex = (int) luaL_optinteger(L, 4, 1) - 1; // Convert from 1-based index
-	b2Transform transform(b2Vec2(x, y), b2Rot(r));
+	b2RayCastInput input;
+	b2RayCastOutput output;
+	input.p1 = Physics::scaleDown(b2Vec2(x1, y1));
+	input.p2 = Physics::scaleDown(b2Vec2(x2, y2));
+	input.maxFraction = maxFraction;
+	b2Transform transform(Physics::scaleDown(b2Vec2(x, y)), b2Rot(r));
+	if (!shape->RayCast(&output, input, transform, childIndex))
+		return false;
+	nx = output.normal.x;
+	ny = output.normal.y;
+	fraction = output.fraction;
+	return true;
+}
+
+void Shape::computeAABB(float x, float y, float r, int childIndex, float &lx, float &ly, float &ux, float &uy) const
+{
+	throwIfShapeNotValid();
+	b2Transform transform(Physics::scaleDown(b2Vec2(x, y)), b2Rot(r));
 	b2AABB box;
 	shape->ComputeAABB(&box, transform, childIndex);
 	box = Physics::scaleUp(box);
-	lua_pushnumber(L, box.lowerBound.x);
-	lua_pushnumber(L, box.lowerBound.y);
-	lua_pushnumber(L, box.upperBound.x);
-	lua_pushnumber(L, box.upperBound.y);
-	return 4;
+	lx = box.lowerBound.x;
+	ly = box.lowerBound.y;
+	ux = box.upperBound.x;
+	uy = box.upperBound.y;
 }
 
-int Shape::computeMass(lua_State *L) const
+void Shape::computeMass(float density, float &cx, float &cy, float &mass, float &inertia) const
 {
 	throwIfShapeNotValid();
-	float density = (float)luaL_checknumber(L, 1);
 	b2MassData data;
 	shape->ComputeMass(&data, density);
 	b2Vec2 center = Physics::scaleUp(data.center);
-	lua_pushnumber(L, center.x);
-	lua_pushnumber(L, center.y);
-	lua_pushnumber(L, data.mass);
-	lua_pushnumber(L, Physics::scaleUp(Physics::scaleUp(data.I)));
-	return 4;
+	cx = center.x;
+	cy = center.y;
+	mass = data.mass;
+	inertia = Physics::scaleUp(Physics::scaleUp(data.I));
 }
 
-int Shape::getBoundingBox(lua_State *L) const
+void Shape::getBoundingBox(int childIndex, float &lx, float &ly, float &ux, float &uy) const
 {
 	throwIfFixtureNotValid();
-	int childIndex = (int) luaL_optinteger(L, 1, 1) - 1; // Convert from 1-based index
-	b2AABB box;
-	luax_catchexcept(L, [&]() { box = fixture->GetAABB(childIndex); });
+	b2AABB box = fixture->GetAABB(childIndex);
 	box = Physics::scaleUp(box);
-	lua_pushnumber(L, box.lowerBound.x);
-	lua_pushnumber(L, box.lowerBound.y);
-	lua_pushnumber(L, box.upperBound.x);
-	lua_pushnumber(L, box.upperBound.y);
-	return 4;
+	lx = box.lowerBound.x;
+	ly = box.lowerBound.y;
+	ux = box.upperBound.x;
+	uy = box.upperBound.y;
 }
 
-int Shape::getMassData(lua_State *L) const
+void Shape::getMassData(float &cx, float &cy, float &mass, float &inertia) const
 {
 	throwIfFixtureNotValid();
 	b2MassData data;
 	fixture->GetMassData(&data);
 	b2Vec2 center = Physics::scaleUp(data.center);
-	lua_pushnumber(L, center.x);
-	lua_pushnumber(L, center.y);
-	lua_pushnumber(L, data.mass);
-	lua_pushnumber(L, data.I);
-	return 4;
+	cx = center.x;
+	cy = center.y;
+	mass = data.mass;
+	inertia = data.I;
 }
 
 } // box2d

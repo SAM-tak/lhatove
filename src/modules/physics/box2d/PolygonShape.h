@@ -24,6 +24,9 @@
 // Module
 #include "Shape.h"
 
+// STD
+#include <vector>
+
 namespace love
 {
 namespace physics
@@ -58,7 +61,7 @@ public:
 	 *
 	 * The result can be directly passed into love.graphics.polygon().
 	 **/
-	int getPoints(lua_State *L);
+	std::vector<float> getPoints() const;
 
 	/**
 	 * Validate convexity.

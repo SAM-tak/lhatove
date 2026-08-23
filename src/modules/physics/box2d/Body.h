@@ -23,7 +23,7 @@
 
 // LOVE
 #include "common/math.h"
-#include "common/runtime.h"
+#include <vector>
 #include "common/Object.h"
 #include "physics/Body.h"
 
@@ -39,6 +39,8 @@ namespace box2d
 // Forward declarations.
 class World;
 class Shape;
+class Joint;
+class Contact;
 
 /**
  * A Body is an entity which has position and orientation
@@ -135,7 +137,7 @@ public:
 	/**
 	 * Gets mass properties.
 	 **/
-	int getMassData(lua_State *L);
+	void getMassData(float &x, float &y, float &mass, float &inertia);
 
 	bool hasCustomMassData() const { return hasCustomMass; }
 
@@ -295,7 +297,8 @@ public:
 	 * Transforms a series of points (x, y) from local coordinates
 	 * to world coordinates.
 	 **/
-	int getWorldPoints(lua_State *L);
+	// Transforms (x, y) pairs in place.
+	void getWorldPoints(std::vector<float> &points);
 
 	/**
 	 * Transforms a point (x, y) from world coordinates
@@ -321,7 +324,7 @@ public:
 	 * Transforms a series of points (x, y) from world coordinates
 	 * to local coordinates.
 	 **/
-	int getLocalPoints(lua_State *L);
+	void getLocalPoints(std::vector<float> &points);
 
 	/**
 	 * Gets the velocity on the Body for the given world point.
@@ -398,19 +401,20 @@ public:
 	/**
 	 * Get an array of all the Shapes attached to this Body.
 	 **/
-	int getShapes(lua_State *L) const;
+	std::vector<Shape *> getShapes() const;
 
 	/**
 	 * Get an array of all Joints attached to this Body.
 	 **/
-	int getJoints(lua_State *L) const;
+	std::vector<Joint *> getJoints() const;
 
 	/**
 	 * Get an array of all active Contacts attached to this Body.
 	 * This list changes during World:update and you may miss some collisions
 	 * if you don't use the collision callbacks.
 	 **/
-	int getContacts(lua_State *L) const;
+	// Each Contact retained for the caller.
+	std::vector<Contact *> getContacts() const;
 
 	/**
 	 * Destroy this body.
@@ -421,13 +425,14 @@ public:
 	 * This function stores an in-C reference to
 	 * arbitrary Lua data in the Box2D Body object.
 	 **/
-	int setUserData(lua_State *L);
+	// Arbitrary data the scripting host attaches; retained, nullptr clears.
+	void setUserData(love::Object *data);
 
 	/**
 	 * Gets the data set with setData. If no
 	 * data is set, nil is returned.
 	 **/
-	int getUserData(lua_State *L);
+	love::Object *getUserData() const;
 
 private:
 
@@ -437,8 +442,8 @@ private:
 
 	bool hasCustomMass;
 
-	// Reference to arbitrary data.
-	Reference* ref = nullptr;
+	// Arbitrary host data kept alive with the body.
+	StrongRef<love::Object> userdata;
 
 }; // Body
 

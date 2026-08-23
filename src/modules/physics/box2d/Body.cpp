@@ -26,9 +26,8 @@
 #include "World.h"
 #include "Physics.h"
 
-// Needed for luax_pushjoint.
-#include "wrap_Joint.h"
-#include "wrap_Shape.h"
+#include "Joint.h"
+#include "Contact.h"
 
 namespace love
 {
@@ -52,8 +51,6 @@ Body::Body(World *world, b2Vec2 p, Body::Type type)
 
 Body::~Body()
 {
-	if (ref)
-		delete ref;
 }
 
 float Body::getX()
@@ -120,18 +117,6 @@ float Body::getMass() const
 float Body::getInertia() const
 {
 	return Physics::scaleUp(Physics::scaleUp(body->GetInertia()));
-}
-
-int Body::getMassData(lua_State *L)
-{
-	b2MassData data;
-	body->GetMassData(&data);
-	b2Vec2 center = Physics::scaleUp(data.center);
-	lua_pushnumber(L, center.x);
-	lua_pushnumber(L, center.y);
-	lua_pushnumber(L, data.mass);
-	lua_pushnumber(L, Physics::scaleUp(Physics::scaleUp(data.I)));
-	return 4;
 }
 
 float Body::getAngularDamping() const
@@ -319,30 +304,6 @@ void Body::getWorldVector(float x, float y, float &x_o, float &y_o)
 	y_o = v.y;
 }
 
-int Body::getWorldPoints(lua_State *L)
-{
-	int argc = lua_gettop(L);
-	int vcount = (int)argc/2;
-	// at least one point
-	love::luax_assert_argc(L, 2);
-
-	for (int i = 0; i<vcount; i++)
-	{
-		float x = (float)lua_tonumber(L, 1);
-		float y = (float)lua_tonumber(L, 2);
-		// Remove them, so we don't run out of stack space
-		lua_remove(L, 1);
-		lua_remove(L, 1);
-		// Time for scaling
-		b2Vec2 point = Physics::scaleUp(body->GetWorldPoint(Physics::scaleDown(b2Vec2(x, y))));
-		// And then we push the result
-		lua_pushnumber(L, point.x);
-		lua_pushnumber(L, point.y);
-	}
-
-	return argc;
-}
-
 void Body::getLocalPoint(float x, float y, float &x_o, float &y_o)
 {
 	b2Vec2 v = Physics::scaleUp(body->GetLocalPoint(Physics::scaleDown(b2Vec2(x, y))));
@@ -355,30 +316,6 @@ void Body::getLocalVector(float x, float y, float &x_o, float &y_o)
 	b2Vec2 v = Physics::scaleUp(body->GetLocalVector(Physics::scaleDown(b2Vec2(x, y))));
 	x_o = v.x;
 	y_o = v.y;
-}
-
-int Body::getLocalPoints(lua_State *L)
-{
-	int argc = lua_gettop(L);
-	int vcount = (int)argc/2;
-	// at least one point
-	love::luax_assert_argc(L, 2);
-
-	for (int i = 0; i<vcount; i++)
-	{
-		float x = (float)lua_tonumber(L, 1);
-		float y = (float)lua_tonumber(L, 2);
-		// Remove them, so we don't run out of stack space
-		lua_remove(L, 1);
-		lua_remove(L, 1);
-		// Time for scaling
-		b2Vec2 point = Physics::scaleUp(body->GetLocalPoint(Physics::scaleDown(b2Vec2(x, y))));
-		// And then we push the result
-		lua_pushnumber(L, point.x);
-		lua_pushnumber(L, point.y);
-	}
-
-	return argc;
 }
 
 void Body::getLinearVelocityFromWorldPoint(float x, float y, float &x_o, float &y_o)
@@ -479,73 +416,76 @@ Shape *Body::getShape() const
 	return shape;
 }
 
-int Body::getShapes(lua_State *L) const
+void Body::getMassData(float &x, float &y, float &mass, float &inertia)
 {
-	lua_newtable(L);
-	b2Fixture *f = body->GetFixtureList();
-	int i = 1;
-	do
+	b2MassData data;
+	body->GetMassData(&data);
+	b2Vec2 center = Physics::scaleUp(data.center);
+	x = center.x;
+	y = center.y;
+	mass = data.mass;
+	inertia = Physics::scaleUp(Physics::scaleUp(data.I));
+}
+
+void Body::getWorldPoints(std::vector<float> &points)
+{
+	for (size_t i = 0; i + 1 < points.size(); i += 2)
 	{
-		if (!f)
-			break;
+		b2Vec2 point = Physics::scaleUp(body->GetWorldPoint(Physics::scaleDown(b2Vec2(points[i], points[i + 1]))));
+		points[i] = point.x;
+		points[i + 1] = point.y;
+	}
+}
+
+void Body::getLocalPoints(std::vector<float> &points)
+{
+	for (size_t i = 0; i + 1 < points.size(); i += 2)
+	{
+		b2Vec2 point = Physics::scaleUp(body->GetLocalPoint(Physics::scaleDown(b2Vec2(points[i], points[i + 1]))));
+		points[i] = point.x;
+		points[i + 1] = point.y;
+	}
+}
+
+std::vector<Shape *> Body::getShapes() const
+{
+	std::vector<Shape *> shapes;
+	for (b2Fixture *f = body->GetFixtureList(); f != nullptr; f = f->GetNext())
+	{
 		Shape *shape = (Shape *)(f->GetUserData().pointer);
 		if (!shape)
 			throw love::Exception("A Shape has escaped Memoizer!");
-		luax_pushshape(L, shape);
-		lua_rawseti(L, -2, i);
-		i++;
+		shapes.push_back(shape);
 	}
-	while ((f = f->GetNext()));
-	return 1;
+	return shapes;
 }
 
-int Body::getJoints(lua_State *L) const
+std::vector<Joint *> Body::getJoints() const
 {
-	lua_newtable(L);
-	const b2JointEdge *je = body->GetJointList();
-	int i = 1;
-
-	do
+	std::vector<Joint *> joints;
+	for (const b2JointEdge *je = body->GetJointList(); je != nullptr; je = je->next)
 	{
-		if (!je)
-			break;
-
 		Joint *joint = (Joint *) (je->joint->GetUserData().pointer);
 		if (!joint)
 			throw love::Exception("A joint has escaped Memoizer!");
-
-		luax_pushjoint(L, joint);
-		lua_rawseti(L, -2, i);
-		i++;
+		joints.push_back(joint);
 	}
-	while ((je = je->next));
-
-	return 1;
+	return joints;
 }
 
-int Body::getContacts(lua_State *L) const
+std::vector<Contact *> Body::getContacts() const
 {
-	lua_newtable(L);
-	const b2ContactEdge *ce = body->GetContactList();
-	int i = 1;
-	do
+	std::vector<Contact *> contacts;
+	for (const b2ContactEdge *ce = body->GetContactList(); ce != nullptr; ce = ce->next)
 	{
-		if (!ce)
-			break;
-
 		Contact *contact = (Contact *) world->findObject(ce->contact);
 		if (!contact)
 			contact = new Contact(world, ce->contact);
 		else
 			contact->retain();
-
-		luax_pushtype(L, contact);
-		contact->release();
-		lua_rawseti(L, -2, i);
-		i++;
+		contacts.push_back(contact);
 	}
-	while ((ce = ce->next));
-	return 1;
+	return contacts;
 }
 
 void Body::destroy()
@@ -561,34 +501,21 @@ void Body::destroy()
 	world->world->DestroyBody(body);
 	body = nullptr;
 
-	// Remove userdata reference to avoid it sticking around after GC
-	if (ref)
-		ref->unref();
+	// Drop the host's data so it does not outlive the body.
+	userdata.set(nullptr);
 
 	// Box2D body destroyed. Release its reference to the love Body.
 	this->release();
 }
 
-int Body::setUserData(lua_State *L)
+void Body::setUserData(love::Object *data)
 {
-	love::luax_assert_argc(L, 1, 1);
-
-	if(!ref)
-		ref = new Reference();
-
-	ref->ref(L);
-
-	return 0;
+	userdata.set(data);
 }
 
-int Body::getUserData(lua_State *L)
+love::Object *Body::getUserData() const
 {
-	if (ref != nullptr)
-		ref->push(L);
-	else
-		lua_pushnil(L);
-
-	return 1;
+	return userdata.get();
 }
 
 } // box2d

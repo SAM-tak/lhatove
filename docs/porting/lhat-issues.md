@@ -5,7 +5,9 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 未解決
 
-（なし）
+- **`lhat_program_install` が、検査済み型を名指す箇所ごとにランタイム型を作り直す（共有しない）**。相互参照する hostdata 型（love.physics の World/Body/Shape/Joint/Contact — `Body.getShapes -> Shape`、`Shape.getBody -> Body`、`Joint.getBodies -> (Body, Body)`…）で生成数が爆発し、lhatove は physics 登録だけで起動直後 **live 265 万オブジェクト**（physics を外すと 1,491）。全オブジェクトが L^ から到達可能なので毎回の collection が全走査になり、`World.update` 内の nested `lhat_machine_call` が 1 回 370ms（`LhatRunResult.live` 2,651,118）。再現 [repro/install_blowup.c](repro/install_blowup.c): 5 型 × 8 メンバ相互参照で live 6,124,940、4×4 で 20,290、3×4 で 4,852、相互参照を `number^` に置き換えると 140。`3a4376c` は終了するようにはなったが、生成量は依然指数的。期待: 検査済み型 1 つにつきランタイム型 1 つ（memo/hash-cons）。lhatove 側の暫定回避は無し（physics のシグネチャは相互参照が本質）。影響は physics に限らない: `testing/lh/m3` の `ImageData.mapPixel`（64×64 = 4096 回の nested call）も修正まで 20 分超かかる（`LHATOVE_SKIP_REGISTRATIONS=love.physics.*` なら 1 秒）
+- `lhat_machine_call` 自体は 3 引数でも 7 引数でも、コルーチン内・深い入れ子・registry 経由の closure でも正常（[repro/call_arity.c](repro/call_arity.c) 20 万回通過）— 上記の遅さをハングと誤認したもの
+- **`$"..."` 補間にタプルを返す呼び出しを書くと、検査は通るが実行時に fault する**: `$"gravity={world.getGravity()}"`（`f^self^ -> (number^, number^)`）が check を通過し、実行時に「this call and what it called disagree on how many values come back」で止まる。13.8改ではタプルは引数位置に置けない（`pack^` か `...`）ので、補間スロットも同じ静的エラーにしてほしい。回避: `let^ gx, gy = world.getGravity()` で受けてから補間（`testing/lh/physics/main.lh`）
 
 ## 提案
 

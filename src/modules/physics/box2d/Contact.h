@@ -23,7 +23,7 @@
 
 // LOVE
 #include "common/Object.h"
-#include "common/runtime.h"
+#include <vector>
 #include "World.h"
 
 // Box2D
@@ -74,18 +74,14 @@ public:
 	bool isValid();
 
 	/**
-	 * Gets the position of each point of contact.
-	 * @return The position along the x-axis.
-	 * @return The position along the y-axis.
+	 * Gets the position of each point of contact as (x, y) pairs.
 	 **/
-	int getPositions(lua_State *L);
+	std::vector<float> getPositions() const;
 
 	/**
 	 * Gets the collision normal.
-	 * @return The x-component of the normal.
-	 * @return The y-component of the normal.
 	 **/
-	int getNormal(lua_State *L);
+	void getNormal(float &x, float &y) const;
 
 	/**
 	 * The mixed friction between the two fixtures at

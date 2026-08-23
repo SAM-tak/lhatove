@@ -136,14 +136,14 @@ public:
 	 * @returns The upper limit.
 	 * @returns The lower limit.
 	 **/
-	int getLimits(lua_State *L);
+	void getLimits(float &x, float &y) const;
 
 	/**
 	 * Gets the axis unit vector, relative to body1.
 	 * @returns The X component of the axis unit vector.
 	 * @returns The Y component of the axis unit vector.
 	 **/
-	int getAxis(lua_State *L);
+	void getAxis(float &x, float &y) const;
 
 	/**
 	 * Gets the reference angle.

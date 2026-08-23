@@ -10,7 +10,7 @@
 | M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微） |
 | M2 | 実ゲーム対応（PhysfsLoader 完全化・conf.lh・filesystem/image/font・エラー画面・fused） | ディスク上の実ゲームディレクトリ + zip 読込 | **完了**（2026-08-23）。`testing/lh/realgame` をディレクトリ・.love・fused exe の3形態で確認。blue screen・nogame 動作 |
 | M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
-| M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | 未着手 |
+| M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | **完了**（2026-08-23）。`testing/lh/physics` が begin/end/presolve/postsolve・contact filter・area query・ray cast・joint・userData を通す（exit=7）。lhat の install 型爆発（[lhat-issues.md](lhat-issues.md)）のため nested call が遅く、修正まで 1 回の完走に約 10 分 |
 | M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | 未着手 |
 | M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植開始） | 引数なし起動で nogame 表示 | 未着手 |
 
@@ -36,7 +36,7 @@
 | touch | 1 | lh_Touch.cpp | M3: getTouches/getPosition/getPressure（id は整数） |
 | sensor | 1 | lh_Sensor.cpp | M3: hasSensor/isEnabled/setEnabled/getData |
 | joystick | 2 | lh_Joystick.cpp | M3: getJoysticks/getJoystickCount、Joystick{connected name id guid axes buttons hats isDown isGamepad gamepadAxis isGamepadDown vibration}、joystick/gamepad コールバック |
-| physics/box2d | 21 | lh_Physics.cpp 他（コア脱 Lua 含む） | 未着手 |
+| physics/box2d | 21 | lh_Physics.cpp / lh_World.cpp / lh_Body.cpp / lh_Shape.cpp / lh_Joint.cpp / lh_Contact.cpp（コア脱 Lua 済み） | M4: World/Body/Shape/Joint/Contact の 5 型（shape/joint の種別は 1 型に平坦化）、newWorld/newBody/new*Body/new*Shape/new*Joint/getDistance/meter/compute*、コールバック・filter・query・rayCast、userData。deprecated API（body 無し shape・newFixture・getChildEdge）は非対応 |
 | thread | 3 | lh_Thread.cpp 他（LuaThread 置換含む） | 未着手 |
 | video | 2 | lh_Video.cpp 他 | 未着手 |
 | luasocket / enet / luahttps / lua53 | - | 恒久廃止 | 確定 |

@@ -61,7 +61,7 @@ public:
 	/**
 	 * Gets the current anchor2 target.
 	 **/
-	int getTarget(lua_State *L);
+	void getTarget(float &x, float &y) const;
 
 	/**
 	 * Sets the maximum constraint force that can be exerted

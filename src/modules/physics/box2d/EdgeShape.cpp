@@ -75,18 +75,16 @@ b2Vec2 EdgeShape::getPreviousVertex() const
 	return Physics::scaleUp(e->m_vertex0);
 }
 
-int EdgeShape::getPoints(lua_State *L)
+void EdgeShape::getPoints(float &x1, float &y1, float &x2, float &y2) const
 {
 	throwIfShapeNotValid();
 	b2EdgeShape *e = (b2EdgeShape *)shape;
 	b2Vec2 v1 = Physics::scaleUp(e->m_vertex1);
 	b2Vec2 v2 = Physics::scaleUp(e->m_vertex2);
-	lua_pushnumber(L, v1.x);
-	lua_pushnumber(L, v1.y);
-	lua_pushnumber(L, v2.x);
-	lua_pushnumber(L, v2.y);
-	return 4;
-
+	x1 = v1.x;
+	y1 = v1.y;
+	x2 = v2.x;
+	y2 = v2.y;
 }
 
 } // box2d

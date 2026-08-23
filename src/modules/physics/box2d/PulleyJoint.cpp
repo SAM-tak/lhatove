@@ -50,13 +50,14 @@ PulleyJoint::~PulleyJoint()
 {
 }
 
-int PulleyJoint::getGroundAnchors(lua_State *L)
+void PulleyJoint::getGroundAnchors(float &x1, float &y1, float &x2, float &y2) const
 {
-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorA().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorA().y));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorB().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetGroundAnchorB().y));
-	return 4;
+	b2Vec2 a = Physics::scaleUp(joint->GetGroundAnchorA());
+	b2Vec2 b = Physics::scaleUp(joint->GetGroundAnchorB());
+	x1 = a.x;
+	y1 = a.y;
+	x2 = b.x;
+	y2 = b.y;
 }
 
 float PulleyJoint::getLengthA() const

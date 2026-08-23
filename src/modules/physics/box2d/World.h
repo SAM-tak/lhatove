@@ -23,8 +23,8 @@
 
 // LOVE
 #include "common/Object.h"
-#include "common/runtime.h"
-#include "common/Reference.h"
+
+
 
 // STD
 #include <vector>
@@ -69,11 +69,62 @@ public:
 
 	static love::Type type;
 
+	// What a scripting host hangs on the world. The world itself knows no
+	// language: a contact callback is an object it retains and calls, a
+	// query is an object that lives for the one call. The L^ binding
+	// (lh_World.cpp) implements these over parked closures.
+
+	class ContactListener : public Object
+	{
+	public:
+		virtual ~ContactListener() {}
+		// `impulses` holds (normal, tangent) pairs, scaled up, for postsolve;
+		// empty otherwise.
+		virtual void onContact(Shape *a, Shape *b, Contact *contact, const std::vector<float> &impulses) = 0;
+	};
+
+	class ContactFilterListener : public Object
+	{
+	public:
+		virtual ~ContactFilterListener() {}
+		virtual bool shouldCollide(Shape *a, Shape *b) = 0;
+	};
+
+	class ShapeVisitor
+	{
+	public:
+		virtual ~ShapeVisitor() {}
+		// False stops the query.
+		virtual bool onShape(Shape *shape) = 0;
+	};
+
+	class RayCastVisitor
+	{
+	public:
+		virtual ~RayCastVisitor() {}
+		// Answers the fraction to clip the ray to, as b2RayCastCallback.
+		virtual float onHit(Shape *shape, float x, float y, float nx, float ny, float fraction) = 0;
+	};
+
+	struct RayHit
+	{
+		Shape *shape = nullptr; // nullptr: nothing was hit
+		float x = 0, y = 0, nx = 0, ny = 0, fraction = 0;
+	};
+
+	enum CallbackKind
+	{
+		CALLBACK_BEGIN,
+		CALLBACK_END,
+		CALLBACK_PRESOLVE,
+		CALLBACK_POSTSOLVE,
+		CALLBACK_MAX_ENUM
+	};
+
 	class ContactCallback
 	{
 	public:
-		Reference *ref;
-		lua_State *L;
+		StrongRef<ContactListener> listener;
 		World *world;
 		ContactCallback(World *world);
 		~ContactCallback();
@@ -83,8 +134,7 @@ public:
 	class ContactFilter
 	{
 	public:
-		Reference *ref;
-		lua_State *L;
+		StrongRef<ContactFilterListener> listener;
 		ContactFilter();
 		~ContactFilter();
 		bool process(Shape *a, Shape *b);
@@ -93,39 +143,33 @@ public:
 	class QueryCallback : public b2QueryCallback
 	{
 	public:
-		QueryCallback(lua_State *L, int idx);
+		QueryCallback(ShapeVisitor &visitor);
 		virtual ~QueryCallback();
 		bool ReportFixture(b2Fixture *fixture) override;
 	private:
-		lua_State *L;
-		int funcidx;
-		int userargs;
+		ShapeVisitor &visitor;
 	};
 
 	class CollectCallback : public b2QueryCallback
 	{
 	public:
-		CollectCallback(uint16 categoryMask, lua_State *L);
+		CollectCallback(uint16 categoryMask, std::vector<Shape *> &out);
 		virtual ~CollectCallback();
 		bool ReportFixture(b2Fixture *fixture) override;
 	private:
 		uint16 categoryMask;
-		lua_State *L;
-		int i = 1;
+		std::vector<Shape *> &out;
 	};
 
 	class RayCastCallback : public b2RayCastCallback
 	{
 	public:
-		RayCastCallback(lua_State *L, int idx);
+		RayCastCallback(RayCastVisitor &visitor);
 		virtual ~RayCastCallback();
 		float ReportFixture(b2Fixture *fixture, const b2Vec2 &point, const b2Vec2 &normal, float fraction) override;
 	private:
-		lua_State *L;
-		int funcidx;
-		int userargs;
+		RayCastVisitor &visitor;
 	};
-
 	class RayCastOneCallback : public b2RayCastCallback
 	{
 	public:
@@ -183,38 +227,15 @@ public:
 
 	/**
 	 * Returns true if the Box2D world is alive.
-	 **/
-	bool isValid() const;
-
 	/**
-	 * Receives up to four Lua functions as arguments. Each function is
-	 * collision callback for the four events (in order): begin, end,
-	 * presolve and postsolve. The value "nil" is accepted if one or
-	 * more events are uninteresting.
+	 * Sets the collision callbacks, one per event (begin, end, presolve,
+	 * postsolve). nullptr clears one. Retained.
 	 **/
-	int setCallbacks(lua_State *L);
+	void setCallback(CallbackKind kind, ContactListener *listener);
+	ContactListener *getCallback(CallbackKind kind) const;
 
-	/**
-	 * Returns the functions previously set by setCallbacks.
-	 **/
-	int getCallbacks(lua_State *L);
-
-	/**
-	 * Updates the Lua thread/coroutine used when callbacks are executed in
-	 * the update method. This should be called in the same Lua function which
-	 * calls update().
-	 **/
-	void setCallbacksL(lua_State *L);
-
-	/**
-	 * Sets the ContactFilter callback.
-	 **/
-	int setContactFilter(lua_State *L);
-
-	/**
-	 * Gets the ContactFilter callback.
-	 **/
-	int getContactFilter(lua_State *L);
+	void setContactFilter(ContactFilterListener *listener);
+	ContactFilterListener *getContactFilter() const;
 
 	/**
 	 * Sets the current gravity of the World.
@@ -224,11 +245,9 @@ public:
 	void setGravity(float x, float y);
 
 	/**
-	 * Gets the current gravity.
-	 * @returns Gravity in the x-direction.
-	 * @returns Gravity in the y-direction.
+	 * Gets the current gravity, scaled up.
 	 **/
-	int getGravity(lua_State *L);
+	b2Vec2 getGravity() const;
 
 	/**
 	 * Translate the world origin.
@@ -273,24 +292,20 @@ public:
 	 * @return The number of contacts.
 	 **/
 	int getContactCount() const;
+	/**
+	 * Every Body in the World, not retained.
+	 **/
+	std::vector<Body *> getBodies() const;
 
 	/**
-	 * Get an array of all the Bodies in the World.
-	 * @return An array of Bodies.
+	 * Every Joint in the World, not retained.
 	 **/
-	int getBodies(lua_State *L) const;
+	std::vector<Joint *> getJoints() const;
 
 	/**
-	 * Get an array of all the Joints in the World.
-	 * @return An array of Joints.
+	 * Every Contact in the World, each one retained for the caller.
 	 **/
-	int getJoints(lua_State *L) const;
-
-	/**
-	 * Get an array of all the Contacts in the World.
-	 * @return An array of Contacts.
-	 **/
-	int getContacts(lua_State *L);
+	std::vector<Contact *> getContacts();
 
 	/**
 	 * Gets the ground body.
@@ -299,22 +314,27 @@ public:
 	b2Body *getGroundBody() const;
 
 	/**
-	 * Calls a callback on all Shapes that overlap a given bounding box.
+	 * Calls the visitor on all Shapes that overlap a given bounding box.
 	 **/
-	int queryShapesInArea(lua_State *L);
+	void queryShapesInArea(float lx, float ly, float ux, float uy, ShapeVisitor &visitor);
 
 	/**
-	 * Gets all Shapes that overlap a given bounding box.
+	 * Gets all Shapes that overlap a given bounding box (not retained).
 	 **/
-	int getShapesInArea(lua_State *L);
+	std::vector<Shape *> getShapesInArea(float lx, float ly, float ux, float uy, uint16 categoryMask = 0xFFFF);
 
 	/**
-	 * Raycasts the World for all Fixtures in the path of the ray.
+	 * Raycasts the World, calling the visitor for every Shape in the path.
 	 **/
-	int rayCast(lua_State *L);
+	void rayCast(float x1, float y1, float x2, float y2, RayCastVisitor &visitor);
 
-	int rayCastAny(lua_State *L);
-	int rayCastClosest(lua_State *L);
+	RayHit rayCastAny(float x1, float y1, float x2, float y2, uint16 categoryMask = 0xFFFF);
+	RayHit rayCastClosest(float x1, float y1, float x2, float y2, uint16 categoryMask = 0xFFFF);
+
+	/**
+	 * Returns true if the Box2D world is alive.
+	 **/
+	bool isValid() const;
 
 	/**
 	 * Destroy this world.

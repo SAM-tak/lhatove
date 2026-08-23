@@ -54,7 +54,7 @@ public:
 	 * Gets the ground anchors position in world
 	 * coordinates.
 	 **/
-	int getGroundAnchors(lua_State *L);
+	void getGroundAnchors(float &x1, float &y1, float &x2, float &y2) const;
 
 	/**
 	 * Gets the current length of the segment attached to bodyA.

@@ -57,29 +57,28 @@ bool Contact::isValid()
 	return contact != nullptr;
 }
 
-int Contact::getPositions(lua_State *L)
+std::vector<float> Contact::getPositions() const
 {
-	love::luax_assert_argc(L, 1, 1);
 	b2WorldManifold manifold;
 	contact->GetWorldManifold(&manifold);
 	int points = contact->GetManifold()->pointCount;
+	std::vector<float> out;
+	out.reserve(points * 2);
 	for (int i = 0; i < points; i++)
 	{
 		b2Vec2 position = Physics::scaleUp(manifold.points[i]);
-		lua_pushnumber(L, position.x);
-		lua_pushnumber(L, position.y);
+		out.push_back(position.x);
+		out.push_back(position.y);
 	}
-	return points*2;
+	return out;
 }
 
-int Contact::getNormal(lua_State *L)
+void Contact::getNormal(float &x, float &y) const
 {
-	love::luax_assert_argc(L, 1, 1);
 	b2WorldManifold manifold;
 	contact->GetWorldManifold(&manifold);
-	lua_pushnumber(L, manifold.normal.x);
-	lua_pushnumber(L, manifold.normal.y);
-	return 2;
+	x = manifold.normal.x;
+	y = manifold.normal.y;
 }
 
 float Contact::getFriction() const

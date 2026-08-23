@@ -48,7 +48,7 @@ public:
 
 	/// Set/get the target linear offset, in frame A, in meters.
 	void setLinearOffset(float x, float y);
-	int getLinearOffset(lua_State *L) const;
+	void getLinearOffset(float &x, float &y) const;
 
 	/// Set/get the target angular offset, in radians.
 	void setAngularOffset(float angularOffset);

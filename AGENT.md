@@ -46,7 +46,10 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
 - 前提 lhat は HEAD `3a4376c` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
-- 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m`（登録を外して二分探索）
+- 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
+- 止まる・遅い時: `LHATOVE_WATCHDOG=<秒>` でフレームが止まった主スレッドのスタックを base+offset で stderr へ出力 → `scripts/symbolize.c`（`cl symbolize.c dbghelp.lib`）で `.pdb` から名前解決。symbols は `cmake --build build --config RelWithDebInfo --target lovec`（`SDL3.dll` / `OpenAL32.dll` を `build/SDL3/RelWithDebInfo` 等から `build/love/RelWithDebInfo` へコピー）。stderr を PowerShell のパイプに流すと書込で止まって見えるので、ファイルへリダイレクトする
+- C 側が L^ の値を保持する時は `lh::Parked`（`lh::ParkingLot` の整数スロットに係留、`StrongRef<love::Object>` で持てる）。コールバックは `lhat_machine_call` をホスト関数の中から呼ぶ（fault は外側の run に伝播するので戻り値を捨てるだけでよい）
+- hostdata 型の種別（Shape の circle/polygon…、Joint の各種）は 1 つの型に平坦化し、種別外のメンバは `lh::raise`。L^ の hostdata に部分型は無い
 
 ### 旧 Lua コード
 
@@ -78,7 +81,7 @@ love2d 公式 Windows 依存ビルド。`scripts/build.ps1` が `../megasource` 
 
 > `git clone https://github.com/love2d/megasource.git`
 
-## 動作確認（M3 時点）
+## 動作確認（M4 時点）
 
 lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 
@@ -86,12 +89,13 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（Esc で終了）
 .\build\love\Release\lovec.exe --dump-host-api      # lhat-host.json（LSP 用ホスト API）を書き出す
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lh・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
-.\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
+.\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6（lhat の型爆発修正まで mapPixel が遅い → $env:LHATOVE_SKIP_REGISTRATIONS="love.physics.*" で 1 秒）
+.\build\love\Release\lovec.exe testing\lh\physics    # box2d: 接触コールバック4種・filter・query・rayCast・joint・userData、exit=7（lhat の型爆発修正まで約 10 分）
 .\build\love\Release\lovec.exe testing\lh\hello      # 矩形が動く。Esc で終了
 .\build\love\Release\lovec.exe testing\lh\autoquit   # 90 フレームで自動終了、exit=3
 .\build\love\Release\lovec.exe testing\lh\customrun  # run オーバーライド、exit=5
 .\build\love\Release\lovec.exe testing\lh\panic      # update 内 panic^ → traceback
 .\build\love\Release\lovec.exe testing\lh\raise      # 不正な draw mode → ホスト発 panic
 .\build\love\Release\lovec.exe testing\lh\badcallback # update の型違い → 起動前に診断
-$env:LHATOVE_GC_STATS=1; .\build\love\Release\lovec.exe testing\lh\customrun   # 120 フレーム毎に GC 統計
+$env:LHATOVE_GC_STATS=120; .\build\love\Release\lovec.exe testing\lh\customrun # 120 フレーム毎に GC 統計（collected / live）
 ```

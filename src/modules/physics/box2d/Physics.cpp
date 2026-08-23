@@ -22,7 +22,7 @@
 
 // LOVE
 #include "common/math.h"
-#include "wrap_Body.h"
+#include "Shape.h"
 
 namespace love
 {
@@ -307,36 +307,31 @@ MotorJoint *Physics::newMotorJoint(Body *body1, Body *body2, float correctionFac
 	return new MotorJoint(body1, body2, correctionFactor, collideConnected);
 }
 
-int Physics::getDistance(lua_State *L)
+float Physics::getDistance(Shape *shapeA, Shape *shapeB, float &ax, float &ay, float &bx, float &by)
 {
-	Shape *shapeA = luax_checktype<Shape>(L, 1);
-	Shape *shapeB = luax_checktype<Shape>(L, 2);
 	b2DistanceProxy pA, pB;
 	b2DistanceInput i;
 	b2DistanceOutput o;
 	b2SimplexCache c;
 	c.count = 0;
 
-	luax_catchexcept(L, [&]() {
-		if (!shapeA->isValid() || !shapeB->isValid())
-			throw love::Exception("The given Shape is not active in the physics World.");
+	if (!shapeA->isValid() || !shapeB->isValid())
+		throw love::Exception("The given Shape is not active in the physics World.");
 
-		pA.Set(shapeA->fixture->GetShape(), 0);
-		pB.Set(shapeB->fixture->GetShape(), 0);
-		i.proxyA = pA;
-		i.proxyB = pB;
-		i.transformA = shapeA->fixture->GetBody()->GetTransform();
-		i.transformB = shapeB->fixture->GetBody()->GetTransform();
-		i.useRadii = true;
-		b2Distance(&o, &c, &i);
-	});
+	pA.Set(shapeA->fixture->GetShape(), 0);
+	pB.Set(shapeB->fixture->GetShape(), 0);
+	i.proxyA = pA;
+	i.proxyB = pB;
+	i.transformA = shapeA->fixture->GetBody()->GetTransform();
+	i.transformB = shapeB->fixture->GetBody()->GetTransform();
+	i.useRadii = true;
+	b2Distance(&o, &c, &i);
 
-	lua_pushnumber(L, Physics::scaleUp(o.distance));
-	lua_pushnumber(L, Physics::scaleUp(o.pointA.x));
-	lua_pushnumber(L, Physics::scaleUp(o.pointA.y));
-	lua_pushnumber(L, Physics::scaleUp(o.pointB.x));
-	lua_pushnumber(L, Physics::scaleUp(o.pointB.y));
-	return 5;
+	ax = Physics::scaleUp(o.pointA.x);
+	ay = Physics::scaleUp(o.pointA.y);
+	bx = Physics::scaleUp(o.pointB.x);
+	by = Physics::scaleUp(o.pointB.y);
+	return Physics::scaleUp(o.distance);
 }
 
 void Physics::setMeter(float scale)

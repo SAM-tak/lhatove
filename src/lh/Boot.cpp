@@ -21,6 +21,7 @@
 #include "Boot.h"
 #include "Boot.lh.h"
 #include "ErrorScreen.h"
+#include "Watchdog.h"
 #include "PhysfsLoader.h"
 #include "lh.h"
 
@@ -43,6 +44,7 @@
 #include "modules/audio/null/Audio.h"
 #include "modules/data/DataModule.h"
 #include "modules/math/MathModule.h"
+#include "modules/physics/box2d/Physics.h"
 #include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
 #include "modules/window/sdl/Window.h"
@@ -93,6 +95,7 @@ bool lhopen_love_system(Context &ctx);
 bool lhopen_love_touch(Context &ctx);
 bool lhopen_love_sensor(Context &ctx);
 bool lhopen_love_joystick(Context &ctx);
+bool lhopen_love_physics(Context &ctx);
 static bool lhopen_love_boot(Context &ctx);
 
 static const Registrar registrars[] = {
@@ -112,6 +115,7 @@ static const Registrar registrars[] = {
 	lhopen_love_touch,
 	lhopen_love_sensor,
 	lhopen_love_joystick,
+	lhopen_love_physics,
 	lhopen_love_window,
 	lhopen_love_graphics,
 };
@@ -345,7 +349,7 @@ struct Conf
 	{
 		bool audio = true, data = true, event = true, filesystem = true, font = true, graphics = true;
 		bool image = true, joystick = true, keyboard = true, math = true, mouse = true, sensor = true;
-		bool sound = true, system = true, timer = true, touch = true, window = true;
+		bool physics = true, sound = true, system = true, timer = true, touch = true, window = true;
 	} modules;
 };
 
@@ -385,6 +389,7 @@ static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
 		conf.modules.keyboard = fieldBool(machine, modules, "keyboard", true);
 		conf.modules.math = fieldBool(machine, modules, "math", true);
 		conf.modules.mouse = fieldBool(machine, modules, "mouse", true);
+		conf.modules.physics = fieldBool(machine, modules, "physics", true);
 		conf.modules.sensor = fieldBool(machine, modules, "sensor", true);
 		conf.modules.sound = fieldBool(machine, modules, "sound", true);
 		conf.modules.system = fieldBool(machine, modules, "system", true);
@@ -505,6 +510,7 @@ static int boot(int argc, char **argv, bool console)
 {
 	consoleBuild = console;
 	tracing = getenv("LHATOVE_TRACE") != nullptr;
+	startWatchdog();
 	Arguments args = parseArguments(argc, argv);
 
 #ifdef LOVE_LEGENDARY_CONSOLE_IO_HACK
@@ -751,6 +757,8 @@ static int boot(int argc, char **argv, bool console)
 			modules.add(love::graphics::Graphics::createInstance());
 		if (conf.modules.math)
 			modules.add(new love::math::Math());
+		if (conf.modules.physics)
+			modules.add(new love::physics::box2d::Physics());
 
 		if (window != nullptr && conf.window.wanted)
 		{
@@ -842,17 +850,23 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 
 	// One resume per frame until the run returns.
+	// LHATOVE_GC_STATS=<n>: the collector's counts every n frames (1 = every frame).
 	const char *gcstats = getenv("LHATOVE_GC_STATS");
+	unsigned every = gcstats != nullptr && atoi(gcstats) > 0 ? (unsigned) atoi(gcstats) : 120;
 	unsigned frame = 0;
 	while (true)
 	{
+		kickWatchdog();
+		// Slots given back by wrappers disposed in the collector are written
+		// out here, between frames, where the host may touch the heap.
+		runtime.lot()->sweep();
 		LhatRunResult step = lhat_machine_resume(machine, coroutine, nullptr, 0);
 		if (step.status != LHAT_RUN_OK)
 		{
 			reportRuntime(runtime.describe(step));
 			return 1;
 		}
-		if (gcstats != nullptr && (++frame % 120) == 0)
+		if (gcstats != nullptr && (++frame % every) == 0)
 			fprintf(stderr, "[gc] frame %u: collected %zu, live %zu\n", frame, step.collected, step.live);
 		if (lhat_machine_coroutine_done(coroutine))
 			return exitCodeOf(step.value);

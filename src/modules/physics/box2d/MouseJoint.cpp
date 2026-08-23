@@ -62,11 +62,11 @@ void MouseJoint::setTarget(float x, float y)
 	joint->SetTarget(Physics::scaleDown(b2Vec2(x, y)));
 }
 
-int MouseJoint::getTarget(lua_State *L)
+void MouseJoint::getTarget(float &x, float &y) const
 {
-	lua_pushnumber(L, Physics::scaleUp(joint->GetTarget().x));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetTarget().y));
-	return 2;
+	b2Vec2 v = Physics::scaleUp(joint->GetTarget());
+	x = v.x;
+	y = v.y;
 }
 
 void MouseJoint::setMaxForce(float force)

@@ -24,7 +24,7 @@
 // LOVE
 #include "physics/Shape.h"
 #include "physics/box2d/Body.h"
-#include "common/Reference.h"
+#include "common/Object.h"
 
 // Box2D
 #include <box2d/Box2D.h>
@@ -97,16 +97,14 @@ public:
 	void getFilterData(int *v);
 
 	/**
-	 * This function stores an in-C reference to
-	 * arbitrary Lua data in the Shape object.
+	 * Keeps an arbitrary host object alongside the Shape.
 	 **/
-	int setUserData(lua_State *L);
+	void setUserData(love::Object *data);
 
 	/**
-	 * Gets the data set with setUserData. If no
-	 * data is set, nil is returned.
+	 * Gets the data set with setUserData, or nullptr.
 	 **/
-	int getUserData(lua_State *L);
+	love::Object *getUserData() const;
 
 	/**
 	 * Sets the friction of the Shape.
@@ -152,30 +150,40 @@ public:
 
 	float getRadius() const;
 	int getChildCount() const;
-	int rayCast(lua_State *L) const;
-	int computeAABB(lua_State *L) const;
-	int computeMass(lua_State *L) const;
+	/**
+	 * Casts a ray against the fixture (childIndex is 0-based).
+	 * Returns false when nothing is hit.
+	 **/
+	bool rayCast(float x1, float y1, float x2, float y2, float maxFraction, int childIndex, float &nx, float &ny, float &fraction) const;
+
+	/**
+	 * Casts a ray against the bare shape placed at (x, y, r).
+	 **/
+	bool rayCast(float x1, float y1, float x2, float y2, float maxFraction, float x, float y, float r, int childIndex, float &nx, float &ny, float &fraction) const;
+
+	void computeAABB(float x, float y, float r, int childIndex, float &lx, float &ly, float &ux, float &uy) const;
+	void computeMass(float density, float &cx, float &cy, float &mass, float &inertia) const;
 
 	void setGroupIndex(int index);
 	int getGroupIndex() const;
 
-	int setCategory(lua_State *L);
-	int setMask(lua_State *L);
-	int getCategory(lua_State *L);
-	int getMask(lua_State *L);
-	uint16 getBits(lua_State *L);
-	int pushBits(lua_State *L, uint16 bits);
+	// Category and mask are raw 16-bit sets; the binding converts
+	// between them and 1-based bit indices.
+	void setCategory(uint16 bits);
+	void setMask(uint16 bits);
+	uint16 getCategory() const;
+	uint16 getMask() const;
 
 	/**
-	 * Gets the bounding box for this Shape.
+	 * Gets the bounding box for this Shape (childIndex is 0-based).
 	 **/
-	int getBoundingBox(lua_State *L) const;
+	void getBoundingBox(int childIndex, float &lx, float &ly, float &ux, float &uy) const;
 
 	/**
 	 * Gets the mass data for this Shape.
 	 * This operation may be expensive.
 	 **/
-	int getMassData(lua_State *L) const;
+	void getMassData(float &cx, float &cy, float &mass, float &inertia) const;
 
 	void throwIfFixtureNotValid() const;
 	void throwIfShapeNotValid() const;
@@ -191,8 +199,8 @@ protected:
 	Body *body;
 	b2Fixture *fixture;
 
-	// Reference to arbitrary data.
-	Reference* ref = nullptr;
+	// Arbitrary host data kept alive with the shape.
+	StrongRef<love::Object> userdata;
 
 }; // Shape
 

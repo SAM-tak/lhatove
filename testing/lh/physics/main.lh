@@ -1,0 +1,155 @@
+# Milestone M4 acceptance: love.physics with every kind of callback firing
+# through L^ -- contact begin/end/presolve/postsolve, a contact filter, an
+# area query and a ray cast -- plus joints and user data. Bodies fall onto
+# the ground for 240 frames; the counts are then checked and the game quits
+# with exit code 7 (exit code 1 when something did not fire).
+module^ physics
+
+import^ love.physics
+import^ love.graphics
+import^ love.event
+import^ love.timer
+
+let^ world = love.physics.newWorld(0, 500, true^)
+let^ ground, groundShape = love.physics.newRectangleBody(world, "static", 400, 580, 800, 40)
+let^ box, boxShape = love.physics.newRectangleBody(world, "dynamic", 400, 100, 50, 50)
+let^ ball, ballShape = love.physics.newCircleBody(world, "dynamic", 420, 0, 20)
+let^ ghost, ghostShape = love.physics.newCircleBody(world, "dynamic", 200, 200, 15)
+let^ anchor = love.physics.newBody(world, 600, 200, "static")
+let^ bob, bobShape = love.physics.newPolygonBody(world, "dynamic", 600, 280, 620, 320, 580, 320)
+let^ pendulum = love.physics.newDistanceJoint(anchor, bob, 600, 200, 600, 300, false^)
+let^ hinge = love.physics.newRevoluteJoint(box, ball, 400, 100, false^)
+
+var^ frames = 0
+var^ begins = 0
+var^ ends = 0
+var^ presolves = 0
+var^ postsolves = 0
+var^ filtered = 0
+var^ impulse = 0
+var^ lastNormalY = 0
+var^ queried = 0
+var^ rayHits = 0
+
+let^ nameOf = f^s:love.physics.Shape -> string^ {
+    let^ data = s.getUserData()
+    if^ data isa^ string^ { return^ data }
+    return^ "?"
+}
+
+public^let^ load = p^ {
+    # The names a shape's user data gives it, for the callbacks to report.
+    boxShape.setUserData("box")
+    ballShape.setUserData("ball")
+    ghostShape.setUserData("ghost")
+    groundShape.setUserData("ground")
+    bobShape.setUserData("bob")
+    box.setUserData({ kind = "box", mass = box.getMass() })
+    hinge.setUserData("hinge")
+
+    world.setCallbacks(
+        p^a:love.physics.Shape, b:love.physics.Shape, c:love.physics.Contact {
+            begins := begins + 1
+            let^ nx, ny = c.getNormal()
+            lastNormalY := ny
+            if^ begins <= 3 { print($"begin: {nameOf(a)} x {nameOf(b)} touching={c.isTouching()} points={c.getPositions().length^}") }
+        },
+        p^a:love.physics.Shape, b:love.physics.Shape, c:love.physics.Contact {
+            ends := ends + 1
+        },
+        p^a:love.physics.Shape, b:love.physics.Shape, c:love.physics.Contact {
+            presolves := presolves + 1
+            # a soft ground: the ball bounces a little more
+            if^ nameOf(a) = "ball" or^ nameOf(b) = "ball" { c.setRestitution(0.5) }
+        },
+        p^a:love.physics.Shape, b:love.physics.Shape, c:love.physics.Contact, n1:number^, t1:number^, n2:number^, t2:number^ {
+            postsolves := postsolves + 1
+            if^ n1 > impulse { impulse := n1 }
+        })
+
+    # The ghost passes through everything.
+    world.setContactFilter(p^a:love.physics.Shape, b:love.physics.Shape -> bool^ {
+        if^ nameOf(a) = "ghost" or^ nameOf(b) = "ghost" {
+            filtered := filtered + 1
+            return^ false^
+        }
+        return^ true^
+    })
+
+    let^ gx, gy = world.getGravity()
+    print($"physics: meter={love.physics.getMeter()} bodies={world.getBodyCount()} joints={world.getJointCount()} gravity={gx},{gy}")
+    let^ ax1, ay1, ax2, ay2 = pendulum.getAnchors()
+    print($"joints: {pendulum.getType()} length={pendulum.getLength()} anchors={ax1},{ay1}-{ax2},{ay2}; {hinge.getType()} userdata={hinge.getUserData()}")
+    let^ data = box.getUserData()
+    if^ data isa^ t^{ kind : string^, mass : number^ } { print($"box userdata: {data.kind} mass={data.mass}") }
+    let^ d, x1, y1, x2, y2 = love.physics.getDistance(boxShape, groundShape)
+    print($"distance box-ground = {d}")
+    let^ cb1, cb2, cb3, cb4 = world.getCallbacks()
+    print($"callbacks set: {!(cb1 isa^ nil^)} {!(cb4 isa^ nil^)}")
+}
+
+public^let^ update = p^dt:number^ {
+    frames := frames + 1
+    world.update(dt)
+
+    if^ frames = 120 {
+        # an area query over the ground, stopping at the first shape
+        world.queryShapesInArea(0, 560, 800, 600, p^s:love.physics.Shape -> bool^ {
+            queried := queried + 1
+            return^ true^
+        })
+        let^ there = world.getShapesInArea(0, 560, 800, 600)
+        # a ray straight down through the box column
+        world.rayCast(400, 0, 400, 600, p^s:love.physics.Shape, x:number^, y:number^, nx:number^, ny:number^, fraction:number^ -> number^ {
+            rayHits := rayHits + 1
+            return^ 1
+        })
+        let^ closest = world.rayCastClosest(400, 0, 400, 600)
+        let^ any = world.rayCastAny(400, 0, 400, 600)
+        var^ closestName = "nothing"
+        if^ closest isa^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
+            closestName := $"{nameOf(closest.shape)} at y={closest.y.round()} fraction={closest.fraction}"
+        }
+        print($"queries: area visited {queried}, listed {there.length^}; ray hits {rayHits}, closest {closestName}, any {any isa^ nil^}")
+        let^ bx, by = box.getPosition()
+        print($"box: pos={bx.round()},{by.round()} shapes={box.getShapes().length^} joints={box.getJoints().length^} contacts={box.getContacts().length^} awake={box.isAwake()}")
+        hinge.destroy()
+        print($"hinge destroyed: {hinge.isDestroyed()}, box joints now {box.getJoints().length^}")
+    }
+
+    if^ frames = 240 {
+        print($"counts: begin={begins} end={ends} presolve={presolves} postsolve={postsolves} filtered={filtered} maxImpulse={impulse} normalY={lastNormalY}")
+        let^ gx, gy = ghost.getPosition()
+        let^ px, py = bob.getPosition()
+        print($"ghost fell through to y={gy.round()}, bob at {px.round()},{py.round()}, ground contacts={world.getContactCount()}")
+        var^ ok = begins > 0 and^ presolves > 0 and^ postsolves > 0 and^ filtered > 0 and^ queried > 0 and^ rayHits > 0
+        if^ gy < 600 { ok := false^ }
+        world.destroy()
+        print($"world destroyed: {world.isDestroyed()}")
+        if^ ok { love.event.quit(7) else^: love.event.quit(1) }
+    }
+}
+
+let^ drawShape = p^body:love.physics.Body, shape:love.physics.Shape {
+    let^ kind = shape.getType()
+    if^ kind = "circle" {
+        let^ x, y = body.getPosition()
+        love.graphics.circle("line", x, y, shape.getRadius())
+    elseif^ kind = "polygon":
+        love.graphics.polygon("line", body.getWorldPoints(shape.getPoints()...)...)
+    }
+}
+
+public^let^ draw = p^ {
+    love.graphics.setColor(1, 1, 1)
+    if^ !world.isDestroyed() {
+        for^ body in^ world.getBodies() {
+            for^ shape in^ body.getShapes() { drawShape(body, shape) }
+        }
+        for^ joint in^ world.getJoints() {
+            let^ x1, y1, x2, y2 = joint.getAnchors()
+            love.graphics.line(x1, y1, x2, y2)
+        }
+    }
+    love.graphics.print($"M4 frame {frames}: begin {begins} end {ends} pre {presolves} post {postsolves} filtered {filtered}", 10, 10)
+}

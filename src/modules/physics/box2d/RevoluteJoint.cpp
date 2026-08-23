@@ -147,11 +147,10 @@ float RevoluteJoint::getUpperLimit() const
 	return joint->GetUpperLimit();
 }
 
-int RevoluteJoint::getLimits(lua_State *L)
+void RevoluteJoint::getLimits(float &x, float &y) const
 {
-	lua_pushnumber(L, joint->GetLowerLimit());
-	lua_pushnumber(L, joint->GetUpperLimit());
-	return 2;
+	x = joint->GetLowerLimit();
+	y = joint->GetUpperLimit();
 }
 
 float RevoluteJoint::getReferenceAngle() const

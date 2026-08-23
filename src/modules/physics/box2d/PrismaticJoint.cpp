@@ -147,20 +147,18 @@ float PrismaticJoint::getUpperLimit() const
 	return Physics::scaleUp(joint->GetUpperLimit());
 }
 
-int PrismaticJoint::getLimits(lua_State *L)
+void PrismaticJoint::getLimits(float &x, float &y) const
 {
-	lua_pushnumber(L, Physics::scaleUp(joint->GetLowerLimit()));
-	lua_pushnumber(L, Physics::scaleUp(joint->GetUpperLimit()));
-	return 2;
+	x = Physics::scaleUp(joint->GetLowerLimit());
+	y = Physics::scaleUp(joint->GetUpperLimit());
 }
 
-int PrismaticJoint::getAxis(lua_State *L)
+void PrismaticJoint::getAxis(float &x, float &y) const
 {
 	b2Vec2 axis = joint->GetLocalAxisA();
 	getBodyA()->getWorldVector(axis.x, axis.y, axis.x, axis.y);
-	lua_pushnumber(L, axis.x);
-	lua_pushnumber(L, axis.y);
-	return 2;
+	x = axis.x;
+	y = axis.y;
 }
 
 float PrismaticJoint::getReferenceAngle() const

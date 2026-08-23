@@ -155,11 +155,11 @@
 #	define LOVE_ENABLE_KEYBOARD
 #	define LOVE_ENABLE_MATH
 #	define LOVE_ENABLE_MOUSE
-// love.physics and love.thread are not ported to L^ yet (see docs/porting/status.md).
-//#	define LOVE_ENABLE_PHYSICS
+#	define LOVE_ENABLE_PHYSICS
 #	define LOVE_ENABLE_SENSOR
 #	define LOVE_ENABLE_SOUND
 #	define LOVE_ENABLE_SYSTEM
+// love.thread is not ported to L^ yet (see docs/porting/status.md).
 //#	define LOVE_ENABLE_THREAD
 #	define LOVE_ENABLE_TIMER
 #	define LOVE_ENABLE_TOUCH

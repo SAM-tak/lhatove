@@ -18,54 +18,24 @@
  * 3. This notice may not be removed or altered from any source distribution.
  **/
 
-#include "PolygonShape.h"
-
-// Module
-#include "Body.h"
-#include "World.h"
-#include "Physics.h"
+#ifndef LOVE_LH_WATCHDOG_H
+#define LOVE_LH_WATCHDOG_H
 
 namespace love
 {
-namespace physics
-{
-namespace box2d
+namespace lh
 {
 
-love::Type PolygonShape::type("PolygonShape", &Shape::type);
+// A development aid for hangs: LHATOVE_WATCHDOG=<seconds> starts a thread
+// that, once the main thread has been silent for that long, writes the
+// main thread's stack to stderr (twice, a second apart) as module base +
+// offset and ends the process. "Silent" means no call to kickWatchdog()
+// -- the boot loop kicks once per frame. Windows x64 only; resolve the
+// offsets with scripts/symbolize.c against a RelWithDebInfo build's .pdb.
+void startWatchdog();
+void kickWatchdog();
 
-PolygonShape::PolygonShape(Body *body, const b2PolygonShape &p)
-	: Shape(body, p)
-{
-}
-
-PolygonShape::~PolygonShape()
-{
-}
-
-std::vector<float> PolygonShape::getPoints() const
-{
-	throwIfShapeNotValid();
-	b2PolygonShape *p = (b2PolygonShape *)shape;
-	int count = p->m_count;
-	std::vector<float> out;
-	out.reserve(count * 2);
-	for (int i = 0; i < count; i++)
-	{
-		b2Vec2 v = Physics::scaleUp(p->m_vertices[i]);
-		out.push_back(v.x);
-		out.push_back(v.y);
-	}
-	return out;
-}
-
-bool PolygonShape::validate() const
-{
-	throwIfShapeNotValid();
-	b2PolygonShape *p = (b2PolygonShape *)shape;
-	return p->Validate();
-}
-
-} // box2d
-} // physics
+} // lh
 } // love
+
+#endif // LOVE_LH_WATCHDOG_H

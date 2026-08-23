@@ -116,13 +116,12 @@ float WheelJoint::getDamping() const
 	return joint->GetDamping();
 }
 
-int WheelJoint::getAxis(lua_State *L)
+void WheelJoint::getAxis(float &x, float &y) const
 {
 	b2Vec2 axis = joint->GetLocalAxisA();
 	getBodyA()->getWorldVector(axis.x, axis.y, axis.x, axis.y);
-	lua_pushnumber(L, axis.x);
-	lua_pushnumber(L, axis.y);
-	return 2;
+	x = axis.x;
+	y = axis.y;
 }
 
 } // box2d

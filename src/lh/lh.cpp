@@ -73,15 +73,28 @@ void TypeRegistry::add(love::Type &type, const LhatHostDataTag *tag)
 // Context
 // ---------------------------------------------------------------------------
 
-// LHATOVE_SKIP_REGISTRATIONS="love.x.a,love.y.B.b": registrations left out, a
-// development aid for bisecting a registration the runtime chokes on.
+// LHATOVE_SKIP_REGISTRATIONS="love.x.a,love.y.B.b,love.z.*": registrations left
+// out, a development aid for bisecting a registration the runtime chokes
+// on. An entry ending in "*" leaves out everything with that prefix.
 static bool skipped(const std::string &what)
 {
 	static const char *list = getenv("LHATOVE_SKIP_REGISTRATIONS");
 	if (list == nullptr)
 		return false;
 	std::string all = std::string(",") + list + ",";
-	return all.find("," + what + ",") != std::string::npos;
+	if (all.find("," + what + ",") != std::string::npos)
+		return true;
+	size_t from = 0;
+	while (true)
+	{
+		size_t star = all.find("*,", from);
+		if (star == std::string::npos)
+			return false;
+		size_t start = all.rfind(',', star) + 1;
+		if (what.compare(0, star - start, all, start, star - start) == 0)
+			return true;
+		from = star + 1;
+	}
 }
 
 static bool noteFailure(std::string *failed, const char *what, const char *signature)
@@ -195,11 +208,15 @@ Runtime::Runtime(LhatProgramLoader loader, void *loaderContext)
 {
 	// 03 の 3.1: a file defaults to strict.
 	program_ = lhat_program_new(true, loader, loaderContext);
+	lot_.set(new ParkingLot(), Acquire::NORETAIN);
 }
 
 Runtime::~Runtime()
 {
-	// The machine first: its heap holds values whose release callbacks reach
+	// The lot first, so a Parked value released by a wrapper's dispose below
+	// does not write into the heap being torn down.
+	lot_->detach();
+	// The machine next: its heap holds values whose release callbacks reach
 	// into the engine, and the program's registrations must still exist then.
 	if (machine_ != nullptr)
 		lhat_machine_dispose(machine_);
@@ -225,6 +242,7 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	ctx.program = program_;
 	ctx.errors = &errors_;
 	ctx.registry = &registry_;
+	ctx.lot = lot_.get();
 	std::string failure;
 	ctx.failed = &failure;
 
@@ -312,7 +330,119 @@ bool Runtime::compile()
 	}
 
 	// Puts what was registered into L^.modules so an import^ finds it.
-	return lhat_program_install(program_, machine_);
+	if (!lhat_program_install(program_, machine_))
+		return false;
+	return lot_->attach(machine_);
+}
+
+// ---------------------------------------------------------------------------
+// Parking
+// ---------------------------------------------------------------------------
+
+love::Type ParkingLot::type("lh.ParkingLot", &Object::type);
+love::Type Parked::type("lh.Parked", &Object::type);
+
+ParkingLot::ParkingLot()
+	: machine_(nullptr)
+	, table_(nullptr)
+	, next_(1)
+{
+}
+
+ParkingLot::~ParkingLot()
+{
+}
+
+bool ParkingLot::attach(LhatMachine *machine)
+{
+	LhatValue table;
+	if (!lhat_machine_make_table(machine, &table))
+		return false;
+	if (!lhat_machine_register(machine, "love", nullptr, "registry", table))
+		return false;
+	machine_ = machine;
+	table_ = (LhatTable *) lhat_as_object(table);
+	return true;
+}
+
+void ParkingLot::detach()
+{
+	machine_ = nullptr;
+	table_ = nullptr;
+	pending_.clear();
+}
+
+uint32 ParkingLot::park(LhatValue value)
+{
+	if (machine_ == nullptr || lhat_is_nil(value))
+		return 0;
+	sweep();
+	uint32 slot;
+	if (!free_.empty())
+	{
+		slot = free_.back();
+		free_.pop_back();
+	}
+	else
+		slot = next_++;
+	bool refused = false;
+	if (!lhat_machine_table_set(machine_, table_, lhat_integer((int64_t) slot), value, &refused) || refused)
+	{
+		free_.push_back(slot);
+		return 0;
+	}
+	return slot;
+}
+
+LhatValue ParkingLot::get(uint32 slot) const
+{
+	if (machine_ == nullptr || slot == 0)
+		return lhat_nil();
+	return lhat_table_get(table_, lhat_integer((int64_t) slot));
+}
+
+void ParkingLot::releaseLater(uint32 slot)
+{
+	if (machine_ == nullptr || slot == 0)
+		return;
+	pending_.push_back(slot);
+}
+
+void ParkingLot::sweep()
+{
+	if (machine_ == nullptr)
+	{
+		pending_.clear();
+		return;
+	}
+	for (uint32 slot : pending_)
+	{
+		bool refused = false;
+		lhat_machine_table_set(machine_, table_, lhat_integer((int64_t) slot), lhat_nil(), &refused);
+		free_.push_back(slot);
+	}
+	pending_.clear();
+}
+
+Parked::Parked(ParkingLot *lot, LhatValue value)
+	: lot_(lot)
+	, slot_(0)
+{
+	if (lot != nullptr)
+		slot_ = lot->park(value);
+}
+
+Parked::~Parked()
+{
+	if (lot_.get() != nullptr)
+		lot_->releaseLater(slot_);
+}
+
+LhatValue Parked::get() const
+{
+	if (lot_.get() == nullptr)
+		return lhat_nil();
+	return lot_->get(slot_);
 }
 
 std::string Runtime::describe(const LhatRunResult &ran) const
