@@ -16,6 +16,12 @@ hostdata 型 T に「T を返すメンバ」（`translate : p^self^, number^, nu
 
 lhatove 側の暫定: `love.math.Transform.apply` の引数を `any^` にして実行時検査（lhat 修正後に戻す）。
 
+`Self^` で回避できないか試した結果: ホスト登録の署名に `Self^` を書くと **登録が拒否される**
+（`lhat_type_of_text` に所有者型を解決する文脈が無い）。修正案は2段:
+(1) 実行時型構築で構築中の型を覚えて後方参照にする（本命。`Source.clone() -> Source` など自型を返すメンバは今後も増え、
+自型を取るメンバと同居した時点で再発する）
+(2) `lhat_register_member` の署名で `Self^` を所有者型として解決（署名が短く書ける）
+
 ## 提案
 
 ### 可変長アームと他アームの重複判定
