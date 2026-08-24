@@ -108,7 +108,7 @@ let^ build = p^ {
     var^ previous = anchor
     for^ i from^ 1 to^ letters.length^ {
         let^ y = top + i * length
-        let^ body, shape = love.physics.newRectangleBody(world, "dynamic", w / 2, y, 30, length - 6)
+        let^ body, shape = love.physics.newCircleBody(world, "dynamic", w / 2, y, 17)
         shape.setDensity(1.2)
         shape.setFriction(0.4)
         body.resetMassData()
@@ -242,10 +242,21 @@ public^let^ resize = p^width:number^, height:number^ {
     build()
 }
 
+# A click lands on a body when it is inside one of its shapes; the sky
+# takes no notice.
 public^let^ mousepressed = p^x:number^, y:number^, button:number^, istouch:bool^, presses:number^ {
-    if^ balloon isa^ love.physics.Body {
-        let^ bx, by = balloon.getPosition()
-        balloon.applyLinearImpulse((bx - x) * 0.6, (by - y) * 0.6, true^)
+    for^ body in^ world.getBodies() {
+        for^ shape in^ body.getShapes() {
+            if^ shape.testPoint(x, y) {
+                let^ bx, by = body.getPosition()
+                var^ dx = bx - x
+                var^ dy = by - y
+                # A click dead centre still has to go somewhere: upwards.
+                if^ dx * dx + dy * dy < 1 { dy := -1 }
+                let^ push = 60 * body.getMass()
+                body.applyLinearImpulse(dx * push, dy * push, true^)
+            }
+        }
     }
 }
 
