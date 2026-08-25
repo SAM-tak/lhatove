@@ -104,6 +104,9 @@ int main(int argc, char **argv)
 		code = love_lh_boot(argc, argv, false);
 #endif
 	} while (code == LOVE_LH_RESTART);
+
+	// No program is left now, which is what lets the interned tags go.
+	love_lh_shutdown();
 	return code;
 }
 

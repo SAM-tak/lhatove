@@ -2,7 +2,7 @@
 
 lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定事項と対応表。
 進捗は [status.md](status.md)、ゲーム作者向けの書き方は [main-lh.md](main-lh.md)。
-前提 lhat: HEAD `ad39df0` 以降（ホスト駆動コルーチン・traceback・hostdata 等値・carry・std.load 入り）。
+前提 lhat: HEAD `a6c81b5` 以降（列挙は AGENT.md の「登録」節）。
 
 ## 確定した方針
 
@@ -38,7 +38,8 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 ## 重要な制約（lhat 側の性質）
 
-- 全登録は `lhat_program_check` 前に完結必須 → 全モジュール API を無条件登録し、conf はインスタンス生成のみ制御
+- **登録**（型・メンバ・関数・エラー種・アノテーション・global）は `lhat_program_check` 前に完結必須。検査器がシグネチャの意味を知る必要があるため、check 後の登録は false を返す → 全モジュール API を無条件登録し、conf はインスタンス生成のみ制御。**ユニット**の追加は別物で後からできる（`check` → `compile` は実行中 machine の下でも反復可。`std.load` / `love.filesystem.load` はこれ）
+- 登録の identity（hostdata タグ・host value タグ・エラー種）は **program ではなくプロセスのもの**。「登録呼び出し＝宣言」として lhat が intern するので、program をいくつ作っても同じタグが返り、食い違う宣言（別サイズの host value 型、別の variant 並び）は拒否される。restart で program を作り直しても型 identity は変わらない。返すのは `lhat_registry_dispose()`（LhatProgram が 1 つも無い時のみ）
 - GC ルートは `L^` と実行フレームのみ。C 保持値は非ルート → `lhat_machine_register` で係留。到達済みテーブルへは `lhat_machine_table_set`（write barrier）
 - 「全引数変換 → 呼ぶ → 答え変換」規律（変換と実行を交錯させない）
 - Boot.lh は「あれば呼ぶ」を静的に書けない（`t.foo` は型に無ければ静的エラー、`t[k]` は合併|nil^ で絞れない）→ optional コールバックは C++ 境界（handlers 構築）で解決

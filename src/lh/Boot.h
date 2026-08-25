@@ -44,6 +44,13 @@ extern "C"
 
 LOVE_EXPORT int love_lh_boot(int argc, char **argv, bool console);
 
+// Gives back what a registration interned for the process. 05 の 8.7 makes a
+// registration a declaration, and lhat keeps one identity per declaration for
+// as long as the process runs -- a restart builds a new program but not new
+// tags. May be called only when no LhatProgram is left, which is once the
+// restart loop around love_lh_boot has run out.
+LOVE_EXPORT void love_lh_shutdown(void);
+
 #ifdef __cplusplus
 }
 

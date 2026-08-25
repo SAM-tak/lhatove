@@ -39,12 +39,14 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 ### 登録
 
 - lhat の登録は check 前に完結が必須。レジストラは **2相**（TYPES 相で `lhat_register_type` / `lhat_register_hostdata_type`、MEMBERS 相でメンバ・関数登録）。シグネチャは既登録型しか参照できないため
-- 登録 context は per-registration の構造体を渡す。ファイルスコープ static 変数は使わない（雛形: `../lhat/stdlib/io.c`）
+- 登録 context はプロセス寿命のファイルスコープ static でよい（雛形: `../lhat/stdlib/io.c`）。lhat は「登録呼び出し＝宣言」として hostdata タグ・host value タグ・エラー種を**プロセス単位で intern** するので（`676b8d1`）、program をいくつ作っても identity は 1 つ。context の中身も program ごとに作り直す理由が無い。ただし program 固有のポインタ（`LhatProgram *` 等）を入れるなら、restart で再登録が必ず走って更新されることが前提。`lh::Errors` / `lh::TypeRegistry` も同じ理由で `Runtime` の値メンバをやめプロセス寿命にした（`lh.cpp` の `sharedErrors` / `sharedRegistry`）
+- 登録が program に預けた state を返す口が `lhat_program_on_dispose`。lhatove では使わない — static context には返すものが無く、program 寿命の heap 資源は `ParkingLot` だけで `Runtime` のデストラクタが片付ける
+- プロセス共有 registry は `lhat_registry_dispose()` で返す。**LhatProgram が 1 つも無い時のみ**呼べるので、呼ぶのは restart ループを抜けた後（`love_lh_shutdown()` ← `src/love.cpp`）
 - C 側で保持する L^ 値は GC ルートにならない。永続値は `lhat_machine_register` で `L^.modules.love.*` に係留する
 - lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math`。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は登録しない（スレッドは love.thread。M5 で決定）
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
-- 前提 lhat は HEAD `995d0e8` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない）
+- 前提 lhat は HEAD `a6c81b5` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
 - 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
 - 止まる・遅い時: `LHATOVE_WATCHDOG=<秒>` でフレームが止まった主スレッドのスタックを base+offset で stderr へ出力 → `scripts/symbolize.c`（`cl symbolize.c dbghelp.lib`）で `.pdb` から名前解決。symbols は `cmake --build build --config RelWithDebInfo --target lovec`（`SDL3.dll` / `OpenAL32.dll` を `build/SDL3/RelWithDebInfo` 等から `build/love/RelWithDebInfo` へコピー）。stderr を PowerShell のパイプに流すと書込で止まって見えるので、ファイルへリダイレクトする

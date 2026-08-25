@@ -141,8 +141,12 @@ public:
 
 	LhatProgram *program() const { return program_; }
 	LhatMachine *machine() const { return machine_; }
-	Errors &errors() { return errors_; }
-	TypeRegistry &registry() { return registry_; }
+	// Both live as long as the process, not as long as this Runtime: 05 の 8.7
+	// makes a registration a declaration, and lhat interns what one declares,
+	// so a restart's new program comes away with the very tags and error
+	// kinds the last one got. See the note beside them in lh.cpp.
+	static Errors &errors();
+	static TypeRegistry &registry();
 	ParkingLot *lot() const { return lot_.get(); }
 
 	// Registers love.Error, then runs every registrar through both phases.
@@ -180,8 +184,6 @@ private:
 
 	LhatProgram *program_;
 	LhatMachine *machine_;
-	Errors errors_;
-	TypeRegistry registry_;
 	StrongRef<ParkingLot> lot_;
 	std::string failedRegistrar_;
 };

@@ -958,3 +958,10 @@ int love_lh_boot(int argc, char **argv, bool console)
 {
 	return love::lh::boot(argc, argv, console);
 }
+
+void love_lh_shutdown(void)
+{
+	// Only the process-wide registry is left to give back: a Runtime is a
+	// stack object inside boot(), so every program is gone by now.
+	lhat_registry_dispose();
+}

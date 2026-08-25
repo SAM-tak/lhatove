@@ -211,6 +211,35 @@ Runtime::Runtime(LhatProgramLoader loader, void *loaderContext)
 	lot_.set(new ParkingLot(), Acquire::NORETAIN);
 }
 
+// 05 の 8.7: a registration IS a declaration, and lhat keeps one identity per
+// declaration for the whole process (its src/registry.c) -- register the same
+// hostdata type or error kind into a second program and the same tag comes
+// back. So what pairs those tags with love::Type, and what holds love.Error's
+// three kinds, has no reason to be built per program either: a restart makes
+// a new Runtime, and these two survive it unchanged. love_lh_shutdown gives
+// the lhat side back once the last program is gone.
+static Errors &sharedErrors()
+{
+	static Errors errors;
+	return errors;
+}
+
+static TypeRegistry &sharedRegistry()
+{
+	static TypeRegistry registry;
+	return registry;
+}
+
+Errors &Runtime::errors()
+{
+	return sharedErrors();
+}
+
+TypeRegistry &Runtime::registry()
+{
+	return sharedRegistry();
+}
+
 Runtime::~Runtime()
 {
 	// The lot first, so a Parked value released by a wrapper's dispose below
@@ -234,14 +263,15 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	const LhatErrorKind *kinds[3] = {nullptr, nullptr, nullptr};
 	if (!lhat_register_error_kind(program_, "love", "Error", variants, 3, nullptr, kinds))
 		return false;
-	errors_.misuse = kinds[0];
-	errors_.io = kinds[1];
-	errors_.notSupported = kinds[2];
+	Errors &shared = errors();
+	shared.misuse = kinds[0];
+	shared.io = kinds[1];
+	shared.notSupported = kinds[2];
 
 	Context ctx;
 	ctx.program = program_;
-	ctx.errors = &errors_;
-	ctx.registry = &registry_;
+	ctx.errors = &shared;
+	ctx.registry = &registry();
 	ctx.lot = lot_.get();
 	std::string failure;
 	ctx.failed = &failure;
