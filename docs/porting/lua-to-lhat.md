@@ -2,7 +2,7 @@
 
 lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定事項と対応表。
 進捗は [status.md](status.md)、ゲーム作者向けの書き方は [main-lh.md](main-lh.md)。
-前提 lhat: HEAD `a6c81b5` 以降（列挙は AGENT.md の「登録」節）。
+前提 lhat: HEAD `daf6353` 以降（列挙は AGENT.md の「登録」節）。
 
 ## 確定した方針
 
@@ -11,7 +11,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 3. **バインディング様式**: 型ごと hostdata。多態はシグネチャ union、コンストラクタ多重定義は再登録=オーバーロード
 4. **スクリプト形**: main.lh は `module^` + `public^let^` コールバック
 5. **メインループ**: L^ 側 run コルーチン。埋め込み Boot.lh が既定 `run`（yieldable `p^`、毎フレーム `yield^`）を提供、ゲームは `public^let^ run` でオーバーライド可。C++ は毎フレーム `lhat_machine_resume`
-6. **lhatstdlib**: 選別登録 — `error` / `debug` / `regex` / `load` / `math`（スカラー、度数法）。`std.io`・`std.math.vector3` は非登録（love.filesystem が担当 / LÖVE API に用途なし）。`std.thread` / `std.async` は M5 で判断
+6. **lhatstdlib**: 選別登録 — `error` / `debug` / `regex` / `load` / `math`（スカラー、度数法）/ `lton`（conf.lton とゲームのデータファイル）。`std.io`・`std.math.vector3` は非登録（love.filesystem が担当 / LÖVE API に用途なし）。`std.thread` / `std.async` は M5 で判断
 
 ## 対応表
 
@@ -24,7 +24,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 | `luaopen_love_<mod>` + `luaL_Reg` | `lhopen_love_<mod>(lh::Context&)` 2相登録（TYPES → MEMBERS） |
 | boot.lua の coroutine 駆動 `love.run` | Boot.lh の `run`（yieldable p^）を `lhat_machine_call` でコルーチン化、C++ が毎フレーム `lhat_machine_resume`。終了は `return^`（nil/number = 終了コード、"restart" = 再起動） |
 | `love.handlers` + `love.run` 内のイベント分岐 | C++ が handlers テーブルを構築（ゲーム公開メンバ or Boot.lh の no-op 既定）、`love.event.dispatch(handlers)` ホスト関数がネスト `lhat_machine_call` で型付き配送 |
-| conf.lua | conf.lh（テーブルを返す素のユニット。love.conf スキーマを 1:1 写像） |
+| conf.lua | conf.lton（LTON = テーブルリテラルの中身。love.conf スキーマを 1:1 写像）。データなので check も compile もされず、`lhatstdlib_lton_load` が読む。本文は `f^` として読まれ `p^` を呼べず、`love.*` はスコープにも入らない |
 | `lua_newstate` per love.thread | 1 Program 共有 + OS スレッド毎 machine（`std.thread` 方式）。thread ユニットの check/compile はメインスレッド |
 | pcall / error / errorhandler | エラーは値（`love.Error{Misuse,IO,NotSupported}`）。C++ 例外は `lh::catchexcept` でエラー値化。fault/panic は `lhat_machine_traceback` → ネイティブエラー画面 |
 | package.loaders + PhysFS | `LhatProgramLoader` 実装（src/lh/PhysfsLoader.cpp）。PhysFS は 1 名前空間なので 1 program = 1 loader 制約と適合 |
@@ -76,14 +76,14 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - `src/lh/lh.h` に TypeRegistry（`love::Type* ↔ LhatHostDataTag*`、isa によるダウンキャスト）、`pushObject`/`checkObject`、`pushVariant`、`park` を実装済み（オブジェクト型の初使用は M2 の image/font）
 - 起動時に `lhat_unit_export_conforms` でゲームの公開コールバックの型を `callbacks[]` の署名と照合。違えば診断を出して起動しない（`testing/lh/badcallback`）
 - `std.math` を登録（度数法。`love.graphics.rotate` 等ラジアン API へは `std.math.rad(a)`）。`std.math.vector3` は非登録
-- 未対応: conf.lh、Window の settings テーブル、restart、nogame、`love.graphics` のオブジェクト類
+- 未対応: conf（当時は conf.lh、M6 後に conf.lton へ）、Window の settings テーブル、restart、nogame、`love.graphics` のオブジェクト類
 
 ## M2 で確定した実装事項
 
 - `Loader`（src/lh/PhysfsLoader.cpp）は held ユニット → `love.filesystem` の順に読む。boot が最初に `physfs::Filesystem` を作り `init(argv[0])` → fused 判定（`setSource(exepath)`）→ ゲームの `setSource` → identity（boot.lua と同じ導出）→ `setIdentity(identity, true)` → check
 - **U3 解決**: `require^ "lib/vec.lh"` はそのまま PhysFS に届く（ディレクトリ・zip・fused で確認）
-- conf.lh は check 後・compile 後に実行（テーブル）、モジュール生成と window 設定を制御。`modules.*` の既定は全 `true^`。conf.lh が無ければ既定値
-- 起動列: filesystem → 登録 → check(Boot.lh, conf.lh?, main.lh) → callback 型検査 → compile → conf 実行 → モジュール生成 + window → main 実行 → handlers → run
+- conf は check 後・compile 後に読み、モジュール生成と window 設定を制御。`modules.*` の既定は全 `true^`。無ければ既定値（当時は conf.lh を `lhat_run`。M6 後に conf.lton + `lhatstdlib_lton_load` へ）
+- 起動列: filesystem → 登録 → check(Boot.lh, main.lh) → callback 型検査 → compile → conf 読み → モジュール生成 + window → main 実行 → handlers → run
 - nogame: 引数なし or 無効パスは埋め込み `nogame_lh`（簡素版。アニメ版は M6）
 - エラー画面: `src/lh/ErrorScreen.cpp`。実行時 fault/panic は `reportRuntime` → 青画面（Escape/閉じるで終了）。check 失敗は `report`（コンソール + love.exe はメッセージボックス）— window 生成前のため
 - オブジェクト: File / FileData / ImageData / Drawable / Texture / Font を `ctx.objectType` で登録（dispose/type/typeOf 自動）。`draw` は当面 `love.graphics.Texture` 引数（Drawable union は他の Drawable 実装時）
@@ -94,7 +94,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 ## M3 で確定した実装事項
 
-- モジュール生成順は boot.lua どおり: filesystem → timer → event → keyboard → joystick → mouse → touch → sound → system → sensor → audio(OpenAL、失敗時 null) → image → data → font → window → graphics → math。conf.lh の `modules.*` で個別に切れる
+- モジュール生成順は boot.lua どおり: filesystem → timer → event → keyboard → joystick → mouse → touch → sound → system → sensor → audio(OpenAL、失敗時 null) → image → data → font → window → graphics → math。conf の `modules.*` で個別に切れる
 - コールバック追加: joystick/gamepad 系（`love.joystick.Joystick` hostdata が引数）、touch 系（id は整数）、`sensorupdated`。`Variant::LUSERDATA` は整数へ変換（touch id）
 - lhat `3a4376c` で解消: 自型メンバは `Self^` 綴り（`Transform` の全メンバ）、可変長アームは位置で区別（`print` = `string^` / `string^, number^, ...` / `string^, Font, ...` の3アーム）。当初の回避（`apply` の `any^`、固定アーム化）は撤去 or 任意
 - ImageData のピクセル: `getPixel -> (r,g,b,a)` タプル、`setPixel(x,y,r,g,b[,a])`、`mapPixel(f^x,y,r,g,b,a -> (r,g,b,a))`（ピクセル毎にネスト呼び出し。host value 色型は見送り — タプルで足りる）

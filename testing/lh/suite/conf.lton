@@ -1,0 +1,9 @@
+# conf.lton for the test suite: a small window, its own save directory.
+identity = "lhatove-suite",
+version = "12.0",
+window = {
+    title = "lhatove test suite",
+    width = 480,
+    height = 320,
+    vsync = 0,
+},

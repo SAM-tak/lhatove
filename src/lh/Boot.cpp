@@ -54,13 +54,15 @@
 #include "modules/graphics/Graphics.h"
 
 // lhatstdlib, the modules the porting plan admits into the game's program:
-// error kinds, std.debug, std.regex, std.load and std.math (scalar maths;
-// its angles are degrees, so love.graphics.rotate takes std.math.rad(a)).
-// std.io stays out -- love.filesystem owns file access -- and so does
-// std.math.vector3, which LOVE's API has no use for.
+// error kinds, std.debug, std.regex, std.load, std.math (scalar maths; its
+// angles are degrees, so love.graphics.rotate takes std.math.rad(a)) and
+// std.lton, which is what conf.lton is written in and what a game reads its
+// own data files with. std.io stays out -- love.filesystem owns file access
+// -- and so does std.math.vector3, which LOVE's API has no use for.
 #include "stdlib/debug.h"
 #include "stdlib/error.h"
 #include "stdlib/load.h"
+#include "stdlib/lton.h"
 #include "stdlib/math.h"
 #include "stdlib/regex.h"
 
@@ -130,6 +132,7 @@ static bool registerStdlib(LhatProgram *program)
 		&& lhatstdlib_debug_register(program)
 		&& lhatstdlib_regex_register(program)
 		&& lhatstdlib_load_register(program)
+		&& lhatstdlib_lton_register(program)
 		&& lhatstdlib_math_register(program);
 }
 
@@ -341,11 +344,15 @@ static bool buildHandlers(LhatMachine *machine, LhatValue game)
 
 
 // ---------------------------------------------------------------------------
-// conf.lh
+// conf.lton
 // ---------------------------------------------------------------------------
 
-// What conf.lh may say, with boot.lua's defaults. The unit is a plain
-// script whose return^ is a table; fields it does not write keep these.
+// What conf.lton may say, with boot.lua's defaults. LTON is the inside of a
+// table literal and nothing else (lhat DesignDocuments/08-lton.md), so the
+// file is data rather than a script that answers data -- and 02 の 15.1 keeps
+// it that way: the text is read as an f^ body, and an f^ may call only an f^,
+// so nothing with an effect can be written there. Fields it does not write
+// keep these.
 struct Conf
 {
 	std::string identity;
@@ -413,6 +420,41 @@ static void readConf(LhatMachine *machine, LhatValue table, Conf &conf)
 		conf.modules.touch = fieldBool(machine, modules, "touch", true);
 		conf.modules.video = fieldBool(machine, modules, "video", true);
 		conf.modules.window = fieldBool(machine, modules, "window", true);
+	}
+}
+
+// Why reading one did not answer a table, in the shape report() wants.
+// REJECTED is where a text that tried to call a p^ arrives, and the program
+// kept what the checker said; FAULTED ran and stopped, so the frames are
+// still standing (04 の 11.6改).
+static std::string describeLton(LhatMachine *machine, LhatProgram *program, LhatLtonStatus status)
+{
+	switch (status)
+	{
+	case LHAT_LTON_CANNOT_READ:
+		return "could not be read";
+	case LHAT_LTON_REJECTED:
+	{
+		const char *said = lhat_program_load_failure(program);
+		return said != nullptr ? said : "refused";
+	}
+	case LHAT_LTON_FAULTED:
+	{
+		std::string text = "stopped while being read";
+		size_t needed = lhat_machine_traceback(machine, nullptr, 0);
+		if (needed > 0)
+		{
+			std::vector<char> spelt(needed + 1);
+			lhat_machine_traceback(machine, spelt.data(), spelt.size());
+			text += "\n";
+			text += spelt.data();
+		}
+		return text;
+	}
+	case LHAT_LTON_OUT_OF_MEMORY:
+		return "out of memory";
+	default:
+		return "refused";
 	}
 }
 
@@ -674,7 +716,7 @@ static int boot(int argc, char **argv, bool console)
 	identity = identityOf(identity);
 	fs->setIdentity(identity.c_str(), true);
 
-	bool noGameCode = canHasGame && !loader.exists(mainUnit) && !loader.exists("conf.lh");
+	bool noGameCode = canHasGame && !loader.exists(mainUnit) && !loader.exists("conf.lton");
 
 	if (!canHasGame || noGameCode)
 	{
@@ -723,11 +765,11 @@ static int boot(int argc, char **argv, bool console)
 	}
 
 	// 05 の 8.7: everything is registered; now the units may be checked.
-	// conf.lh is optional and checked only where it exists.
+	// conf.lton is not among them: it is data, and lhatstdlib_lton_load reads
+	// it below once there is a machine to build the table on.
 	trace("checking Boot.lh");
 	const LhatUnit *bootUnit = runtime.check("Boot.lh");
-	trace("checking conf.lh / main");
-	const LhatUnit *confUnit = loader.exists("conf.lh") ? runtime.check("conf.lh") : nullptr;
+	trace("checking main");
 	const LhatUnit *root = runtime.check(mainUnit.c_str());
 	if (bootUnit == nullptr || root == nullptr || !runtime.ok())
 	{
@@ -756,20 +798,24 @@ static int boot(int argc, char **argv, bool console)
 
 	LhatMachine *machine = runtime.machine();
 
-	trace("running conf.lh");
-	// conf.lh: a script answering a table.
+	trace("reading conf.lton");
+	// conf.lton: data read through the program's loader, so the same file is
+	// found in a directory, a .love and a fused executable alike. What comes
+	// back is the machine's and is not a root, so it is parked before
+	// anything else runs (vm.h, and stdlib/lton.h says it again).
 	Conf conf;
-	if (confUnit != nullptr)
+	if (loader.exists("conf.lton"))
 	{
-		LhatRunResult confRan = lhat_run(machine, lhat_unit_proto(confUnit));
-		if (confRan.status != LHAT_RUN_OK)
+		LhatValue confTable = lhat_nil();
+		LhatLtonStatus read = lhatstdlib_lton_load(machine, runtime.program(), "conf.lton", &confTable);
+		if (read != LHAT_LTON_OK)
 		{
-			report("lhatove: error", "conf.lh: " + runtime.describe(confRan));
+			report("lhatove: error", "conf.lton: " + describeLton(machine, runtime.program(), read));
 			return 1;
 		}
-		if (!park(machine, "love.boot", "conf", confRan.value))
+		if (!park(machine, "love.boot", "conf", confTable))
 			return 1;
-		readConf(machine, confRan.value, conf);
+		readConf(machine, confTable, conf);
 		if (!conf.identity.empty())
 			fs->setIdentity(conf.identity.c_str(), conf.appendidentity);
 	}

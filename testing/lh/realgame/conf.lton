@@ -1,0 +1,14 @@
+# conf.lton: the configuration table's inside (love.conf's shape).
+identity = "lhatove-realgame",
+version = "12.0",
+window = {
+    title = "lôve real game",
+    width = 640,
+    height = 480,
+    resizable = true^,
+    vsync = 1,
+},
+modules = {
+    image = true^,
+    font = true^,
+},

@@ -71,24 +71,40 @@ public^let^ run = p^ {
 }
 ```
 
-## conf.lh
+## conf.lton
 
-テーブルを返す素のユニット（`module^` なし）。love.conf のスキーマを 1:1 写像。
+**設定はデータ。** LTON（L^ Table Object Notation）はテーブルリテラルの**中身**をそのまま書く綴りで、
+`return^ {` と `}` を書かない。love.conf のスキーマを 1:1 写像。
 読まれる項目: `identity` `appendidentity` `version` `console`、`window.{title width height fullscreen
 fullscreentype vsync msaa stencil depth resizable minwidth minheight borderless centered displayindex
 usedpiscale refreshrate x y}`、`modules.{timer event keyboard mouse image font window graphics}`（既定 `true^`）。
 
-```lhat
-return^ {
-    identity = "mygame",
-    window = {
-        title = "My Game",
-        width = 1280,
-        height = 720,
-        resizable = true^,
-    },
-}
+```lton
+# conf.lton
+identity = "mygame",
+window = {
+    title = "My Game",
+    width = 1280,
+    height = 720,
+    resizable = true^,
+},
 ```
+
+綴りは L^ のもの（コメント・文字列エスケープ・数の形は同じ字句解析器が読む）。末尾の `,` は許される。
+
+**効果のあることは書けない。** 本文は `f^` の本体として読まれ、`f^` は `f^` しか呼べない（02 の 15.1）
+ので `p^` 呼び出しは誤り。加えて `love.*` も `print` も**スコープに入らない**ので、
+設定ファイルからエンジンには一切触れない。算術・比較・連結・入れ子のテーブルは通る。
+
+同じ綴りはゲームのデータファイルにも使える。
+
+```lhat
+let^ stage = try^ std.lton.load("stages/3.lton")
+```
+
+`std.lton.load(path)` / `std.lton.parse(text)` はどちらも `f^ -> t^{}|std.lton.LtonError|std.error.OutOfMemory`。
+パスは `require^` と同じく PhysFS 経由なので、ディレクトリ・`.love`・fused のどれでも同じように読める。
+スクリプトを読む `std.load` と違い、読んだ結果が何かを実行することはない。
 
 ## ゲームの置き場
 
