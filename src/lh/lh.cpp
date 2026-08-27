@@ -198,6 +198,26 @@ bool Context::objectType(const char *module, const char *name, love::Type &type)
 		&& member(module, name, "typeOf", "f^self^, string^ -> bool^;", lh_object_typeOf, registry);
 }
 
+bool Context::objectType(const char *module, const char *name, love::Type &type,
+                         const char *baseModule, const char *baseName) const
+{
+	if (types())
+	{
+		type.init();
+		const LhatHostDataTag *tag =
+			lhat_register_hostdata_subtype(program, module, name, baseModule, baseName);
+		if (tag == nullptr)
+			return false;
+		registry->add(type, tag);
+		return true;
+	}
+	// 8.8改: what the base registered is taken when registration closes, so
+	// dispose, type and typeOf are already here. Registering dispose again
+	// would only replace what already works -- and 02 の 12.5 reads a
+	// lifetime off the member, so the two halves are better left together.
+	return true;
+}
+
 // ---------------------------------------------------------------------------
 // Runtime
 // ---------------------------------------------------------------------------

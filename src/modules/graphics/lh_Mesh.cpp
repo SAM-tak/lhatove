@@ -368,7 +368,7 @@ static LhatValue lh_Mesh_isAttributeEnabled(LhatMachine *machine, void *context,
 bool lhGraphicsMesh(lh::Context &ctx)
 {
 	const char *m = LH_GRAPHICS;
-	if (!ctx.objectType(m, "Mesh", Mesh::type))
+	if (!ctx.objectType(m, "Mesh", Mesh::type, m, "Drawable"))
 		return false;
 	if (ctx.types())
 		return true;
@@ -572,7 +572,7 @@ static LhatValue lh_SpriteBatch_getDrawRange(LhatMachine *machine, void *context
 bool lhGraphicsSpriteBatch(lh::Context &ctx)
 {
 	const char *m = LH_GRAPHICS;
-	if (!ctx.objectType(m, "SpriteBatch", SpriteBatch::type))
+	if (!ctx.objectType(m, "SpriteBatch", SpriteBatch::type, m, "Drawable"))
 		return false;
 	if (ctx.types())
 		return true;

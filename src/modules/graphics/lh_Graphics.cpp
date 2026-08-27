@@ -742,7 +742,7 @@ bool lhopen_love_graphics(Context &ctx)
 	using namespace love::graphics;
 	const char *m = "love.graphics";
 
-	if (!ctx.objectType(m, "Drawable", Drawable::type) || !ctx.objectType(m, "Texture", Texture::type) || !ctx.objectType(m, "Font", Font::type))
+	if (!ctx.objectType(m, "Drawable", Drawable::type) || !ctx.objectType(m, "Texture", Texture::type, m, "Drawable") || !ctx.objectType(m, "Font", Font::type))
 		return false;
 	// The other types first, in both phases: the draw arms below name them.
 	if (!lhGraphicsQuad(ctx) || !lhGraphicsShader(ctx) || !lhGraphicsMesh(ctx) || !lhGraphicsSpriteBatch(ctx)
@@ -794,8 +794,8 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.member(m, "Texture", "getHeight", "f^self^ -> number^;", lh_Texture_getHeight, nullptr)
 		&& ctx.member(m, "Texture", "getDimensions", "f^self^ -> (number^, number^);", lh_Texture_getDimensions, nullptr)
 		&& ctx.member(m, "Texture", "setFilter", "p^self^, string^, ...;", lh_Texture_setFilter, nullptr)
-		&& ctx.func(m, "draw", "p^" LH_DRAWABLE ";", lh_draw, nullptr)
-		&& ctx.func(m, "draw", "p^" LH_DRAWABLE ", number^, ...;", lh_draw, nullptr)
+		&& ctx.func(m, "draw", "p^love.graphics.Drawable;", lh_draw, nullptr)
+		&& ctx.func(m, "draw", "p^love.graphics.Drawable, number^, ...;", lh_draw, nullptr)
 		&& ctx.func(m, "draw", "p^love.graphics.Texture, love.graphics.Quad, ...;", lh_draw, nullptr)
 		&& ctx.func(m, "newFont", "p^number^ -> love.graphics.Font;", lh_newFont, nullptr)
 		&& ctx.func(m, "newFont", "p^string^, number^ -> love.graphics.Font|love.Error.IO;", lh_newFont, nullptr)

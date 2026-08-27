@@ -114,6 +114,18 @@ struct Context
 	// phase declares the tag, the MEMBERS phase adds what every object
 	// answers (dispose, type, typeOf). Returns false if either refused.
 	bool objectType(const char *module, const char *name, love::Type &type) const;
+
+	// 05 の 8.8改: the same, declared under a type registered earlier -- what
+	// LOVE's own class tree says, rather than a union spelt out by hand at
+	// every place the base would do. The MEMBERS phase adds nothing: dispose,
+	// type and typeOf come from the base with everything else it registered.
+	//
+	// Declaring this is a promise that a pointer of `type` may be read as one
+	// of the base's. It holds here for a reason of its own: a hostdata value
+	// always carries a love::Object * (pushObject takes one), so there is only
+	// ever the one pointer and no offset to get wrong.
+	bool objectType(const char *module, const char *name, love::Type &type,
+	                const char *baseModule, const char *baseName) const;
 };
 
 typedef bool (*Registrar)(Context &ctx);

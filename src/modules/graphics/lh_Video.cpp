@@ -222,7 +222,7 @@ static LhatValue lh_Video_setFilter(LhatMachine *machine, void *context, const L
 bool lhGraphicsVideo(lh::Context &ctx)
 {
 	const char *m = LH_GRAPHICS;
-	if (!ctx.objectType(m, "Video", Video::type))
+	if (!ctx.objectType(m, "Video", Video::type, m, "Drawable"))
 		return false;
 	if (ctx.types())
 		return true;

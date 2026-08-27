@@ -213,6 +213,13 @@ public^let^run = p^{
     let^mx2, _my2, mu2, _mv2, _mr3, mg3, _mb3, _ma3 = mesh.getVertex(2)
     test.number("setVertex moves it", 8, mx2)
     test.near("and recolors it", 0, mg3, 0.01)
+
+    # 05 の 8.8改: the bound types say what they are under, so the base
+    # answers for every one of them and draw() takes it by that name.
+    test.isTrue("a Texture is a Drawable", texture fits^love.graphics.Drawable)
+    test.isTrue("so is a Mesh", mesh fits^love.graphics.Drawable)
+    test.isTrue("and it is still a Mesh", mesh fits^love.graphics.Mesh)
+    test.isTrue("a Quad is not one", !(love.graphics.newQuad(0, 0, 8, 8, 16, 16) fits^love.graphics.Drawable))
     mesh.setTexture(texture)
     test.isTrue("the mesh has a texture", mesh.getTexture()?)
     mesh.setDrawMode("triangles")

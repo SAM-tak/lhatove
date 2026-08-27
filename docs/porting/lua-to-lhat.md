@@ -2,7 +2,7 @@
 
 lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定事項と対応表。
 進捗は [status.md](status.md)、ゲーム作者向けの書き方は [main-lh.md](main-lh.md)。
-前提 lhat: HEAD `daf6353` 以降（列挙は AGENT.md の「登録」節）。
+前提 lhat: HEAD `b3d6b5f` 以降（列挙は AGENT.md の「登録」節）。
 
 ## 確定した方針
 
@@ -86,7 +86,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - 起動列: filesystem → 登録 → check(Boot.lh, main.lh) → callback 型検査 → compile → conf 読み → モジュール生成 + window → main 実行 → handlers → run
 - nogame: 引数なし or 無効パスは埋め込み `nogame_lh`（簡素版。アニメ版は M6）
 - エラー画面: `src/lh/ErrorScreen.cpp`。実行時 fault/panic は `reportRuntime` → 青画面（Escape/閉じるで終了）。check 失敗は `report`（コンソール + love.exe はメッセージボックス）— window 生成前のため
-- オブジェクト: File / FileData / ImageData / Drawable / Texture / Font を `ctx.objectType` で登録（dispose/type/typeOf 自動）。`draw` は当面 `love.graphics.Texture` 引数（Drawable union は他の Drawable 実装時）
+- オブジェクト: File / FileData / ImageData / Drawable / Texture / Font を `ctx.objectType` で登録（dispose/type/typeOf 自動）。`draw` は当時 `love.graphics.Texture` 引数（M5 で 6 型の union、M6 後に `love.graphics.Drawable` の親子宣言へ）
 - 失敗しうる API（read/write/newImage/newFont(path)/newFile/newFileData(path)）は `|love.Error.IO` を宣言し `catchexcept`。それ以外のプログラマエラーは `raise` = panic
 - **可変長オーバーロードの制約**: `print(text, ...)` と `print(text, Font, ...)` は重複とみなされ登録拒否 → 1 本にして可変長尾の先頭が Font かを実行時判別（`fontInTail`）。同様の「任意位置のオブジェクト引数」は同方式
 - `Runtime::failedRegistrar()` でどのレジストラが拒否されたか分かる

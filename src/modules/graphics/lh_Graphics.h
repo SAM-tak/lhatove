@@ -44,9 +44,6 @@ namespace graphics
 
 #define LH_GRAPHICS "love.graphics"
 
-// The types draw() accepts, as a signature fragment.
-#define LH_DRAWABLE "love.graphics.Texture|love.graphics.Mesh|love.graphics.SpriteBatch|love.graphics.ParticleSystem|love.graphics.TextBatch|love.graphics.Video"
-
 struct GraphicsBinding
 {
 	lh::Errors *errors = nullptr;

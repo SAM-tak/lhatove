@@ -405,7 +405,7 @@ static LhatValue lh_PS_setRelativeRotation(LhatMachine *machine, void *context, 
 bool lhGraphicsParticleSystem(lh::Context &ctx)
 {
 	const char *m = LH_GRAPHICS;
-	if (!ctx.objectType(m, "ParticleSystem", ParticleSystem::type))
+	if (!ctx.objectType(m, "ParticleSystem", ParticleSystem::type, m, "Drawable"))
 		return false;
 	if (ctx.types())
 		return true;
@@ -642,7 +642,7 @@ static LhatValue lh_TextBatch_getDimensions(LhatMachine *machine, void *context,
 bool lhGraphicsTextBatch(lh::Context &ctx)
 {
 	const char *m = LH_GRAPHICS;
-	if (!ctx.objectType(m, "TextBatch", TextBatch::type))
+	if (!ctx.objectType(m, "TextBatch", TextBatch::type, m, "Drawable"))
 		return false;
 	if (ctx.types())
 		return true;

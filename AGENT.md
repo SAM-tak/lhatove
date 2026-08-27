@@ -46,12 +46,14 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math` / `lton`。conf は **conf.lton**（LTON = テーブルリテラルの中身）で、check も compile もされず `lhatstdlib_lton_load` が program の loader 経由で読む — 本文は `f^` として読まれるので `p^` を呼べず、`love.*` はスコープにも入らない。ゲームも `std.lton.load` で同じ綴りのデータファイルを読める。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は登録しない（スレッドは love.thread。M5 で決定）
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
-- 前提 lhat は HEAD `daf6353` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`）
+- 前提 lhat は HEAD `b3d6b5f` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
 - 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
 - 止まる・遅い時: `LHATOVE_WATCHDOG=<秒>` でフレームが止まった主スレッドのスタックを base+offset で stderr へ出力 → `scripts/symbolize.c`（`cl symbolize.c dbghelp.lib`）で `.pdb` から名前解決。symbols は `cmake --build build --config RelWithDebInfo --target lovec`（`SDL3.dll` / `OpenAL32.dll` を `build/SDL3/RelWithDebInfo` 等から `build/love/RelWithDebInfo` へコピー）。stderr を PowerShell のパイプに流すと書込で止まって見えるので、ファイルへリダイレクトする
 - C 側が L^ の値を保持する時は `lh::Parked`（`lh::ParkingLot` の整数スロットに係留、`StrongRef<love::Object>` で持てる）。コールバックは `lhat_machine_call` をホスト関数の中から呼ぶ（fault は外側の run に伝播するので戻り値を捨てるだけでよい）
-- hostdata 型の種別（Shape の circle/polygon…、Joint の各種）は 1 つの型に平坦化し、種別外のメンバは `lh::raise`。L^ の hostdata に部分型は無い
+- ホスト型は親を宣言できる（`lhat_register_hostdata_subtype`、8.8改）。`lh::Context::objectType` の 5 引数版がそれで、TYPES 相で親付きに登録し MEMBERS 相は何もしない — `dispose` / `type` / `typeOf` は親から継承される。`love.graphics.Drawable` の 6 派生（Texture / Mesh / SpriteBatch / ParticleSystem / TextBatch / Video）がこの形で、`draw` のシグネチャは親 1 語。親が先に登録されている必要があるので、レジストラの中で順序を作る（`lhopen_love_graphics` が Drawable を登録してから `lhGraphicsMesh` 等を呼ぶ）
+- 親の宣言は**ポインタについての約束**。lhatove では自明に成り立つ — hostdata が持つのは常に `love::Object *`（`pushObject` がそれを取る）で、ポインタは 1 種類しか無い
+- `love::Type` の階層のうち、まだ平坦なまま残っているのが physics の Shape（circle/polygon/edge/chain）と Joint の各種。1 つの型に潰して種別外のメンバを `lh::raise` している。LÖVE 側は `CircleShape : public Shape` の単一継承なので、親子宣言で分けられる（未着手）
 
 ### 旧 Lua コード
 
