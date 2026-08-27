@@ -1,15 +1,15 @@
-# love (the module itself) -- the L^ port of testing/tests/love.lua.
-module^ suite.tests.love
+# love (the module itself) -- the L^port of testing/tests/love.lua.
+module^suite.tests.love
 
-import^ love
-import^ love.system
+import^love
+import^love.system
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love")
 
-    let^ major, minor, revision, codename = love.getVersion()
+    let^major, minor, revision, codename = love.getVersion()
     test.number("version major", 12, major)
     test.isTrue("version minor is a number", minor >= 0)
     test.isTrue("version revision is a number", revision >= 0)

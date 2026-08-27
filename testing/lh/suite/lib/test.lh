@@ -1,57 +1,53 @@
-# The L^ port of testing/classes/TestMethod.lua's assertions.
+# The L^port of testing/classes/TestMethod.lua's assertions.
 #
-# The Lua suite compares any two values with assertEquals; L^ cannot --
+# The Lua suite compares any two values with assertEquals; L^cannot --
 # `any^` is passed or narrowed, never compared -- so each assertion names
 # the type it is about. Everything else is the same shape: a check counts,
 # and a failed one keeps its message for the report.
-module^ suite.test
+module^suite.test
 
-var^ checks = 0
-var^ group = ""
-var^ failures : t^{...:string^} = {}
+var^checks = 0
+var^group = ""
+var^failures : t^{...:string^} = {}
 
 # Names the module whose tests are running, for the failure lines.
-public^let^ begin = p^name:string^ {
+public^let^begin = p^name:string^{
     group := name
 }
 
-let^ record = p^label:string^, ok:bool^, detail:string^ {
+let^record = p^label:string^, ok:bool^, detail:string^{
     checks := checks + 1
-    if^ !ok { failures.push^($"{group}: {label} -- {detail}") }
+    if^!ok { failures.push^($"{group}: {label} -- {detail}") }
 }
 
-public^let^ isTrue = p^label:string^, value:bool^ {
+public^let^isTrue = p^label:string^, value:bool^{
     record(label, value, "expected true")
 }
 
-public^let^ isFalse = p^label:string^, value:bool^ {
+public^let^isFalse = p^label:string^, value:bool^{
     record(label, !value, "expected false")
 }
 
-public^let^ number = p^label:string^, expected:number^, actual:number^ {
+public^let^number = p^label:string^, expected:number^, actual:number^{
     record(label, expected = actual, $"expected {expected}, got {actual}")
 }
 
-public^let^ near = p^label:string^, expected:number^, actual:number^, tolerance:number^ {
+public^let^near = p^label:string^, expected:number^, actual:number^, tolerance:number^{
     record(label, (expected - actual).abs() <= tolerance, $"expected {expected} +- {tolerance}, got {actual}")
 }
 
-public^let^ range = p^label:string^, actual:number^, low:number^, high:number^ {
-    record(label, actual >= low and^ actual <= high, $"expected {low}..{high}, got {actual}")
+public^let^range = p^label:string^, actual:number^, low:number^, high:number^{
+    record(label, actual >= low and^actual <= high, $"expected {low}..{high}, got {actual}")
 }
 
-public^let^ text = p^label:string^, expected:string^, actual:string^ {
+public^let^text = p^label:string^, expected:string^, actual:string^{
     record(label, expected = actual, $"expected \"{expected}\", got \"{actual}\"")
 }
 
-public^let^ notNil = p^label:string^, value:any^ {
+public^let^notNil = p^label:string^, value:any^{
     record(label, value?, "expected a value, got nil^")
 }
 
-public^let^ count = f^ -> number^ {
-    return^ checks
-}
+public^let^count = f^-> number^{ checks }
 
-public^let^ problems = f^ -> t^{...:string^} {
-    return^ failures
-}
+public^let^problems = f^-> t^{...:string^} { failures }

@@ -1,61 +1,61 @@
 # Milestone M2 acceptance: a game on disk (or zipped as a .love) that uses
 # conf.lh, require^, images, fonts and the save directory. Quits after 120
 # frames with exit code 4; Escape quits earlier.
-module^ realgame
+module^realgame
 
-import^ love.graphics
-import^ love.event
-import^ love.filesystem
-import^ love.window
-import^ love.timer
-import^ std.math
+import^love.graphics
+import^love.event
+import^love.filesystem
+import^love.window
+import^love.timer
+import^std.math
 
-var^ frames = 0
-var^ logo : love.graphics.Texture|nil^ = nil^
-var^ big : love.graphics.Font|nil^ = nil^
-var^ status = ""
+var^frames = 0
+var^logo : love.graphics.Texture|nil^= nil^
+var^big : love.graphics.Font|nil^= nil^
+var^status = ""
 
-public^let^ load = p^ {
-    let^ w, h = love.window.getMode()
-    let^ title = love.window.getTitle()
+public^let^load = p^{
+    let^w, h = love.window.getMode()
+    let^title = love.window.getTitle()
     print($"realgame: {title} {w}x{h} identity={love.filesystem.getIdentity()} fused={love.filesystem.isFused()}")
     print($"save dir: {love.filesystem.getSaveDirectory()}")
 
-    logo := love.graphics.newImage("assets/love.png") catch^ nil^
-    big := love.graphics.newFont("assets/font.ttf", 28) catch^ nil^
+    logo := love.graphics.newImage("assets/love.png") catch^nil^
+    big := love.graphics.newFont("assets/font.ttf", 28) catch^nil^
 
     # The save directory: write, read back, list.
-    love.filesystem.write("lhatove-m2.txt", "written by realgame") catch^ nil^
-    let^ back = love.filesystem.read("lhatove-m2.txt") catch^ "(read failed)"
-    let^ info = love.filesystem.getInfo("lhatove-m2.txt")
-    let^ size = info?.size ?? -1
+    love.filesystem.write("lhatove-m2.txt", "written by realgame") catch^nil^
+    let^back = love.filesystem.read("lhatove-m2.txt") catch^"(read failed)"
+    let^info = love.filesystem.getInfo("lhatove-m2.txt")
+    let^size = info?.size ?? -1
     status := $"read back: {back} ({size} bytes); std.math.hypot(3, 4) = {std.math.hypot(3, 4)}"
     print(status)
     love.filesystem.remove("lhatove-m2.txt")
 
-    let^ missing = love.filesystem.read("does-not-exist.txt") catch^ "missing -> error value, caught"
+    let^missing = love.filesystem.read("does-not-exist.txt") catch^"missing -> error value, caught"
     print(missing)
     print($"files in assets: {love.filesystem.getDirectoryItems("assets").join^(", ")}")
 }
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames += 1
-    if^ frames = 120 { love.event.quit(4) }
+    if^frames = 120 { love.event.quit(4) }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.setColor(1, 1, 1)
-    if^ logo fits^ love.graphics.Texture {
-        let^ w, h = logo.getDimensions()
+    if^logo fits^love.graphics.Texture {
+        let^w, h = logo.getDimensions()
         love.graphics.draw(logo, 320 - w, 200 - h, 0, 2, 2)
     }
-    if^ big fits^ love.graphics.Font {
+    if^big fits^love.graphics.Font {
         love.graphics.print("Real game on disk", big, 40, 300)
     }
     love.graphics.print(status, 40, 360)
     love.graphics.print($"frame {frames} / fps {love.timer.getFPS()}", 40, 400)
 }
 
-public^let^ keypressed = p^key:string^, scancode:string^, isrepeat:bool^ {
-    if^ key = "escape" { love.event.quit() }
+public^let^keypressed = p^key:string^, scancode:string^, isrepeat:bool^{
+    if^key = "escape" { love.event.quit() }
 }

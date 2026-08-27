@@ -1,23 +1,23 @@
-# love.audio and love.sound -- the L^ port of testing/tests/audio.lua and
+# love.audio and love.sound -- the L^port of testing/tests/audio.lua and
 # sound.lua, for what is bound (effects, filters and queueable sources
 # wait for theirs).
-module^ suite.tests.audio
+module^suite.tests.audio
 
-import^ love.audio
-import^ love.sound
+import^love.audio
+import^love.sound
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.sound")
 
-    let^ data = love.sound.newSoundData("assets/tone.ogg") catch^ nil^
-    if^ data = nil^ {
+    let^data = love.sound.newSoundData("assets/tone.ogg") catch^nil^
+    if^data = nil^{
         test.isTrue("newSoundData reads the file", false^)
     else^:
         test.isTrue("the sound has samples", data.getSampleCount() > 0)
         test.isTrue("the sample rate is sensible", data.getSampleRate() >= 8000)
-        test.isTrue("the bit depth is 8 or 16", data.getBitDepth() = 8 or^ data.getBitDepth() = 16)
+        test.isTrue("the bit depth is 8 or 16", data.getBitDepth() = 8 or^data.getBitDepth() = 16)
         test.range("channels", data.getChannelCount(), 1, 2)
         test.near("the duration matches the samples", data.getSampleCount() / data.getSampleRate(), data.getDuration(), 0.01)
         test.text("type", "SoundData", data.type())
@@ -25,14 +25,14 @@ public^let^ run = p^ {
     }
 
     # newSoundData(samples, rate, bits, channels) makes silence
-    let^ made = love.sound.newSoundData(1000, 44100, 16, 1)
+    let^made = love.sound.newSoundData(1000, 44100, 16, 1)
     test.number("the sample count is what was asked", 1000, made.getSampleCount())
     test.number("the rate is what was asked", 44100, made.getSampleRate())
 
     test.begin("love.audio")
 
-    let^ source = love.audio.newSource("assets/tone.ogg", "static") catch^ nil^
-    if^ source = nil^ {
+    let^source = love.audio.newSource("assets/tone.ogg", "static") catch^nil^
+    if^source = nil^{
         test.isTrue("newSource reads the file", false^)
     else^:
         test.text("type", "Source", source.type())
@@ -64,13 +64,13 @@ public^let^ run = p^ {
         test.near("seek then tell", 0.05, source.tell(), 0.02)
 
         # a clone is a source of its own
-        let^ twin = source.clone()
+        let^twin = source.clone()
         test.text("a clone is a Source", "Source", twin.type())
         test.near("the clone keeps the volume", source.getVolume(), twin.getVolume(), 0.001)
     }
 
     # the module's own volume
-    let^ volume = love.audio.getVolume()
+    let^volume = love.audio.getVolume()
     love.audio.setVolume(0.5)
     test.near("the module volume round trips", 0.5, love.audio.getVolume(), 0.001)
     love.audio.setVolume(volume)

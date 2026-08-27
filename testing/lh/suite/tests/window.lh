@@ -1,26 +1,26 @@
-# love.window -- the L^ port of testing/tests/window.lua, for what is bound
+# love.window -- the L^port of testing/tests/window.lua, for what is bound
 # (the display list, position, message boxes and icons wait for theirs).
-module^ suite.tests.window
+module^suite.tests.window
 
-import^ love.window
-import^ love.graphics
+import^love.window
+import^love.graphics
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.window")
 
     test.isTrue("the window is open", love.window.isOpen())
 
     # conf.lh asked for 480x320
-    let^ w, h = love.window.getMode()
+    let^w, h = love.window.getMode()
     test.number("width from conf.lh", 480, w)
     test.number("height from conf.lh", 320, h)
     test.number("love.graphics agrees on width", w, love.graphics.getWidth())
     test.number("love.graphics agrees on height", h, love.graphics.getHeight())
 
     # the title round trips
-    let^ title = love.window.getTitle()
+    let^title = love.window.getTitle()
     test.text("the title comes from conf.lh", "lhatove test suite", title)
     love.window.setTitle("suite renamed")
     test.text("setTitle round trips", "suite renamed", love.window.getTitle())
@@ -28,14 +28,14 @@ public^let^ run = p^ {
 
     # a mode change is seen by both modules
     test.isTrue("setMode answers true", love.window.setMode(400, 300))
-    let^ w2, h2 = love.window.getMode()
+    let^w2, h2 = love.window.getMode()
     test.number("the new width", 400, w2)
     test.number("the new height", 300, h2)
     test.number("love.graphics follows", 400, love.graphics.getWidth())
     love.window.setMode(w, h)
 
     # vsync round trips
-    let^ vsync = love.window.getVSync()
+    let^vsync = love.window.getVSync()
     love.window.setVSync(0)
     test.number("setVSync round trips", 0, love.window.getVSync())
     love.window.setVSync(vsync)
@@ -43,6 +43,6 @@ public^let^ run = p^ {
     test.isTrue("the DPI scale is positive", love.window.getDPIScale() > 0)
     test.isTrue("the window is visible", love.window.isVisible())
     # focus depends on what else is on screen, so this only has to answer
-    test.isTrue("hasFocus answers", love.window.hasFocus() or^ true^)
-    test.isTrue("hasMouseFocus answers", love.window.hasMouseFocus() or^ true^)
+    test.isTrue("hasFocus answers", love.window.hasFocus() or^true^)
+    test.isTrue("hasMouseFocus answers", love.window.hasMouseFocus() or^true^)
 }

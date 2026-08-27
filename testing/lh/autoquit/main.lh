@@ -1,28 +1,28 @@
 # Unattended M1 check: draws for 90 frames, then quits with exit code 3.
-module^ autoquit
+module^autoquit
 
-import^ love.graphics
-import^ love.event
-import^ love.timer
+import^love.graphics
+import^love.event
+import^love.timer
 
-var^ frames = 0
-var^ x = 0
+var^frames = 0
+var^x = 0
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
     x := x + 200 * dt
-    if^ frames = 90 { love.event.quit(3) }
+    if^frames = 90 { love.event.quit(3) }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.setColor(0.2, 0.8, 0.4)
     love.graphics.rectangle("fill", x, 80, 40, 40)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print($"frame {frames}", 10, 10)
 }
 
-public^let^ quit = p^ -> bool^ {
-    let^ w, h = love.graphics.getDimensions()
+public^let^quit = p^-> bool^{
+    let^w, h = love.graphics.getDimensions()
     print($"autoquit: {frames} frames, window {w}x{h}, dt avg {love.timer.getAverageDelta()}")
-    return^ false^
+    return^false^
 }

@@ -1,51 +1,51 @@
-# love.graphics -- the L^ port of testing/tests/graphics.lua, for the
+# love.graphics -- the L^port of testing/tests/graphics.lua, for the
 # objects and state that are bound. What the Lua suite checks by comparing
 # rendered images against reference PNGs is checked here by drawing into a
 # canvas and reading the pixels back.
-module^ suite.tests.graphics
+module^suite.tests.graphics
 
-import^ love.graphics
-import^ love.image
-import^ std.math
+import^love.graphics
+import^love.image
+import^std.math
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-let^ shaderCode = "extern vec4 tint;\nvec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { return Texel(tex, tc) * tint; }\n"
+let^shaderCode = "extern vec4 tint;\nvec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { return Texel(tex, tc) * tint; }\n"
 
 # Draws what `body` draws into a fresh canvas and answers its pixels.
-let^ intoCanvas = p^size:number^, body:p^; -> love.image.ImageData {
-    let^ canvas = love.graphics.newCanvas(size, size)
+let^intoCanvas = p^size:number^, body:p^; -> love.image.ImageData {
+    let^canvas = love.graphics.newCanvas(size, size)
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0, 0, 0, 1)
     love.graphics.setColor(1, 1, 1, 1)
     body()
     love.graphics.setCanvas()
-    return^ love.graphics.readbackTexture(canvas)
+    return^love.graphics.readbackTexture(canvas)
 }
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.graphics (state)")
 
     # colors round trip
-    let^ r0, g0, b0, a0 = love.graphics.getColor()
+    let^r0, g0, b0, a0 = love.graphics.getColor()
     love.graphics.setColor(0.25, 0.5, 0.75, 0.5)
-    let^ r, g, b, a = love.graphics.getColor()
+    let^r, g, b, a = love.graphics.getColor()
     test.near("color red", 0.25, r, 0.01)
     test.near("color green", 0.5, g, 0.01)
     test.near("color blue", 0.75, b, 0.01)
     test.near("color alpha", 0.5, a, 0.01)
     love.graphics.setColor(r0, g0, b0, a0)
 
-    let^ br, bg, bb, ba = love.graphics.getBackgroundColor()
+    let^br, bg, bb, ba = love.graphics.getBackgroundColor()
     love.graphics.setBackgroundColor(0.1, 0.2, 0.3)
-    let^ nr, ng, nb, na = love.graphics.getBackgroundColor()
+    let^nr, ng, nb, na = love.graphics.getBackgroundColor()
     test.near("background red", 0.1, nr, 0.01)
     test.near("background alpha defaults to one", 1, na, 0.01)
     love.graphics.setBackgroundColor(br, bg, bb, ba)
 
     # blend, line, point, wireframe
     love.graphics.setBlendMode("add", "premultiplied")
-    let^ mode, alphamode = love.graphics.getBlendMode()
+    let^mode, alphamode = love.graphics.getBlendMode()
     test.text("blend mode", "add", mode)
     test.text("blend alpha mode", "premultiplied", alphamode)
     love.graphics.setBlendMode("alpha")
@@ -70,147 +70,147 @@ public^let^ run = p^ {
 
     # scissor
     love.graphics.setScissor(5, 6, 7, 8)
-    let^ sx, sy, sw, sh = love.graphics.getScissor()
+    let^sx, sy, sw, sh = love.graphics.getScissor()
     test.number("scissor x", 5, sx)
     test.number("scissor height", 8, sh)
     love.graphics.intersectScissor(5, 6, 4, 4)
-    let^ _ix, _iy, iw, _ih = love.graphics.getScissor()
+    let^_ix, _iy, iw, _ih = love.graphics.getScissor()
     test.number("intersectScissor narrows it", 4, iw)
     love.graphics.setScissor()
-    let^ zx, zy, zw, zh = love.graphics.getScissor()
-    test.isTrue("no scissor answers zeros", zx = 0 and^ zw = 0)
+    let^zx, zy, zw, zh = love.graphics.getScissor()
+    test.isTrue("no scissor answers zeros", zx = 0 and^zw = 0)
 
     # color mask
     love.graphics.setColorMask(true^, false^, true^, false^)
-    let^ mr, mg, mb, ma = love.graphics.getColorMask()
-    test.isTrue("color mask", mr and^ !mg and^ mb and^ !ma)
+    let^mr, mg, mb, ma = love.graphics.getColorMask()
+    test.isTrue("color mask", mr and^!mg and^mb and^!ma)
     love.graphics.setColorMask()
 
     # stencil
     love.graphics.setStencilMode("draw", 2)
-    let^ stencil, value = love.graphics.getStencilMode()
+    let^stencil, value = love.graphics.getStencilMode()
     test.text("stencil mode", "draw", stencil)
     test.number("stencil value", 2, value)
     love.graphics.setStencilMode()
-    let^ off, _v = love.graphics.getStencilMode()
+    let^off, _v = love.graphics.getStencilMode()
     test.text("stencil off", "off", off)
 
     # default filter
     love.graphics.setDefaultFilter("nearest", "nearest", 2)
-    let^ fmin, fmag, aniso = love.graphics.getDefaultFilter()
+    let^fmin, fmag, aniso = love.graphics.getDefaultFilter()
     test.text("default min filter", "nearest", fmin)
     test.text("default mag filter", "nearest", fmag)
     test.number("anisotropy", 2, aniso)
     love.graphics.setDefaultFilter("linear", "linear", 1)
 
     # the transform stack
-    let^ depth = love.graphics.getStackDepth()
+    let^depth = love.graphics.getStackDepth()
     love.graphics.push()
     test.number("push deepens the stack", depth + 1, love.graphics.getStackDepth())
     love.graphics.translate(10, 20)
-    let^ tx, ty = love.graphics.transformPoint(1, 2)
+    let^tx, ty = love.graphics.transformPoint(1, 2)
     test.number("translate moves a point x", 11, tx)
     test.number("translate moves a point y", 22, ty)
-    let^ ix, iy = love.graphics.inverseTransformPoint(tx, ty)
+    let^ix, iy = love.graphics.inverseTransformPoint(tx, ty)
     test.near("the inverse brings it back x", 1, ix, 0.001)
     test.near("the inverse brings it back y", 2, iy, 0.001)
     love.graphics.scale(2)
-    let^ sx2, sy2 = love.graphics.transformPoint(1, 1)
+    let^sx2, sy2 = love.graphics.transformPoint(1, 1)
     test.number("scale after translate", 12, sx2)
     love.graphics.origin()
-    let^ ox, oy = love.graphics.transformPoint(3, 4)
-    test.isTrue("origin clears the transform", ox = 3 and^ oy = 4)
+    let^ox, oy = love.graphics.transformPoint(3, 4)
+    test.isTrue("origin clears the transform", ox = 3 and^oy = 4)
     love.graphics.pop()
     test.number("pop restores the stack", depth, love.graphics.getStackDepth())
 
     # what the renderer says about itself
-    let^ name, version, vendor, device = love.graphics.getRendererInfo()
+    let^name, version, vendor, device = love.graphics.getRendererInfo()
     test.isTrue("the renderer has a name", name.length > 0)
     test.isTrue("the renderer has a version", version.length > 0)
-    let^ stats = love.graphics.getStats()
+    let^stats = love.graphics.getStats()
     test.isTrue("stats count textures", stats.textures > 0)
     test.isTrue("stats count draw calls", stats.drawcalls >= 0)
     test.isTrue("the DPI scale is positive", love.graphics.getDPIScale() > 0)
-    let^ pw, ph = love.graphics.getPixelDimensions()
-    test.isTrue("pixel dimensions are positive", pw > 0 and^ ph > 0)
+    let^pw, ph = love.graphics.getPixelDimensions()
+    test.isTrue("pixel dimensions are positive", pw > 0 and^ph > 0)
     test.isTrue("graphics is active", love.graphics.isActive())
 
     test.begin("love.graphics (canvas)")
 
-    let^ canvas = love.graphics.newCanvas(32, 32)
+    let^canvas = love.graphics.newCanvas(32, 32)
     test.isTrue("a canvas is a canvas", canvas.isCanvas())
     test.isTrue("a canvas is readable", canvas.isReadable())
     test.number("canvas width", 32, canvas.getWidth())
     test.isTrue("a canvas has a format", canvas.getFormat().length > 0)
     test.number("one mip level", 1, canvas.getMipmapCount())
-    test.isTrue("nothing is set as the canvas", love.graphics.getCanvas() fits^ nil^)
+    test.isTrue("nothing is set as the canvas", love.graphics.getCanvas() fits^nil^)
     love.graphics.setCanvas(canvas)
     test.isTrue("setCanvas is seen by getCanvas", love.graphics.getCanvas() = canvas)
     love.graphics.setCanvas()
 
     # a filled rectangle lands where it was drawn
-    let^ pixels = intoCanvas(32, p^ {
+    let^pixels = intoCanvas(32, p^{
         love.graphics.setColor(1, 0, 0, 1)
         love.graphics.rectangle("fill", 8, 8, 16, 16)
     })
-    let^ cr, cg, cb, ca = pixels.getPixel(16, 16)
-    test.isTrue("the rectangle is red in the middle", cr > 0.9 and^ cg < 0.1 and^ cb < 0.1)
-    let^ er, _eg, _eb, _ea = pixels.getPixel(2, 2)
+    let^cr, cg, cb, ca = pixels.getPixel(16, 16)
+    test.isTrue("the rectangle is red in the middle", cr > 0.9 and^cg < 0.1 and^cb < 0.1)
+    let^er, _eg, _eb, _ea = pixels.getPixel(2, 2)
     test.isTrue("the corner is still black", er < 0.1)
 
     # a texture written by hand reads back
-    let^ written = love.image.newImageData(4, 4)
-    written.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^ -> (number^, number^, number^, number^) {
-        return^ 0, 0, 1, 1
+    let^written = love.image.newImageData(4, 4)
+    written.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^-> (number^, number^, number^, number^) {
+        return^0, 0, 1, 1
     })
-    let^ texture = love.graphics.newImage(written)
+    let^texture = love.graphics.newImage(written)
     test.number("the texture takes the image's width", 4, texture.getWidth())
-    let^ drawn = intoCanvas(16, p^ { love.graphics.draw(texture, 0, 0, 0, 4, 4) })
-    let^ dr, dg, db, da = drawn.getPixel(8, 8)
-    test.isTrue("the drawn texture is blue", db > 0.9 and^ dr < 0.1)
+    let^drawn = intoCanvas(16, p^{ love.graphics.draw(texture, 0, 0, 0, 4, 4) })
+    let^dr, dg, db, da = drawn.getPixel(8, 8)
+    test.isTrue("the drawn texture is blue", db > 0.9 and^dr < 0.1)
 
     test.begin("love.graphics (objects)")
 
     # Quad
-    let^ quad = love.graphics.newQuad(0, 0, 16, 16, texture)
-    let^ qx, qy, qw, qh = quad.getViewport()
+    let^quad = love.graphics.newQuad(0, 0, 16, 16, texture)
+    let^qx, qy, qw, qh = quad.getViewport()
     test.number("quad viewport width", 16, qw)
-    let^ tw, th = quad.getTextureDimensions()
+    let^tw, th = quad.getTextureDimensions()
     test.number("quad texture width", 4, tw)
     quad.setViewport(2, 2, 8, 8)
-    let^ _qx2, _qy2, qw2, _qh2 = quad.getViewport()
+    let^_qx2, _qy2, qw2, _qh2 = quad.getViewport()
     test.number("setViewport", 8, qw2)
 
     # Shader
-    let^ shader = love.graphics.newShader(shaderCode) catch^ nil^
-    if^ shader = nil^ {
+    let^shader = love.graphics.newShader(shaderCode) catch^nil^
+    if^shader = nil^{
         test.isTrue("newShader compiles", false^)
     else^:
         test.isTrue("the shader has its uniform", shader.hasUniform("tint"))
         test.isFalse("it does not have one it never declared", shader.hasUniform("nothing"))
         shader.send("tint", 0, 0, 1, 1)
-        let^ tinted = intoCanvas(16, p^ {
+        let^tinted = intoCanvas(16, p^{
             love.graphics.setShader(shader)
             love.graphics.draw(texture, 0, 0, 0, 4, 4)
             love.graphics.setShader()
         })
-        let^ br2, _bg2, bb2, _ba2 = tinted.getPixel(8, 8)
-        test.isTrue("the shader tinted what was drawn", bb2 > 0.9 and^ br2 < 0.1)
-        test.isTrue("no shader is set afterwards", love.graphics.getShader() fits^ nil^)
+        let^br2, _bg2, bb2, _ba2 = tinted.getPixel(8, 8)
+        test.isTrue("the shader tinted what was drawn", bb2 > 0.9 and^br2 < 0.1)
+        test.isTrue("no shader is set afterwards", love.graphics.getShader() fits^nil^)
     }
-    let^ ok, message = love.graphics.validateShader(false^, "vec4 effect(vec4 c, Image t, vec2 tc, vec2 sc) { return nonsense; }")
+    let^ok, message = love.graphics.validateShader(false^, "vec4 effect(vec4 c, Image t, vec2 tc, vec2 sc) { return nonsense; }")
     test.isFalse("validateShader refuses nonsense", ok)
     test.isTrue("and says why", message.length > 0)
 
     # Mesh
-    let^ mesh = love.graphics.newMesh({ {0, 0, 0, 0}, {16, 0, 1, 0}, {16, 16, 1, 1}, {0, 16, 0, 1} }, "fan")
+    let^mesh = love.graphics.newMesh({ {0, 0, 0, 0}, {16, 0, 1, 0}, {16, 16, 1, 1}, {0, 16, 0, 1} }, "fan")
     test.number("vertex count", 4, mesh.getVertexCount())
     test.text("draw mode", "fan", mesh.getDrawMode())
-    let^ mx, my, mu, mv, mr2, _mg, _mb, _ma = mesh.getVertex(2)
+    let^mx, my, mu, mv, mr2, _mg, _mb, _ma = mesh.getVertex(2)
     test.number("a vertex reads back", 16, mx)
     test.number("its texture coordinate", 1, mu)
     mesh.setVertex(2, 8, 0, 0.5, 0, 1, 0, 0, 1)
-    let^ mx2, _my2, mu2, _mv2, _mr3, mg3, _mb3, _ma3 = mesh.getVertex(2)
+    let^mx2, _my2, mu2, _mv2, _mr3, mg3, _mb3, _ma3 = mesh.getVertex(2)
     test.number("setVertex moves it", 8, mx2)
     test.near("and recolors it", 0, mg3, 0.01)
     mesh.setTexture(texture)
@@ -220,23 +220,23 @@ public^let^ run = p^ {
     test.number("the vertex map is kept", 6, mesh.getVertexMap().length^)
 
     # SpriteBatch
-    let^ batch = love.graphics.newSpriteBatch(texture, 8)
+    let^batch = love.graphics.newSpriteBatch(texture, 8)
     test.number("buffer size", 8, batch.getBufferSize())
     test.number("a fresh batch is empty", 0, batch.getCount())
-    let^ id = batch.add(0, 0)
+    let^id = batch.add(0, 0)
     test.number("add answers the first id", 1, id)
     batch.add(quad, 4, 4)
     test.number("two sprites", 2, batch.getCount())
     batch.setColor(1, 0, 0, 1)
-    let^ sr, _sg, _sb, _sa = batch.getColor()
+    let^sr, _sg, _sb, _sa = batch.getColor()
     test.number("the batch color", 1, sr)
     batch.clear()
     test.number("clear empties it", 0, batch.getCount())
 
     # ParticleSystem
-    let^ particles = love.graphics.newParticleSystem(texture, 32)
+    let^particles = love.graphics.newParticleSystem(texture, 32)
     particles.setParticleLifetime(1, 2)
-    let^ lo, hi = particles.getParticleLifetime()
+    let^lo, hi = particles.getParticleLifetime()
     test.number("particle lifetime low", 1, lo)
     test.number("particle lifetime high", 2, hi)
     particles.setEmissionRate(40)
@@ -246,7 +246,7 @@ public^let^ run = p^ {
     particles.setColors(1, 1, 1, 1, 1, 1, 1, 0)
     test.number("two colors, eight numbers", 8, particles.getColors().length^)
     particles.setPosition(10, 20)
-    let^ px, py = particles.getPosition()
+    let^px, py = particles.getPosition()
     test.number("position x", 10, px)
     test.number("position y", 20, py)
     test.isTrue("a fresh system is emitting", particles.isActive())
@@ -260,16 +260,16 @@ public^let^ run = p^ {
     test.isTrue("pause is seen", particles.isPaused())
     particles.reset()
     test.number("reset empties it", 0, particles.getCount())
-    let^ twin = particles.clone()
+    let^twin = particles.clone()
     test.number("a clone keeps the emission rate", 40, twin.getEmissionRate())
 
     # TextBatch
-    let^ font = love.graphics.getFont()
-    let^ text = love.graphics.newTextBatch(font, "hello")
+    let^font = love.graphics.getFont()
+    let^text = love.graphics.newTextBatch(font, "hello")
     test.isTrue("the text has a width", text.getWidth() > 0)
     test.number("its height is the font's", font.getHeight(), text.getHeight())
     test.isTrue("it kept the font", text.getFont() = font)
-    let^ second = text.add("world", 0, 20)
+    let^second = text.add("world", 0, 20)
     test.number("add answers the second index", 2, second)
     text.set("changed")
     test.isTrue("set replaces what was there", text.getWidth() > 0)

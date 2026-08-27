@@ -1,14 +1,14 @@
-# love.filesystem -- the L^ port of testing/tests/filesystem.lua, for the
+# love.filesystem -- the L^port of testing/tests/filesystem.lua, for the
 # save-directory half (mount / lines / enumerate wait for their bindings).
 # Every failable call answers an error value, so each one is written with
-# catch^ the way a game would write it.
-module^ suite.tests.filesystem
+# catch^the way a game would write it.
+module^suite.tests.filesystem
 
-import^ love.filesystem
+import^love.filesystem
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.filesystem")
 
     test.isTrue("the identity is set", love.filesystem.getIdentity().length > 0)
@@ -16,45 +16,45 @@ public^let^ run = p^ {
     test.isFalse("a game directory is not fused", love.filesystem.isFused())
 
     # write, read back, and the info about it
-    let^ written = love.filesystem.write("suite.txt", "hello suite") catch^ "failed"
-    test.isTrue("write answers no error", written fits^ nil^)
-    test.text("read", "hello suite", love.filesystem.read("suite.txt") catch^ "(failed)")
-    test.text("read with a length", "hello", love.filesystem.read("suite.txt", 5) catch^ "(failed)")
+    let^written = love.filesystem.write("suite.txt", "hello suite") catch^"failed"
+    test.isTrue("write answers no error", written fits^nil^)
+    test.text("read", "hello suite", love.filesystem.read("suite.txt") catch^"(failed)")
+    test.text("read with a length", "hello", love.filesystem.read("suite.txt", 5) catch^"(failed)")
     test.isTrue("exists", love.filesystem.exists("suite.txt"))
 
-    let^ info = love.filesystem.getInfo("suite.txt")
-    if^ info = nil^ {
+    let^info = love.filesystem.getInfo("suite.txt")
+    if^info = nil^{
         test.isTrue("getInfo answers a table", false^)
     else^:
         test.text("info type", "file", info.type)
         test.number("info size", 11, info.size)
     }
-    test.isTrue("getInfo on nothing answers nil^", love.filesystem.getInfo("no-such-file.txt") fits^ nil^)
+    test.isTrue("getInfo on nothing answers nil^", love.filesystem.getInfo("no-such-file.txt") fits^nil^)
 
     # append
-    love.filesystem.append("suite.txt", "!") catch^ nil^
-    test.text("append", "hello suite!", love.filesystem.read("suite.txt") catch^ "(failed)")
+    love.filesystem.append("suite.txt", "!") catch^nil^
+    test.text("append", "hello suite!", love.filesystem.read("suite.txt") catch^"(failed)")
 
     # directories
     test.isTrue("createDirectory", love.filesystem.createDirectory("suitedir"))
-    love.filesystem.write("suitedir/inner.txt", "inner") catch^ nil^
-    var^ found = false^
-    for^ name in^ love.filesystem.getDirectoryItems("suitedir") {
-        if^ name = "inner.txt" { found := true^ }
+    love.filesystem.write("suitedir/inner.txt", "inner") catch^nil^
+    var^found = false^
+    for^name in^love.filesystem.getDirectoryItems("suitedir") {
+        if^name = "inner.txt" { found := true^}
     }
     test.isTrue("getDirectoryItems lists what is there", found)
-    let^ dirinfo = love.filesystem.getInfo("suitedir")
-    if^ dirinfo = nil^ {
+    let^dirinfo = love.filesystem.getInfo("suitedir")
+    if^dirinfo = nil^{
         test.isTrue("a directory has info", false^)
     else^:
         test.text("info type of a directory", "directory", dirinfo.type)
     }
 
     # a real directory backs the save file
-    test.isTrue("getRealDirectory finds the save file", !(love.filesystem.getRealDirectory("suite.txt") fits^ nil^))
+    test.isTrue("getRealDirectory finds the save file", !(love.filesystem.getRealDirectory("suite.txt") fits^nil^))
 
     # reading what is not there is an error value, not a panic
-    let^ missing = love.filesystem.read("no-such-file.txt") catch^ "(caught)"
+    let^missing = love.filesystem.read("no-such-file.txt") catch^"(caught)"
     test.text("a missing file answers an error", "(caught)", missing)
 
     # tidy up

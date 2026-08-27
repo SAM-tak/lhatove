@@ -1,24 +1,24 @@
 # A game that owns its main loop: exports run instead of relying on Boot.lh.
 # Quits with exit code 5 after 360 frames (enough for the GC stats to print
 # three times under LHATOVE_GC_STATS=1).
-module^ customrun
+module^customrun
 
-import^ love.boot
-import^ love.event
-import^ love.timer
-import^ love.graphics
-import^ std.math
+import^love.boot
+import^love.event
+import^love.timer
+import^love.graphics
+import^std.math
 
-var^ frames = 0
-var^ angle = 0
+var^frames = 0
+var^angle = 0
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
     angle := angle + 90 * dt
-    if^ frames = 1 { print($"std.math: sin(90) = {std.math.sin(90)}, sqrt(2) = {std.math.sqrt(2)}, pi = {number^.pi}, clamp = {(5).clamp(0, 3)}") }
+    if^frames = 1 { print($"std.math: sin(90) = {std.math.sin(90)}, sqrt(2) = {std.math.sqrt(2)}, pi = {number^.pi}, clamp = {(5).clamp(0, 3)}") }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.push()
     love.graphics.translate(400, 300)
     # std.math works in degrees; love.graphics.rotate takes radians.
@@ -30,20 +30,20 @@ public^let^ draw = p^ {
     love.graphics.print($"custom run, frame {frames}", 10, 10)
 }
 
-public^let^ run = p^ {
-    let^ h = love.boot.handlers()
+public^let^run = p^{
+    let^h = love.boot.handlers()
     print("customrun: my own loop")
     love.timer.step()
-    repeat^ {
+    repeat^{
         love.event.pump()
-        let^ code = love.event.dispatch(h)
-        if^ code fits^ number^ { return^ code }
+        let^code = love.event.dispatch(h)
+        if^code fits^number^{ return^code }
         h.update(love.timer.step())
         love.graphics.origin()
         love.graphics.clear(0.05, 0.05, 0.1)
         h.draw()
         love.graphics.present()
-        if^ frames >= 360 { return^ 5 }
+        if^frames >= 360 { return^5 }
         yield^
     }
 }

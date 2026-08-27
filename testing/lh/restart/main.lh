@@ -1,34 +1,34 @@
 # Milestone M6 acceptance (restart): the game asks to be restarted with a
 # payload, the executable boots again, and love.event.restartValue() answers what
 # was handed over. The second run quits with exit code 10.
-module^ restarttest
+module^restarttest
 
 
-import^ love.graphics
-import^ love.event
-import^ love.timer
+import^love.graphics
+import^love.event
+import^love.timer
 
-var^ frames = 0
-let^ carried = love.event.restartValue()
+var^frames = 0
+let^carried = love.event.restartValue()
 
-public^let^ load = p^ {
-    if^ carried fits^ nil^ {
+public^let^load = p^{
+    if^carried fits^nil^{
         print("first run: no restart value")
-    elseif^ carried fits^ t^{ round : number^, note : string^ }:
+    elseif^carried fits^t^{ round : number^, note : string^}:
         print($"second run: round {carried.round}, note {carried.note}")
     else^:
         print($"second run: unexpected payload")
     }
 }
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
-    if^ frames = 30 {
-        if^ carried fits^ nil^ {
+    if^frames = 30 {
+        if^carried fits^nil^{
             print("asking for a restart")
             love.event.restart({ round = 2, note = "carried across" })
-        elseif^ carried fits^ t^{ round : number^, note : string^ }:
-            if^ carried.round = 2 and^ carried.note = "carried across" {
+        elseif^carried fits^t^{ round : number^, note : string^}:
+            if^carried.round = 2 and^carried.note = "carried across" {
                 love.event.quit(10)
             else^:
                 love.event.quit(1)
@@ -39,6 +39,6 @@ public^let^ update = p^dt:number^ {
     }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.print($"M6 restart: frame {frames}", 10, 10)
 }

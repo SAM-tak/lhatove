@@ -1,38 +1,38 @@
-# love.math -- the L^ port of testing/tests/math.lua, for what is bound so
+# love.math -- the L^port of testing/tests/math.lua, for what is bound so
 # far (BezierCurve and triangulate wait for their bindings).
-module^ suite.tests.math
+module^suite.tests.math
 
-import^ love.math
-import^ std.math
+import^love.math
+import^std.math
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.math")
 
     # random: in range, and a seed makes the sequence repeat
-    for^ i from^ 1 to^ 32 {
+    for^i from^1 to^32 {
         test.range("random()", love.math.random(), 0, 1)
         test.range("random(10)", love.math.random(10), 1, 10)
         test.range("random(5, 8)", love.math.random(5, 8), 5, 8)
     }
     love.math.setRandomSeed(9001)
-    let^ first = love.math.random(1000000)
-    let^ low, high = love.math.getRandomSeed()
+    let^first = love.math.random(1000000)
+    let^low, high = love.math.getRandomSeed()
     love.math.setRandomSeed(9001)
     test.number("the seed repeats the sequence", first, love.math.random(1000000))
-    test.isTrue("getRandomSeed answers the seed", low = 9001 and^ high = 0)
+    test.isTrue("getRandomSeed answers the seed", low = 9001 and^high = 0)
 
     # a generator of one's own is independent of the module's
-    let^ rng = love.math.newRandomGenerator(2, 0)
-    let^ mine = rng.random(1000000)
-    let^ other = love.math.newRandomGenerator(2, 0)
+    let^rng = love.math.newRandomGenerator(2, 0)
+    let^mine = rng.random(1000000)
+    let^other = love.math.newRandomGenerator(2, 0)
     test.number("a generator with the same seed agrees", mine, other.random(1000000))
     rng.setSeed(7)
     test.range("a reseeded generator still answers in range", rng.random(3), 1, 3)
 
     # noise: the same point answers the same value, and stays in 0..1
-    let^ n1 = love.math.noise(0.5)
+    let^n1 = love.math.noise(0.5)
     test.number("1D noise is stable", n1, love.math.noise(0.5))
     test.range("1D noise is in range", n1, 0, 1)
     test.range("2D noise is in range", love.math.noise(0.5, 0.25), 0, 1)
@@ -40,18 +40,18 @@ public^let^ run = p^ {
     test.range("4D noise is in range", love.math.noise(0.5, 0.25, 0.75, 0.125), 0, 1)
 
     # gamma and linear are each other's inverse
-    let^ gamma = love.math.linearToGamma(0.5)
+    let^gamma = love.math.linearToGamma(0.5)
     test.near("gamma round trip", 0.5, love.math.gammaToLinear(gamma), 0.0001)
-    let^ gr, gg, gb = love.math.gammaToLinear(0.2, 0.4, 0.6)
-    test.isTrue("gammaToLinear darkens", gr < 0.2 and^ gg < 0.4 and^ gb < 0.6)
+    let^gr, gg, gb = love.math.gammaToLinear(0.2, 0.4, 0.6)
+    test.isTrue("gammaToLinear darkens", gr < 0.2 and^gg < 0.4 and^gb < 0.6)
 
     # colors between 0..1 and 0..255
-    let^ r, g, b, a = love.math.colorToBytes(1, 0.5, 0, 1)
+    let^r, g, b, a = love.math.colorToBytes(1, 0.5, 0, 1)
     test.number("colorToBytes red", 255, r)
     test.range("colorToBytes green", g, 127, 128)
     test.number("colorToBytes blue", 0, b)
     test.number("colorToBytes alpha", 255, a)
-    let^ fr, fg, fb = love.math.colorFromBytes(255, 0, 51)
+    let^fr, fg, fb = love.math.colorFromBytes(255, 0, 51)
     test.number("colorFromBytes red", 1, fr)
     test.number("colorFromBytes green", 0, fg)
     test.near("colorFromBytes blue", 0.2, fb, 0.01)
@@ -61,19 +61,19 @@ public^let^ run = p^ {
     test.isFalse("an arrowhead is not", love.math.isConvex(0, 0, 10, 5, 20, 0, 10, 20))
 
     # transforms
-    let^ t = love.math.newTransform()
+    let^t = love.math.newTransform()
     t.translate(10, 20)
-    let^ tx, ty = t.transformPoint(0, 0)
+    let^tx, ty = t.transformPoint(0, 0)
     test.number("translate x", 10, tx)
     test.number("translate y", 20, ty)
     t.rotate(std.math.rad(90))
-    let^ rx, ry = t.transformPoint(1, 0)
+    let^rx, ry = t.transformPoint(1, 0)
     test.near("rotate x", 10, rx, 0.001)
     test.near("rotate y", 21, ry, 0.001)
-    let^ ix, iy = t.inverseTransformPoint(rx, ry)
+    let^ix, iy = t.inverseTransformPoint(rx, ry)
     test.near("inverse x", 1, ix, 0.001)
     test.near("inverse y", 0, iy, 0.001)
     t.reset()
-    let^ zx, zy = t.transformPoint(3, 4)
-    test.isTrue("reset clears the transform", zx = 3 and^ zy = 4)
+    let^zx, zy = t.transformPoint(3, 4)
+    test.isTrue("reset clears the transform", zx = 3 and^zy = 4)
 }

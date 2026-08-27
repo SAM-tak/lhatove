@@ -1,20 +1,20 @@
-# love.data -- the L^ port of testing/tests/data.lua's function tests
+# love.data -- the L^port of testing/tests/data.lua's function tests
 # (the ByteData and DataView object tests wait for those bindings).
-module^ suite.tests.data
+module^suite.tests.data
 
-import^ love.data
+import^love.data
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.data")
 
     # encode / decode, both ways round
-    let^ hex = love.data.encode("hex", "helloworld")
+    let^hex = love.data.encode("hex", "helloworld")
     test.text("encode hex", "68656c6c6f776f726c64", hex)
     test.text("decode hex", "helloworld", love.data.decode("hex", hex))
 
-    let^ base64 = love.data.encode("base64", "helloworld")
+    let^base64 = love.data.encode("base64", "helloworld")
     test.text("encode base64", "aGVsbG93b3JsZA==", base64)
     test.text("decode base64", "helloworld", love.data.decode("base64", base64))
 
@@ -24,9 +24,9 @@ public^let^ run = p^ {
     test.text("sha256", "936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af", love.data.encode("hex", love.data.hash("sha256", "helloworld")))
 
     # compression: smaller going out, the same coming back
-    let^ plain = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    for^ format in^ { "lz4", "zlib", "gzip", "deflate" } {
-        let^ packed = love.data.compress(format, plain)
+    let^plain = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    for^format in^{ "lz4", "zlib", "gzip", "deflate" } {
+        let^packed = love.data.compress(format, plain)
         test.isTrue($"{format} is smaller", packed.length < plain.length)
         test.text($"{format} round trip", plain, love.data.decompress(format, packed))
     }

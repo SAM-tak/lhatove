@@ -1,25 +1,25 @@
-# love.timer -- the L^ port of testing/tests/timer.lua.
-module^ suite.tests.timer
+# love.timer -- the L^port of testing/tests/timer.lua.
+module^suite.tests.timer
 
-import^ love.timer
+import^love.timer
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.timer")
 
-    let^ started = love.timer.getTime()
+    let^started = love.timer.getTime()
     test.isTrue("getTime is running", started > 0)
 
     love.timer.sleep(0.02)
-    let^ slept = love.timer.getTime() - started
+    let^slept = love.timer.getTime() - started
     test.isTrue("sleep waits at least as long as asked", slept >= 0.015)
     test.isTrue("sleep does not wait forever", slept < 1)
 
     love.timer.step()
     love.timer.sleep(0.01)
-    let^ dt = love.timer.step()
-    test.isTrue("step answers the time since the last step", dt >= 0.005 and^ dt < 1)
+    let^dt = love.timer.step()
+    test.isTrue("step answers the time since the last step", dt >= 0.005 and^dt < 1)
     test.number("getDelta answers the same", dt, love.timer.getDelta())
 
     test.isTrue("getFPS is not negative", love.timer.getFPS() >= 0)

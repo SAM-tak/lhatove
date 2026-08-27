@@ -1,26 +1,26 @@
 # love.keyboard, love.mouse, love.joystick, love.touch and love.sensor --
-# the L^ port of testing/tests/{keyboard,mouse,joystick,touch,sensor}.lua.
+# the L^port of testing/tests/{keyboard,mouse,joystick,touch,sensor}.lua.
 # Nothing is pressed while the suite runs, so these check the state the
 # engine reports and the settings that round trip.
-module^ suite.tests.input
+module^suite.tests.input
 
-import^ love.keyboard
-import^ love.mouse
-import^ love.joystick
-import^ love.touch
-import^ love.sensor
+import^love.keyboard
+import^love.mouse
+import^love.joystick
+import^love.touch
+import^love.sensor
 
-let^ test = require^ "../lib/test.lh"
+let^test = require^"../lib/test.lh"
 
-public^let^ run = p^ {
+public^let^run = p^{
     test.begin("love.keyboard")
 
-    let^ repeats = love.keyboard.hasKeyRepeat()
+    let^repeats = love.keyboard.hasKeyRepeat()
     love.keyboard.setKeyRepeat(!repeats)
     test.isTrue("setKeyRepeat round trips", love.keyboard.hasKeyRepeat() = !repeats)
     love.keyboard.setKeyRepeat(repeats)
 
-    let^ typing = love.keyboard.hasTextInput()
+    let^typing = love.keyboard.hasTextInput()
     love.keyboard.setTextInput(!typing)
     test.isTrue("setTextInput round trips", love.keyboard.hasTextInput() = !typing)
     love.keyboard.setTextInput(typing)
@@ -31,13 +31,13 @@ public^let^ run = p^ {
     test.begin("love.mouse")
 
     love.mouse.setPosition(30, 40)
-    let^ x, y = love.mouse.getPosition()
+    let^x, y = love.mouse.getPosition()
     test.number("setPosition x", 30, x)
     test.number("setPosition y", 40, y)
     test.number("getX agrees", x, love.mouse.getX())
     test.number("getY agrees", y, love.mouse.getY())
 
-    let^ visible = love.mouse.isVisible()
+    let^visible = love.mouse.isVisible()
     love.mouse.setVisible(!visible)
     test.isTrue("setVisible round trips", love.mouse.isVisible() = !visible)
     love.mouse.setVisible(visible)
@@ -46,9 +46,9 @@ public^let^ run = p^ {
 
     test.begin("love.joystick")
 
-    let^ sticks = love.joystick.getJoysticks()
+    let^sticks = love.joystick.getJoysticks()
     test.number("getJoystickCount agrees with the list", sticks.length^, love.joystick.getJoystickCount())
-    for^ stick in^ sticks {
+    for^stick in^sticks {
         test.isTrue("a listed joystick is connected", stick.isConnected())
         test.isTrue("a joystick has a name", stick.getName().length > 0)
         test.isTrue("a joystick has a GUID", stick.getGUID().length > 0)
@@ -58,14 +58,14 @@ public^let^ run = p^ {
 
     test.begin("love.touch")
 
-    let^ touches = love.touch.getTouches()
+    let^touches = love.touch.getTouches()
     test.number("no touches on a desktop", 0, touches.length^)
 
     test.begin("love.sensor")
 
-    for^ kind in^ { "accelerometer", "gyroscope" } {
-        let^ has = love.sensor.hasSensor(kind)
-        if^ has {
+    for^kind in^{ "accelerometer", "gyroscope" } {
+        let^has = love.sensor.hasSensor(kind)
+        if^has {
             test.isFalse($"{kind} starts disabled", love.sensor.isEnabled(kind))
         else^:
             test.isFalse($"{kind} is absent, so it is not enabled", love.sensor.isEnabled(kind))

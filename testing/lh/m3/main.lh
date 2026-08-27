@@ -1,95 +1,95 @@
 # Milestone M3 acceptance: one call into each module brought up in M3 --
 # audio, sound, data, math, system, touch, sensor, joystick -- plus
 # ImageData pixels. Plays a tone for a second and quits with exit code 6.
-module^ m3
+module^m3
 
-import^ love.audio
-import^ love.sound
-import^ love.data
-import^ love.math
-import^ love.system
-import^ love.touch
-import^ love.sensor
-import^ love.joystick
-import^ love.image
-import^ love.graphics
-import^ love.event
-import^ love.timer
-import^ std.math
+import^love.audio
+import^love.sound
+import^love.data
+import^love.math
+import^love.system
+import^love.touch
+import^love.sensor
+import^love.joystick
+import^love.image
+import^love.graphics
+import^love.event
+import^love.timer
+import^std.math
 
-var^ frames = 0
-var^ tone : love.audio.Source|nil^ = nil^
-var^ picture : love.graphics.Texture|nil^ = nil^
+var^frames = 0
+var^tone : love.audio.Source|nil^= nil^
+var^picture : love.graphics.Texture|nil^= nil^
 
-public^let^ load = p^ {
+public^let^load = p^{
     # audio + sound
-    tone := love.audio.newSource("assets/tone.ogg", "static") catch^ nil^
-    if^ tone fits^ love.audio.Source {
+    tone := love.audio.newSource("assets/tone.ogg", "static") catch^nil^
+    if^tone fits^love.audio.Source {
         tone.setVolume(0.3)
         tone.play()
         print($"audio: playing tone, duration {tone.getDuration()}s, channels {tone.getChannelCount()}, active {love.audio.getActiveSourceCount()}")
     }
-    let^ data = love.sound.newSoundData("assets/tone.ogg") catch^ nil^
-    if^ data fits^ love.sound.SoundData {
+    let^data = love.sound.newSoundData("assets/tone.ogg") catch^nil^
+    if^data fits^love.sound.SoundData {
         print($"sound: {data.getSampleCount()} samples at {data.getSampleRate()} Hz, {data.getBitDepth()} bit")
     }
 
     # data
-    let^ hex = love.data.encode("hex", "lhatove")
-    let^ back = love.data.decode("hex", hex)
-    let^ digest = love.data.encode("hex", love.data.hash("md5", "lhatove"))
-    let^ packed = love.data.compress("lz4", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    let^ unpacked = love.data.decompress("lz4", packed)
+    let^hex = love.data.encode("hex", "lhatove")
+    let^back = love.data.decode("hex", hex)
+    let^digest = love.data.encode("hex", love.data.hash("md5", "lhatove"))
+    let^packed = love.data.compress("lz4", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    let^unpacked = love.data.decompress("lz4", packed)
     print($"data: hex({back}) = {hex}, md5 = {digest}, lz4 {packed.size} -> {unpacked.size} bytes")
 
     # math
     love.math.setRandomSeed(42)
-    let^ r1 = love.math.random(1, 6)
-    let^ rng = love.math.newRandomGenerator(7)
-    let^ r2 = rng.random(100)
-    let^ lo, hi = love.math.getRandomSeed()
-    let^ t = love.math.newTransform(10, 20).rotate(std.math.rad(90)).scale(2)
-    let^ px, py = t.transformPoint(1, 0)
-    let^ n = love.math.noise(0.5, 0.25)
-    let^ r8, g8, b8 = love.math.colorToBytes(1, 0.5, 0)
+    let^r1 = love.math.random(1, 6)
+    let^rng = love.math.newRandomGenerator(7)
+    let^r2 = rng.random(100)
+    let^lo, hi = love.math.getRandomSeed()
+    let^t = love.math.newTransform(10, 20).rotate(std.math.rad(90)).scale(2)
+    let^px, py = t.transformPoint(1, 0)
+    let^n = love.math.noise(0.5, 0.25)
+    let^r8, g8, b8 = love.math.colorToBytes(1, 0.5, 0)
     print($"math: d6 = {r1}, rng = {r2}, seed = {lo}/{hi}, transform(1,0) = ({px.round()}, {py.round()}), noise = {n}, bytes = {r8},{g8},{b8}, convex = {love.math.isConvex(0, 0, 1, 0, 1, 1, 0, 1)}")
 
     # system
-    let^ state, seconds, percent = love.system.getPowerInfo()
+    let^state, seconds, percent = love.system.getPowerInfo()
     print($"system: {love.system.getOS()}, {love.system.getProcessorCount()} cpus, power {state} {percent}%")
 
     # touch / sensor / joystick
     print($"touch: {love.touch.getTouches().length^} touches; sensor accelerometer: {love.sensor.hasSensor("accelerometer")}; joysticks: {love.joystick.getJoystickCount()}")
-    for^ stick in^ love.joystick.getJoysticks() {
+    for^stick in^love.joystick.getJoysticks() {
         print($"  joystick {stick.getID()}: {stick.getName()} gamepad={stick.isGamepad()} axes={stick.getAxisCount()}")
     }
 
     # image pixels
-    let^ img = love.image.newImageData("assets/love.png") catch^ nil^
-    if^ img fits^ love.image.ImageData {
-        let^ r, g, b, a = img.getPixel(32, 32)
-        img.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^ -> (number^, number^, number^, number^) {
-            return^ 1 - r, 1 - g, 1 - b, a
+    let^img = love.image.newImageData("assets/love.png") catch^nil^
+    if^img fits^love.image.ImageData {
+        let^r, g, b, a = img.getPixel(32, 32)
+        img.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^-> (number^, number^, number^, number^) {
+            return^1 - r, 1 - g, 1 - b, a
         })
-        let^ r2, g2, b2, a2 = img.getPixel(32, 32)
+        let^r2, g2, b2, a2 = img.getPixel(32, 32)
         img.setPixel(0, 0, 1, 0, 0, 1)
-        let^ r3, g3, b3, a3 = img.getPixel(0, 0)
+        let^r3, g3, b3, a3 = img.getPixel(0, 0)
         print($"image: pixel(32,32) = {r},{g},{b},{a} -> inverted {r2},{g2},{b2},{a2}; set(0,0) = {r3},{g3},{b3},{a3}")
         picture := love.graphics.newImage(img)
     }
 }
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
-    if^ frames = 60 { love.event.quit(6) }
+    if^frames = 60 { love.event.quit(6) }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.setColor(1, 1, 1)
-    if^ picture fits^ love.graphics.Texture { love.graphics.draw(picture, 100, 100, 0, 3, 3) }
+    if^picture fits^love.graphics.Texture { love.graphics.draw(picture, 100, 100, 0, 3, 3) }
     love.graphics.print($"M3 frame {frames}", 10, 10)
 }
 
-public^let^ joystickadded = p^stick:love.joystick.Joystick {
+public^let^joystickadded = p^stick:love.joystick.Joystick {
     print($"joystickadded: {stick.getName()}")
 }

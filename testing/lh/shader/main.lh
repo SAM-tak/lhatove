@@ -2,34 +2,34 @@
 # a Shader with uniforms sent to it, Quads, a Mesh, a SpriteBatch, a
 # ParticleSystem, a TextBatch, the render state getters, and a Video
 # playing. Quits with exit code 9 when every check passed.
-module^ shadertest
+module^shadertest
 
-import^ love.graphics
-import^ love.event
-import^ love.timer
-import^ love.image
+import^love.graphics
+import^love.event
+import^love.timer
+import^love.image
 
-let^ shaderCode = "extern vec4 tint;\nextern number amount;\nvec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { vec4 c = Texel(tex, tc) * tint; return vec4(c.rgb * amount, c.a); }\n"
+let^shaderCode = "extern vec4 tint;\nextern number amount;\nvec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { vec4 c = Texel(tex, tc) * tint; return vec4(c.rgb * amount, c.a); }\n"
 
-var^ frames = 0
-var^ failures : t^{...:string^} = {}
-let^ check = p^name:string^, ok:bool^ {
-    if^ !ok { failures.push^(name) }
+var^frames = 0
+var^failures : t^{...:string^} = {}
+let^check = p^name:string^, ok:bool^{
+    if^!ok { failures.push^(name) }
     print($"{name}: {ok}")
 }
 
-let^ canvas = love.graphics.newCanvas(64, 64)
-let^ tinted = love.graphics.newCanvas(64, 64)
-let^ shader = love.graphics.newShader(shaderCode) catch^ nil^
-let^ picture = love.graphics.newImage("assets/love.png") catch^ nil^
-let^ video = love.graphics.newVideo("assets/sample.ogv", { audio = false^ }) catch^ nil^
-let^ batch = love.graphics.newSpriteBatch(canvas, 16)
-let^ particles = love.graphics.newParticleSystem(canvas, 100)
-let^ text = love.graphics.newTextBatch(love.graphics.getFont(), "hello")
-let^ mesh = love.graphics.newMesh({ {0, 0, 0, 0}, {64, 0, 1, 0}, {64, 64, 1, 1}, {0, 64, 0, 1} }, "fan")
-let^ quad = love.graphics.newQuad(0, 0, 32, 32, canvas)
+let^canvas = love.graphics.newCanvas(64, 64)
+let^tinted = love.graphics.newCanvas(64, 64)
+let^shader = love.graphics.newShader(shaderCode) catch^nil^
+let^picture = love.graphics.newImage("assets/love.png") catch^nil^
+let^video = love.graphics.newVideo("assets/sample.ogv", { audio = false^}) catch^nil^
+let^batch = love.graphics.newSpriteBatch(canvas, 16)
+let^particles = love.graphics.newParticleSystem(canvas, 100)
+let^text = love.graphics.newTextBatch(love.graphics.getFont(), "hello")
+let^mesh = love.graphics.newMesh({ {0, 0, 0, 0}, {64, 0, 1, 0}, {64, 64, 1, 1}, {0, 64, 0, 1} }, "fan")
+let^quad = love.graphics.newQuad(0, 0, 32, 32, canvas)
 
-public^let^ load = p^ {
+public^let^load = p^{
     # a red square on the canvas, read back
     love.graphics.setCanvas(canvas)
     love.graphics.clear(0, 0, 0, 1)
@@ -37,18 +37,18 @@ public^let^ load = p^ {
     love.graphics.rectangle("fill", 16, 16, 32, 32)
     love.graphics.setCanvas()
     love.graphics.setColor(1, 1, 1, 1)
-    let^ pixels = love.graphics.readbackTexture(canvas)
-    let^ r, g, b, a = pixels.getPixel(32, 32)
-    let^ r2, g2, b2, a2 = pixels.getPixel(2, 2)
-    check("canvas red center", r > 0.9 and^ g < 0.1 and^ b < 0.1)
-    check("canvas black corner", r2 < 0.1 and^ g2 < 0.1)
-    check("canvas is a canvas", canvas.isCanvas() and^ !(picture?.isCanvas() ?? true^))
-    let^ cw, ch = canvas.getDimensions()
-    check("canvas size", cw = 64 and^ ch = 64)
+    let^pixels = love.graphics.readbackTexture(canvas)
+    let^r, g, b, a = pixels.getPixel(32, 32)
+    let^r2, g2, b2, a2 = pixels.getPixel(2, 2)
+    check("canvas red center", r > 0.9 and^g < 0.1 and^b < 0.1)
+    check("canvas black corner", r2 < 0.1 and^g2 < 0.1)
+    check("canvas is a canvas", canvas.isCanvas() and^!(picture?.isCanvas() ?? true^))
+    let^cw, ch = canvas.getDimensions()
+    check("canvas size", cw = 64 and^ch = 64)
 
     # the shader keeps a quarter of the red square's red and drops the rest
-    if^ shader fits^ love.graphics.Shader {
-        check("shader has tint", shader.hasUniform("tint") and^ !shader.hasUniform("nothing"))
+    if^shader fits^love.graphics.Shader {
+        check("shader has tint", shader.hasUniform("tint") and^!shader.hasUniform("nothing"))
         shader.send("tint", 0.5, 1, 0, 1)
         shader.send("amount", 0.5)
         love.graphics.setCanvas(tinted)
@@ -57,41 +57,41 @@ public^let^ load = p^ {
         love.graphics.draw(canvas, 0, 0)
         love.graphics.setShader()
         love.graphics.setCanvas()
-        let^ tp = love.graphics.readbackTexture(tinted)
-        let^ tr, tg, tb, ta = tp.getPixel(32, 32)
-        check("shader tinted", tr > 0.2 and^ tr < 0.3 and^ tg < 0.05 and^ ta > 0.99)
-        check("shader active cleared", love.graphics.getShader() fits^ nil^)
+        let^tp = love.graphics.readbackTexture(tinted)
+        let^tr, tg, tb, ta = tp.getPixel(32, 32)
+        check("shader tinted", tr > 0.2 and^tr < 0.3 and^tg < 0.05 and^ta > 0.99)
+        check("shader active cleared", love.graphics.getShader() fits^nil^)
     else^:
         check("shader compiled", false^)
     }
 
     # quad
-    let^ qx, qy, qw, qh = quad.getViewport()
-    let^ qtw, qth = quad.getTextureDimensions()
-    check("quad viewport", qw = 32 and^ qh = 32 and^ qtw = 64)
+    let^qx, qy, qw, qh = quad.getViewport()
+    let^qtw, qth = quad.getTextureDimensions()
+    check("quad viewport", qw = 32 and^qh = 32 and^qtw = 64)
     quad.setViewport(32, 32, 16, 16)
-    let^ _qx, _qy, qw2, _qh = quad.getViewport()
+    let^_qx, _qy, qw2, _qh = quad.getViewport()
     check("quad set", qw2 = 16)
 
     # mesh
     mesh.setTexture(canvas)
-    let^ mx, my, mu, mv, mr, mg, mb, ma = mesh.getVertex(3)
-    check("mesh vertex", mx = 64 and^ my = 64 and^ mu = 1 and^ mr = 1)
+    let^mx, my, mu, mv, mr, mg, mb, ma = mesh.getVertex(3)
+    check("mesh vertex", mx = 64 and^my = 64 and^mu = 1 and^mr = 1)
     mesh.setVertex(3, 60, 60, 1, 1, 0.5, 0.5, 0.5, 1)
-    let^ mx2, my2, _u, _v, mr2, _g, _b, _a = mesh.getVertex(3)
-    check("mesh set vertex", mx2 = 60 and^ (mr2 - 0.5).abs() < 0.01)
-    check("mesh count/mode", mesh.getVertexCount() = 4 and^ mesh.getDrawMode() = "fan" and^ mesh.getTexture()?)
+    let^mx2, my2, _u, _v, mr2, _g, _b, _a = mesh.getVertex(3)
+    check("mesh set vertex", mx2 = 60 and^(mr2 - 0.5).abs() < 0.01)
+    check("mesh count/mode", mesh.getVertexCount() = 4 and^mesh.getDrawMode() = "fan" and^mesh.getTexture()?)
     mesh.setDrawMode("triangles")
     mesh.setVertexMap(1, 2, 3, 3, 4, 1)
-    check("mesh vertex map", mesh.getVertexMap().length^ = 6 and^ mesh.getDrawMode() = "triangles")
+    check("mesh vertex map", mesh.getVertexMap().length^= 6 and^mesh.getDrawMode() = "triangles")
 
     # sprite batch
-    let^ id = batch.add(10, 10)
-    let^ id2 = batch.add(quad, 20, 20, 0, 2, 2)
+    let^id = batch.add(10, 10)
+    let^id2 = batch.add(quad, 20, 20, 0, 2, 2)
     batch.set(id, 15, 15)
     batch.setColor(1, 0, 0, 1)
-    let^ br, _bg, _bb, _ba = batch.getColor()
-    check("spritebatch", id = 1 and^ id2 = 2 and^ batch.getCount() = 2 and^ br = 1 and^ batch.getBufferSize() = 16)
+    let^br, _bg, _bb, _ba = batch.getColor()
+    check("spritebatch", id = 1 and^id2 = 2 and^batch.getCount() = 2 and^br = 1 and^batch.getBufferSize() = 16)
 
     # particles
     particles.setParticleLifetime(1, 2)
@@ -102,59 +102,59 @@ public^let^ load = p^ {
     particles.setLinearAcceleration(0, 10)
     particles.start()
     particles.update(0.5)
-    let^ lo, hi = particles.getParticleLifetime()
-    check("particles", particles.getCount() > 0 and^ particles.isActive() and^ lo = 1 and^ hi = 2 and^ particles.getSizes().length^ = 2)
+    let^lo, hi = particles.getParticleLifetime()
+    check("particles", particles.getCount() > 0 and^particles.isActive() and^lo = 1 and^hi = 2 and^particles.getSizes().length^= 2)
 
     # text batch
-    let^ tw, th = text.getDimensions()
-    check("textbatch", tw > 0 and^ th > 0 and^ text.add("more", 0, 20) = 2)
+    let^tw, th = text.getDimensions()
+    check("textbatch", tw > 0 and^th > 0 and^text.add("more", 0, 20) = 2)
 
     # state
     love.graphics.setBlendMode("add", "premultiplied")
-    let^ bm, ba = love.graphics.getBlendMode()
+    let^bm, ba = love.graphics.getBlendMode()
     love.graphics.setBlendMode("alpha")
     love.graphics.setScissor(10, 20, 30, 40)
-    let^ sx, sy, sw, sh = love.graphics.getScissor()
+    let^sx, sy, sw, sh = love.graphics.getScissor()
     love.graphics.setScissor()
     love.graphics.setColorMask(true^, false^, true^, true^)
-    let^ mr_, mg_, _mb, _ma = love.graphics.getColorMask()
+    let^mr_, mg_, _mb, _ma = love.graphics.getColorMask()
     love.graphics.setColorMask()
     love.graphics.setLineStyle("rough")
     love.graphics.setDefaultFilter("nearest", "nearest")
-    let^ fmin, fmag, aniso = love.graphics.getDefaultFilter()
+    let^fmin, fmag, aniso = love.graphics.getDefaultFilter()
     love.graphics.setDefaultFilter("linear")
-    let^ name, version, vendor, device = love.graphics.getRendererInfo()
-    let^ stats = love.graphics.getStats()
+    let^name, version, vendor, device = love.graphics.getRendererInfo()
+    let^stats = love.graphics.getStats()
     love.graphics.push()
     love.graphics.translate(100, 50)
-    let^ tx, ty = love.graphics.transformPoint(1, 1)
+    let^tx, ty = love.graphics.transformPoint(1, 1)
     love.graphics.pop()
-    check("state", bm = "add" and^ ba = "premultiplied" and^ sx = 10 and^ sh = 40 and^ mr_ and^ !mg_ and^ love.graphics.getLineStyle() = "rough" and^ fmin = "nearest" and^ tx = 101 and^ ty = 51)
-    check("info", name.length > 0 and^ stats.textures > 0)
+    check("state", bm = "add" and^ba = "premultiplied" and^sx = 10 and^sh = 40 and^mr_ and^!mg_ and^love.graphics.getLineStyle() = "rough" and^fmin = "nearest" and^tx = 101 and^ty = 51)
+    check("info", name.length > 0 and^stats.textures > 0)
     print($"renderer: {name} {version} ({vendor}, {device})")
 
     # video
-    if^ video fits^ love.graphics.Video {
+    if^video fits^love.graphics.Video {
         video.play()
-        let^ vw, vh = video.getDimensions()
-        check("video size", vw > 0 and^ vh > 0)
+        let^vw, vh = video.getDimensions()
+        check("video size", vw > 0 and^vh > 0)
         print($"video: {video.getFilename()} {vw}x{vh}")
     else^:
         check("video opened", false^)
     }
 }
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
     particles.update(dt)
-    if^ frames = 90 {
-        if^ video fits^ love.graphics.Video {
+    if^frames = 90 {
+        if^video fits^love.graphics.Video {
             print($"video: playing={video.isPlaying()} tell={video.tell()}")
             # the sample is about a second long, so it may already have ended
             check("video advanced", video.tell() > 0.5)
             video.pause()
         }
-        if^ failures.length^ = 0 {
+        if^failures.length^= 0 {
             love.event.quit(9)
         else^:
             print($"failed: {failures.length^}")
@@ -163,7 +163,7 @@ public^let^ update = p^dt:number^ {
     }
 }
 
-public^let^ draw = p^ {
+public^let^draw = p^{
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(canvas, 10, 40)
     love.graphics.draw(tinted, 80, 40)
@@ -172,8 +172,8 @@ public^let^ draw = p^ {
     love.graphics.draw(batch, 280, 40)
     love.graphics.draw(particles, 400, 100)
     love.graphics.draw(text, 10, 120)
-    if^ video fits^ love.graphics.Video { love.graphics.draw(video, 10, 160, 0, 0.5, 0.5) }
-    if^ picture fits^ love.graphics.Texture { love.graphics.draw(picture, 400, 200) }
+    if^video fits^love.graphics.Video { love.graphics.draw(video, 10, 160, 0, 0.5, 0.5) }
+    if^picture fits^love.graphics.Texture { love.graphics.draw(picture, 400, 200) }
     love.graphics.ellipse("line", 600, 100, 40, 20)
     love.graphics.arc("fill", "pie", 700, 100, 30, 0, 2)
     love.graphics.print($"M5 graphics: frame {frames}", 10, 10)

@@ -1,13 +1,13 @@
 # A fault inside a callback: the run ends with a traceback, not a hang.
-module^ panicgame
+module^panicgame
 
-var^ frames = 0
+var^frames = 0
 
-let^ explode = p^ { panic^ $"boom at frame {frames}" }
+let^explode = p^{ panic^$"boom at frame {frames}" }
 
-public^let^ update = p^dt:number^ {
+public^let^update = p^dt:number^{
     frames := frames + 1
-    if^ frames = 10 {
+    if^frames = 10 {
         explode()
         print("unreachable")
     }

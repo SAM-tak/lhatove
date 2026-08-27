@@ -1,6 +1,6 @@
 # update takes a string here; the engine refuses it before the loop starts.
-module^ badcallback
+module^badcallback
 
-public^let^ update = p^dt:string^ {
+public^let^update = p^dt:string^{
     print(dt)
 }
