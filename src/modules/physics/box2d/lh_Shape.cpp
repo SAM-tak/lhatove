@@ -46,6 +46,10 @@ static Shape *self(LhatMachine *machine, const LhatValue *args, size_t count)
 
 #define SHAPE_SELF() Shape *s = self(machine, args, count); if (s == nullptr) return lhat_nil()
 
+// 8.8改 put each kind behind a type of its own, so a member registered on
+// CircleShape is reached only through one -- the checker turns the old
+// mistake into a diagnostic. This stays as the last net under that: nothing
+// verifies the promise a subtype declaration makes.
 template <typename T>
 static T *kindOf(LhatMachine *machine, Shape *s, Shape::Type type, const char *name)
 {
@@ -533,13 +537,26 @@ static LhatValue lh_Shape_getVertexCount(LhatMachine *machine, void *context, co
 bool lhPhysicsShape(lh::Context &ctx)
 {
 	const char *m = LH_PHYSICS;
-	if (!ctx.objectType(m, "Shape", Shape::type))
+	// 05 の 8.8改: box2d's four kinds are LOVE's four classes, so they are
+	// four types here too. What belongs to one kind is registered on that
+	// kind, and asking for it on another is a diagnostic before the game
+	// runs rather than a panic once it does.
+	if (!ctx.objectType(m, "Shape", Shape::type)
+		|| !ctx.objectType(m, "CircleShape", CircleShape::type, m, "Shape")
+		|| !ctx.objectType(m, "PolygonShape", PolygonShape::type, m, "Shape")
+		|| !ctx.objectType(m, "EdgeShape", EdgeShape::type, m, "Shape")
+		|| !ctx.objectType(m, "ChainShape", ChainShape::type, m, "Shape"))
 		return false;
 	if (ctx.types())
 		return true;
 
 	const char *S = "Shape";
-	return ctx.member(m, S, "getType", "f^self^ -> string^;", lh_Shape_getType, nullptr)
+	const char *pair = "f^self^ -> (number^, number^);";
+	const char *setPair = "p^self^, number^, number^;";
+	const char *points = "f^self^ -> t^{...:number^};";
+
+	// What every shape answers.
+	bool ok = ctx.member(m, S, "getType", "f^self^ -> string^;", lh_Shape_getType, nullptr)
 		&& ctx.member(m, S, "getRadius", "f^self^ -> number^;", lh_Shape_getRadius, nullptr)
 		&& ctx.member(m, S, "getChildCount", "f^self^ -> number^;", lh_Shape_getChildCount, nullptr)
 		&& ctx.member(m, S, "setFriction", "p^self^, number^;", lh_Shape_setFriction, nullptr)
@@ -564,10 +581,10 @@ bool lhPhysicsShape(lh::Context &ctx)
 		&& ctx.member(m, S, "getFilterData", "f^self^ -> (number^, number^, number^);", lh_Shape_getFilterData, nullptr)
 		&& ctx.member(m, S, "setCategory", "p^self^;", lh_Shape_setCategory, nullptr)
 		&& ctx.member(m, S, "setCategory", "p^self^, number^, ...;", lh_Shape_setCategory, nullptr)
-		&& ctx.member(m, S, "getCategory", "f^self^ -> t^{...:number^};", lh_Shape_getCategory, nullptr)
+		&& ctx.member(m, S, "getCategory", points, lh_Shape_getCategory, nullptr)
 		&& ctx.member(m, S, "setMask", "p^self^;", lh_Shape_setMask, nullptr)
 		&& ctx.member(m, S, "setMask", "p^self^, number^, ...;", lh_Shape_setMask, nullptr)
-		&& ctx.member(m, S, "getMask", "f^self^ -> t^{...:number^};", lh_Shape_getMask, nullptr)
+		&& ctx.member(m, S, "getMask", points, lh_Shape_getMask, nullptr)
 		&& ctx.member(m, S, "setUserData", "p^self^, any^;", lh_Shape_setUserData, nullptr)
 		&& ctx.member(m, S, "getUserData", "f^self^ -> any^;", lh_Shape_getUserData, nullptr)
 		&& ctx.member(m, S, "getBoundingBox", "f^self^ -> (number^, number^, number^, number^);", lh_Shape_getBoundingBox, nullptr)
@@ -576,19 +593,41 @@ bool lhPhysicsShape(lh::Context &ctx)
 		&& ctx.member(m, S, "getGroupIndex", "f^self^ -> number^;", lh_Shape_getGroupIndex, nullptr)
 		&& ctx.member(m, S, "setGroupIndex", "p^self^, number^;", lh_Shape_setGroupIndex, nullptr)
 		&& ctx.member(m, S, "destroy", "p^self^;", lh_Shape_destroy, nullptr)
-		&& ctx.member(m, S, "isDestroyed", "f^self^ -> bool^;", lh_Shape_isDestroyed, nullptr)
-		// CircleShape
-		&& ctx.member(m, S, "setRadius", "p^self^, number^;", lh_Shape_setRadius, nullptr)
-		&& ctx.member(m, S, "getPoint", "f^self^ -> (number^, number^);", lh_Shape_getPoint, nullptr)
-		&& ctx.member(m, S, "getPoint", "f^self^, number^ -> (number^, number^);", lh_Shape_getPoint, nullptr)
-		&& ctx.member(m, S, "setPoint", "p^self^, number^, number^;", lh_Shape_setPoint, nullptr)
-		// PolygonShape / EdgeShape / ChainShape
-		&& ctx.member(m, S, "getPoints", "f^self^ -> t^{...:number^};", lh_Shape_getPoints, nullptr)
-		&& ctx.member(m, S, "setNextVertex", "p^self^, number^, number^;", lh_Shape_setNextVertex, nullptr)
-		&& ctx.member(m, S, "setPreviousVertex", "p^self^, number^, number^;", lh_Shape_setPreviousVertex, nullptr)
-		&& ctx.member(m, S, "getNextVertex", "f^self^ -> (number^, number^);", lh_Shape_getNextVertex, nullptr)
-		&& ctx.member(m, S, "getPreviousVertex", "f^self^ -> (number^, number^);", lh_Shape_getPreviousVertex, nullptr)
-		&& ctx.member(m, S, "getVertexCount", "f^self^ -> number^;", lh_Shape_getVertexCount, nullptr);
+		&& ctx.member(m, S, "isDestroyed", "f^self^ -> bool^;", lh_Shape_isDestroyed, nullptr);
+	if (!ok)
+		return false;
+
+	// A circle is the one with a centre it can be asked for and moved.
+	ok = ctx.member(m, "CircleShape", "setRadius", "p^self^, number^;", lh_Shape_setRadius, nullptr)
+		&& ctx.member(m, "CircleShape", "getPoint", pair, lh_Shape_getPoint, nullptr)
+		&& ctx.member(m, "CircleShape", "setPoint", setPair, lh_Shape_setPoint, nullptr);
+	if (!ok)
+		return false;
+
+	// The three with vertices answer getPoints. They share no class of their
+	// own under Shape, so each says it -- three registrations rather than a
+	// kind check inside one.
+	for (const char *kind : {"PolygonShape", "EdgeShape", "ChainShape"})
+	{
+		if (!ctx.member(m, kind, "getPoints", points, lh_Shape_getPoints, nullptr))
+			return false;
+	}
+
+	// 04 の ghost vertices: an edge and a chain carry the neighbours box2d
+	// uses to smooth collisions across a seam.
+	for (const char *kind : {"EdgeShape", "ChainShape"})
+	{
+		ok = ctx.member(m, kind, "setNextVertex", setPair, lh_Shape_setNextVertex, nullptr)
+			&& ctx.member(m, kind, "setPreviousVertex", setPair, lh_Shape_setPreviousVertex, nullptr)
+			&& ctx.member(m, kind, "getNextVertex", pair, lh_Shape_getNextVertex, nullptr)
+			&& ctx.member(m, kind, "getPreviousVertex", pair, lh_Shape_getPreviousVertex, nullptr);
+		if (!ok)
+			return false;
+	}
+
+	// A chain is the one whose vertices are counted and read one at a time.
+	return ctx.member(m, "ChainShape", "getPoint", "f^self^, number^ -> (number^, number^);", lh_Shape_getPoint, nullptr)
+		&& ctx.member(m, "ChainShape", "getVertexCount", "f^self^ -> number^;", lh_Shape_getVertexCount, nullptr);
 }
 
 } // box2d

@@ -53,7 +53,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - C 側が L^ の値を保持する時は `lh::Parked`（`lh::ParkingLot` の整数スロットに係留、`StrongRef<love::Object>` で持てる）。コールバックは `lhat_machine_call` をホスト関数の中から呼ぶ（fault は外側の run に伝播するので戻り値を捨てるだけでよい）
 - ホスト型は親を宣言できる（`lhat_register_hostdata_subtype`、8.8改）。`lh::Context::objectType` の 5 引数版がそれで、TYPES 相で親付きに登録し MEMBERS 相は何もしない — `dispose` / `type` / `typeOf` は親から継承される。`love.graphics.Drawable` の 6 派生（Texture / Mesh / SpriteBatch / ParticleSystem / TextBatch / Video）がこの形で、`draw` のシグネチャは親 1 語。親が先に登録されている必要があるので、レジストラの中で順序を作る（`lhopen_love_graphics` が Drawable を登録してから `lhGraphicsMesh` 等を呼ぶ）
 - 親の宣言は**ポインタについての約束**。lhatove では自明に成り立つ — hostdata が持つのは常に `love::Object *`（`pushObject` がそれを取る）で、ポインタは 1 種類しか無い
-- `love::Type` の階層のうち、まだ平坦なまま残っているのが physics の Shape（circle/polygon/edge/chain）と Joint の各種。1 つの型に潰して種別外のメンバを `lh::raise` している。LÖVE 側は `CircleShape : public Shape` の単一継承なので、親子宣言で分けられる（未着手）
+- physics も同じ形。Shape の下に CircleShape / PolygonShape / EdgeShape / ChainShape、Joint の下に 11 種。`pushShape` / `pushJoint` が `getType()` で実際の `love::Type` を選ぶので、L^ に届く値は種別そのもの。種別依存メンバはその型にだけ登録する — box2d は「クラスを共有せずメンバを共有する」（stiffness は distance/mouse/weld/wheel）ので、C++ の木が 1 度で言えないものは種別ごとに登録する（`jointMember` ヘルパ）
 
 ### 旧 Lua コード
 

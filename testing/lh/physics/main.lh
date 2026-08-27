@@ -131,12 +131,14 @@ public^let^update = p^dt:number^{
     }
 }
 
+# 8.8改: the kinds are types, so this asks what the shape is rather than
+# comparing the string getType() answers -- and getPoints is reachable only
+# once the answer is yes.
 let^drawShape = p^body:love.physics.Body, shape:love.physics.Shape {
-    let^kind = shape.getType()
-    if^kind = "circle" {
+    if^shape fits^love.physics.CircleShape {
         let^x, y = body.getPosition()
         love.graphics.circle("line", x, y, shape.getRadius())
-    elseif^kind = "polygon":
+    elseif^shape fits^love.physics.PolygonShape:
         love.graphics.polygon("line", body.getWorldPoints(shape.getPoints()...)...)
     }
 }

@@ -1,6 +1,7 @@
-# love.physics -- the L^port of testing/tests/physics.lua, for the five
-# types the binding gives L^(the deprecated body-less shapes and
-# newFixture have no L^spelling at all).
+# love.physics -- the L^port of testing/tests/physics.lua. The binding gives
+# L^ World, Body and Contact, plus Shape and Joint with box2d's kinds under
+# them as types of their own (the deprecated body-less shapes and newFixture
+# have no L^spelling at all).
 module^suite.tests.physics
 
 import^love.physics
@@ -83,6 +84,17 @@ public^let^run = p^{
     test.number("the circle's radius", 20, ballShape.getRadius())
     test.isTrue("a shape knows its body", ballShape.getBody() = ball)
     test.number("the body knows its shapes", 1, box.getShapes().length^)
+
+    # 05 の 8.8改: box2d's kinds are types, so what a constructor answers is
+    # the kind it made and the members of one kind stay off the others.
+    test.isTrue("a rectangle body makes a polygon shape", boxShape fits^love.physics.PolygonShape)
+    test.isTrue("a circle body makes a circle shape", ballShape fits^love.physics.CircleShape)
+    test.isTrue("and both are Shapes", boxShape fits^love.physics.Shape and^ballShape fits^love.physics.Shape)
+    test.isFalse("a polygon is not a circle", boxShape fits^love.physics.CircleShape)
+    let^ccx, ccy = ballShape.getPoint()
+    test.number("a circle centre x", 0, ccx)
+    test.number("its centre y", 0, ccy)
+    test.number("a polygon's points come in pairs", 8, boxShape.getPoints().length^)
     boxShape.setFriction(0.3)
     test.near("friction", 0.3, boxShape.getFriction(), 0.001)
     boxShape.setRestitution(0.4)
@@ -144,7 +156,11 @@ public^let^run = p^{
     test.number("the world counts the joint", 1, world.getJointCount())
     test.number("the body lists it", 1, box.getJoints().length^)
 
-    # a joint kind's own members raise on another kind, so only its own
+    # 8.8改: a joint kind is a type, so its own members are reachable only
+    # through it -- getLength here is DistanceJoint's and nowhere else.
+    test.isTrue("a distance joint is one", joint fits^love.physics.DistanceJoint)
+    test.isTrue("and it is a Joint", joint fits^love.physics.Joint)
+    test.isFalse("it is not a revolute joint", joint fits^love.physics.RevoluteJoint)
     joint.setLength(50)
     test.number("setLength", 50, joint.getLength())
 

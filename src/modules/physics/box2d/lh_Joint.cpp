@@ -38,6 +38,8 @@
 #include "WeldJoint.h"
 #include "WheelJoint.h"
 
+#include <initializer_list>
+
 namespace love
 {
 namespace physics
@@ -403,11 +405,44 @@ JOINT_GET_NUMBER(getMaxLength,
 JOINT_SET(setMaxLength,
 	SET(RopeJoint, JOINT_ROPE, setMaxLength(v)))
 
+// One member registered on each kind that has it. box2d shares members
+// between kinds without sharing a class -- stiffness belongs to a distance,
+// a mouse, a weld and a wheel joint, which have only Joint above them -- so
+// what the C++ tree cannot say once is said here once per kind.
+static bool jointMember(lh::Context &ctx, std::initializer_list<const char *> kinds,
+                        const char *name, const char *signature, LhatHostFn fn)
+{
+	for (const char *kind : kinds)
+	{
+		if (!ctx.member(LH_PHYSICS, kind, name, signature, fn, nullptr))
+			return false;
+	}
+	return true;
+}
+
 bool lhPhysicsJoint(lh::Context &ctx)
 {
 	const char *m = LH_PHYSICS;
+	// 05 の 8.8改: box2d's eleven kinds are LOVE's eleven classes, so each is
+	// a type here. A member of one kind is registered on that kind, and
+	// reaching for it on another is a diagnostic rather than a panic.
+	static const char *const kindNames[] = {
+		"DistanceJoint", "FrictionJoint", "GearJoint", "MotorJoint", "MouseJoint",
+		"PrismaticJoint", "PulleyJoint", "RevoluteJoint", "RopeJoint", "WeldJoint",
+		"WheelJoint",
+	};
+	love::Type *const kindTypes[] = {
+		&DistanceJoint::type, &FrictionJoint::type, &GearJoint::type, &MotorJoint::type,
+		&MouseJoint::type, &PrismaticJoint::type, &PulleyJoint::type, &RevoluteJoint::type,
+		&RopeJoint::type, &WeldJoint::type, &WheelJoint::type,
+	};
 	if (!ctx.objectType(m, "Joint", Joint::type))
 		return false;
+	for (size_t i = 0; i < sizeof(kindNames) / sizeof(*kindNames); i++)
+	{
+		if (!ctx.objectType(m, kindNames[i], *kindTypes[i], m, "Joint"))
+			return false;
+	}
 	if (ctx.types())
 		return true;
 
@@ -419,75 +454,82 @@ bool lhPhysicsJoint(lh::Context &ctx)
 	const char *setPair = "p^self^, number^, number^;";
 	const char *pair = "f^self^ -> (number^, number^);";
 	const char *numOfNum = "f^self^, number^ -> number^;";
+	const char *twoJoints = "p^self^ -> (love.physics.Joint, love.physics.Joint);";
+	const char *four = "f^self^ -> (number^, number^, number^, number^);";
 
-	return ctx.member(m, J, "getType", "f^self^ -> string^;", lh_Joint_getType, nullptr)
+	// What every joint answers.
+	bool ok = ctx.member(m, J, "getType", "f^self^ -> string^;", lh_Joint_getType, nullptr)
 		&& ctx.member(m, J, "getBodies", "p^self^ -> (love.physics.Body, love.physics.Body);", lh_Joint_getBodies, nullptr)
-		&& ctx.member(m, J, "getAnchors", "f^self^ -> (number^, number^, number^, number^);", lh_Joint_getAnchors, nullptr)
+		&& ctx.member(m, J, "getAnchors", four, lh_Joint_getAnchors, nullptr)
 		&& ctx.member(m, J, "getReactionForce", "f^self^, number^ -> (number^, number^);", lh_Joint_getReactionForce, nullptr)
 		&& ctx.member(m, J, "getReactionTorque", numOfNum, lh_Joint_getReactionTorque, nullptr)
 		&& ctx.member(m, J, "getCollideConnected", flag, lh_Joint_getCollideConnected, nullptr)
 		&& ctx.member(m, J, "setUserData", "p^self^, any^;", lh_Joint_setUserData, nullptr)
 		&& ctx.member(m, J, "getUserData", "f^self^ -> any^;", lh_Joint_getUserData, nullptr)
 		&& ctx.member(m, J, "destroy", "p^self^;", lh_Joint_destroy, nullptr)
-		&& ctx.member(m, J, "isDestroyed", flag, lh_Joint_isDestroyed, nullptr)
-		// DistanceJoint
-		&& ctx.member(m, J, "getLength", num, lh_Joint_getLength, nullptr)
-		&& ctx.member(m, J, "setLength", setNum, lh_Joint_setLength, nullptr)
-		// Distance / Mouse / Weld / Wheel
-		&& ctx.member(m, J, "getStiffness", num, lh_Joint_getStiffness, nullptr)
-		&& ctx.member(m, J, "setStiffness", setNum, lh_Joint_setStiffness, nullptr)
-		&& ctx.member(m, J, "getDamping", num, lh_Joint_getDamping, nullptr)
-		&& ctx.member(m, J, "setDamping", setNum, lh_Joint_setDamping, nullptr)
-		// Friction / Motor / Mouse
-		&& ctx.member(m, J, "getMaxForce", num, lh_Joint_getMaxForce, nullptr)
-		&& ctx.member(m, J, "setMaxForce", setNum, lh_Joint_setMaxForce, nullptr)
-		&& ctx.member(m, J, "getMaxTorque", num, lh_Joint_getMaxTorque, nullptr)
-		&& ctx.member(m, J, "setMaxTorque", setNum, lh_Joint_setMaxTorque, nullptr)
-		// Gear / Pulley
-		&& ctx.member(m, J, "getRatio", num, lh_Joint_getRatio, nullptr)
-		&& ctx.member(m, J, "setRatio", setNum, lh_Joint_setRatio, nullptr)
-		&& ctx.member(m, J, "getJoints", "p^self^ -> (love.physics.Joint, love.physics.Joint);", lh_Joint_getJoints, nullptr)
-		// MotorJoint
-		&& ctx.member(m, J, "getLinearOffset", pair, lh_Joint_getLinearOffset, nullptr)
-		&& ctx.member(m, J, "setLinearOffset", setPair, lh_Joint_setLinearOffset, nullptr)
-		&& ctx.member(m, J, "getAngularOffset", num, lh_Joint_getAngularOffset, nullptr)
-		&& ctx.member(m, J, "setAngularOffset", setNum, lh_Joint_setAngularOffset, nullptr)
-		&& ctx.member(m, J, "getCorrectionFactor", num, lh_Joint_getCorrectionFactor, nullptr)
-		&& ctx.member(m, J, "setCorrectionFactor", setNum, lh_Joint_setCorrectionFactor, nullptr)
-		// MouseJoint
-		&& ctx.member(m, J, "getTarget", pair, lh_Joint_getTarget, nullptr)
-		&& ctx.member(m, J, "setTarget", setPair, lh_Joint_setTarget, nullptr)
-		// Prismatic / Revolute / Wheel
-		&& ctx.member(m, J, "getJointTranslation", num, lh_Joint_getJointTranslation, nullptr)
-		&& ctx.member(m, J, "getJointSpeed", num, lh_Joint_getJointSpeed, nullptr)
-		&& ctx.member(m, J, "getJointAngle", num, lh_Joint_getJointAngle, nullptr)
-		&& ctx.member(m, J, "setMotorEnabled", setFlag, lh_Joint_setMotorEnabled, nullptr)
-		&& ctx.member(m, J, "isMotorEnabled", flag, lh_Joint_isMotorEnabled, nullptr)
-		&& ctx.member(m, J, "setMotorSpeed", setNum, lh_Joint_setMotorSpeed, nullptr)
-		&& ctx.member(m, J, "getMotorSpeed", num, lh_Joint_getMotorSpeed, nullptr)
-		&& ctx.member(m, J, "setMaxMotorForce", setNum, lh_Joint_setMaxMotorForce, nullptr)
-		&& ctx.member(m, J, "getMaxMotorForce", num, lh_Joint_getMaxMotorForce, nullptr)
-		&& ctx.member(m, J, "getMotorForce", numOfNum, lh_Joint_getMotorForce, nullptr)
-		&& ctx.member(m, J, "setMaxMotorTorque", setNum, lh_Joint_setMaxMotorTorque, nullptr)
-		&& ctx.member(m, J, "getMaxMotorTorque", num, lh_Joint_getMaxMotorTorque, nullptr)
-		&& ctx.member(m, J, "getMotorTorque", numOfNum, lh_Joint_getMotorTorque, nullptr)
-		&& ctx.member(m, J, "setLimitsEnabled", setFlag, lh_Joint_setLimitsEnabled, nullptr)
-		&& ctx.member(m, J, "areLimitsEnabled", flag, lh_Joint_areLimitsEnabled, nullptr)
-		&& ctx.member(m, J, "setUpperLimit", setNum, lh_Joint_setUpperLimit, nullptr)
-		&& ctx.member(m, J, "setLowerLimit", setNum, lh_Joint_setLowerLimit, nullptr)
-		&& ctx.member(m, J, "setLimits", setPair, lh_Joint_setLimits, nullptr)
-		&& ctx.member(m, J, "getLowerLimit", num, lh_Joint_getLowerLimit, nullptr)
-		&& ctx.member(m, J, "getUpperLimit", num, lh_Joint_getUpperLimit, nullptr)
-		&& ctx.member(m, J, "getLimits", pair, lh_Joint_getLimits, nullptr)
-		&& ctx.member(m, J, "getAxis", pair, lh_Joint_getAxis, nullptr)
-		&& ctx.member(m, J, "getReferenceAngle", num, lh_Joint_getReferenceAngle, nullptr)
-		// PulleyJoint
-		&& ctx.member(m, J, "getGroundAnchors", "f^self^ -> (number^, number^, number^, number^);", lh_Joint_getGroundAnchors, nullptr)
-		&& ctx.member(m, J, "getLengthA", num, lh_Joint_getLengthA, nullptr)
-		&& ctx.member(m, J, "getLengthB", num, lh_Joint_getLengthB, nullptr)
-		// RopeJoint
-		&& ctx.member(m, J, "getMaxLength", num, lh_Joint_getMaxLength, nullptr)
-		&& ctx.member(m, J, "setMaxLength", setNum, lh_Joint_setMaxLength, nullptr);
+		&& ctx.member(m, J, "isDestroyed", flag, lh_Joint_isDestroyed, nullptr);
+	if (!ok)
+		return false;
+
+	// The groups box2d puts a member in, named for what they have in common.
+	const std::initializer_list<const char *> springy = {"DistanceJoint", "MouseJoint", "WeldJoint", "WheelJoint"};
+	const std::initializer_list<const char *> forceful = {"FrictionJoint", "MotorJoint", "MouseJoint"};
+	const std::initializer_list<const char *> torquey = {"FrictionJoint", "MotorJoint"};
+	const std::initializer_list<const char *> motored = {"PrismaticJoint", "RevoluteJoint", "WheelJoint"};
+	const std::initializer_list<const char *> limited = {"PrismaticJoint", "RevoluteJoint"};
+	const std::initializer_list<const char *> axial = {"PrismaticJoint", "WheelJoint"};
+	const std::initializer_list<const char *> angled = {"PrismaticJoint", "RevoluteJoint", "WeldJoint"};
+	const std::initializer_list<const char *> torqued = {"RevoluteJoint", "WheelJoint"};
+
+	return jointMember(ctx, {"DistanceJoint"}, "getLength", num, lh_Joint_getLength)
+		&& jointMember(ctx, {"DistanceJoint"}, "setLength", setNum, lh_Joint_setLength)
+		&& jointMember(ctx, springy, "getStiffness", num, lh_Joint_getStiffness)
+		&& jointMember(ctx, springy, "setStiffness", setNum, lh_Joint_setStiffness)
+		&& jointMember(ctx, springy, "getDamping", num, lh_Joint_getDamping)
+		&& jointMember(ctx, springy, "setDamping", setNum, lh_Joint_setDamping)
+		&& jointMember(ctx, forceful, "getMaxForce", num, lh_Joint_getMaxForce)
+		&& jointMember(ctx, forceful, "setMaxForce", setNum, lh_Joint_setMaxForce)
+		&& jointMember(ctx, torquey, "getMaxTorque", num, lh_Joint_getMaxTorque)
+		&& jointMember(ctx, torquey, "setMaxTorque", setNum, lh_Joint_setMaxTorque)
+		&& jointMember(ctx, {"GearJoint", "PulleyJoint"}, "getRatio", num, lh_Joint_getRatio)
+		&& jointMember(ctx, {"GearJoint"}, "setRatio", setNum, lh_Joint_setRatio)
+		&& jointMember(ctx, {"GearJoint"}, "getJoints", twoJoints, lh_Joint_getJoints)
+		&& jointMember(ctx, {"MotorJoint"}, "getLinearOffset", pair, lh_Joint_getLinearOffset)
+		&& jointMember(ctx, {"MotorJoint"}, "setLinearOffset", setPair, lh_Joint_setLinearOffset)
+		&& jointMember(ctx, {"MotorJoint"}, "getAngularOffset", num, lh_Joint_getAngularOffset)
+		&& jointMember(ctx, {"MotorJoint"}, "setAngularOffset", setNum, lh_Joint_setAngularOffset)
+		&& jointMember(ctx, {"MotorJoint"}, "getCorrectionFactor", num, lh_Joint_getCorrectionFactor)
+		&& jointMember(ctx, {"MotorJoint"}, "setCorrectionFactor", setNum, lh_Joint_setCorrectionFactor)
+		&& jointMember(ctx, {"MouseJoint"}, "getTarget", pair, lh_Joint_getTarget)
+		&& jointMember(ctx, {"MouseJoint"}, "setTarget", setPair, lh_Joint_setTarget)
+		&& jointMember(ctx, axial, "getJointTranslation", num, lh_Joint_getJointTranslation)
+		&& jointMember(ctx, motored, "getJointSpeed", num, lh_Joint_getJointSpeed)
+		&& jointMember(ctx, {"RevoluteJoint"}, "getJointAngle", num, lh_Joint_getJointAngle)
+		&& jointMember(ctx, motored, "setMotorEnabled", setFlag, lh_Joint_setMotorEnabled)
+		&& jointMember(ctx, motored, "isMotorEnabled", flag, lh_Joint_isMotorEnabled)
+		&& jointMember(ctx, motored, "setMotorSpeed", setNum, lh_Joint_setMotorSpeed)
+		&& jointMember(ctx, motored, "getMotorSpeed", num, lh_Joint_getMotorSpeed)
+		&& jointMember(ctx, {"PrismaticJoint"}, "setMaxMotorForce", setNum, lh_Joint_setMaxMotorForce)
+		&& jointMember(ctx, {"PrismaticJoint"}, "getMaxMotorForce", num, lh_Joint_getMaxMotorForce)
+		&& jointMember(ctx, {"PrismaticJoint"}, "getMotorForce", numOfNum, lh_Joint_getMotorForce)
+		&& jointMember(ctx, torqued, "setMaxMotorTorque", setNum, lh_Joint_setMaxMotorTorque)
+		&& jointMember(ctx, torqued, "getMaxMotorTorque", num, lh_Joint_getMaxMotorTorque)
+		&& jointMember(ctx, torqued, "getMotorTorque", numOfNum, lh_Joint_getMotorTorque)
+		&& jointMember(ctx, limited, "setLimitsEnabled", setFlag, lh_Joint_setLimitsEnabled)
+		&& jointMember(ctx, limited, "areLimitsEnabled", flag, lh_Joint_areLimitsEnabled)
+		&& jointMember(ctx, limited, "setUpperLimit", setNum, lh_Joint_setUpperLimit)
+		&& jointMember(ctx, limited, "setLowerLimit", setNum, lh_Joint_setLowerLimit)
+		&& jointMember(ctx, limited, "setLimits", setPair, lh_Joint_setLimits)
+		&& jointMember(ctx, limited, "getLowerLimit", num, lh_Joint_getLowerLimit)
+		&& jointMember(ctx, limited, "getUpperLimit", num, lh_Joint_getUpperLimit)
+		&& jointMember(ctx, limited, "getLimits", pair, lh_Joint_getLimits)
+		&& jointMember(ctx, axial, "getAxis", pair, lh_Joint_getAxis)
+		&& jointMember(ctx, angled, "getReferenceAngle", num, lh_Joint_getReferenceAngle)
+		&& jointMember(ctx, {"PulleyJoint"}, "getGroundAnchors", four, lh_Joint_getGroundAnchors)
+		&& jointMember(ctx, {"PulleyJoint"}, "getLengthA", num, lh_Joint_getLengthA)
+		&& jointMember(ctx, {"PulleyJoint"}, "getLengthB", num, lh_Joint_getLengthB)
+		&& jointMember(ctx, {"RopeJoint"}, "getMaxLength", num, lh_Joint_getMaxLength)
+		&& jointMember(ctx, {"RopeJoint"}, "setMaxLength", setNum, lh_Joint_setMaxLength);
 }
 
 } // box2d

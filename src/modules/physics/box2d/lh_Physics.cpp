@@ -129,14 +129,48 @@ LhatValue pushBody(LhatMachine *machine, Body *body)
 	return lh::pushObject(machine, *physicsBinding.registry, body);
 }
 
+// 05 の 8.8改: the four kinds are types of their own, so a shape reaches L^
+// as the one it actually is -- which is what keeps a circle from being asked
+// for a chain's vertices.
 LhatValue pushShape(LhatMachine *machine, Shape *shape)
 {
-	return lh::pushObject(machine, *physicsBinding.registry, Shape::type, shape);
+	if (shape == nullptr)
+		return lhat_nil();
+	love::Type *type = &Shape::type;
+	switch (shape->getType())
+	{
+	case Shape::SHAPE_CIRCLE:  type = &CircleShape::type;  break;
+	case Shape::SHAPE_POLYGON: type = &PolygonShape::type; break;
+	case Shape::SHAPE_EDGE:    type = &EdgeShape::type;    break;
+	case Shape::SHAPE_CHAIN:   type = &ChainShape::type;   break;
+	default: break;
+	}
+	return lh::pushObject(machine, *physicsBinding.registry, *type, shape);
 }
 
+// 05 の 8.8改: the same for the eleven kinds of joint -- what reaches L^ is
+// the kind it is, so getTarget is there on a mouse joint and nowhere else.
 LhatValue pushJoint(LhatMachine *machine, Joint *joint)
 {
-	return lh::pushObject(machine, *physicsBinding.registry, Joint::type, joint);
+	if (joint == nullptr)
+		return lhat_nil();
+	love::Type *type = &Joint::type;
+	switch (joint->getType())
+	{
+	case Joint::JOINT_DISTANCE:  type = &DistanceJoint::type;  break;
+	case Joint::JOINT_REVOLUTE:  type = &RevoluteJoint::type;  break;
+	case Joint::JOINT_PRISMATIC: type = &PrismaticJoint::type; break;
+	case Joint::JOINT_MOUSE:     type = &MouseJoint::type;     break;
+	case Joint::JOINT_PULLEY:    type = &PulleyJoint::type;    break;
+	case Joint::JOINT_GEAR:      type = &GearJoint::type;      break;
+	case Joint::JOINT_FRICTION:  type = &FrictionJoint::type;  break;
+	case Joint::JOINT_WELD:      type = &WeldJoint::type;      break;
+	case Joint::JOINT_WHEEL:     type = &WheelJoint::type;     break;
+	case Joint::JOINT_ROPE:      type = &RopeJoint::type;      break;
+	case Joint::JOINT_MOTOR:     type = &MotorJoint::type;     break;
+	default: break;
+	}
+	return lh::pushObject(machine, *physicsBinding.registry, *type, joint);
 }
 
 LhatValue pushContact(LhatMachine *machine, Contact *contact)
@@ -795,7 +829,8 @@ bool lhopen_love_physics(Context &ctx)
 	const char *B = "love.physics.Body";
 	const char *S = "love.physics.Shape";
 	const char *J = "love.physics.Joint";
-	std::string bs = std::string(" -> (") + B + ", " + S + ");";
+	// 8.8改: what these answer is the kind they made, not "some Shape".
+	auto bodyAnd = [&](const char *kind) { return std::string(" -> (") + B + ", love.physics." + kind + ");"; };
 
 	return ctx.func(m, "newWorld", (std::string("p^ -> ") + W + ";").c_str(), lh_newWorld, nullptr)
 		&& ctx.func(m, "newWorld", (std::string("p^number^, number^ -> ") + W + ";").c_str(), lh_newWorld, nullptr)
@@ -803,58 +838,58 @@ bool lhopen_love_physics(Context &ctx)
 		&& ctx.func(m, "newBody", (std::string("p^") + W + " -> " + B + ";").c_str(), lh_newBody, nullptr)
 		&& ctx.func(m, "newBody", (std::string("p^") + W + ", number^, number^ -> " + B + ";").c_str(), lh_newBody, nullptr)
 		&& ctx.func(m, "newBody", (std::string("p^") + W + ", number^, number^, string^ -> " + B + ";").c_str(), lh_newBody, nullptr)
-		&& ctx.func(m, "newCircleBody", (std::string("p^") + W + ", string^, number^, number^, number^" + bs).c_str(), lh_newCircleBody, nullptr)
-		&& ctx.func(m, "newRectangleBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^" + bs).c_str(), lh_newRectangleBody, nullptr)
-		&& ctx.func(m, "newRectangleBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^" + bs).c_str(), lh_newRectangleBody, nullptr)
-		&& ctx.func(m, "newPolygonBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^, number^, ..." + bs).c_str(), lh_newPolygonBody, nullptr)
-		&& ctx.func(m, "newEdgeBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^" + bs).c_str(), lh_newEdgeBody, nullptr)
-		&& ctx.func(m, "newEdgeBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^, number^, number^, number^" + bs).c_str(), lh_newEdgeBody, nullptr)
-		&& ctx.func(m, "newChainBody", (std::string("p^") + W + ", string^, bool^, number^, number^, ..." + bs).c_str(), lh_newChainBody, nullptr)
-		&& ctx.func(m, "newCircleShape", (std::string("p^") + B + ", number^ -> " + S + ";").c_str(), lh_newCircleShape, nullptr)
-		&& ctx.func(m, "newCircleShape", (std::string("p^") + B + ", number^, number^, number^ -> " + S + ";").c_str(), lh_newCircleShape, nullptr)
-		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^ -> " + S + ";").c_str(), lh_newRectangleShape, nullptr)
-		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^, number^, number^ -> " + S + ";").c_str(), lh_newRectangleShape, nullptr)
-		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^ -> " + S + ";").c_str(), lh_newRectangleShape, nullptr)
-		&& ctx.func(m, "newEdgeShape", (std::string("p^") + B + ", number^, number^, number^, number^ -> " + S + ";").c_str(), lh_newEdgeShape, nullptr)
-		&& ctx.func(m, "newEdgeShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^, number^, number^, number^ -> " + S + ";").c_str(), lh_newEdgeShape, nullptr)
-		&& ctx.func(m, "newPolygonShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^, number^, ... -> " + S + ";").c_str(), lh_newPolygonShape, nullptr)
-		&& ctx.func(m, "newChainShape", (std::string("p^") + B + ", bool^, number^, number^, ... -> " + S + ";").c_str(), lh_newChainShape, nullptr)
-		&& ctx.func(m, "newDistanceJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newDistanceJoint, nullptr)
-		&& ctx.func(m, "newDistanceJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newDistanceJoint, nullptr)
-		&& ctx.func(m, "newMouseJoint", (std::string("p^") + B + ", number^, number^ -> " + J + ";").c_str(), lh_newMouseJoint, nullptr)
-		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> " + J + ";").c_str(), lh_newRevoluteJoint, nullptr)
-		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> " + J + ";").c_str(), lh_newRevoluteJoint, nullptr)
-		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newRevoluteJoint, nullptr)
-		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newRevoluteJoint, nullptr)
-		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^, number^ -> " + J + ";").c_str(), lh_newRevoluteJoint, nullptr)
-		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newPrismaticJoint, nullptr)
-		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newPrismaticJoint, nullptr)
-		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newPrismaticJoint, nullptr)
-		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newPrismaticJoint, nullptr)
-		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^, number^ -> " + J + ";").c_str(), lh_newPrismaticJoint, nullptr)
-		&& ctx.func(m, "newPulleyJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newPulleyJoint, nullptr)
-		&& ctx.func(m, "newPulleyJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newPulleyJoint, nullptr)
-		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + " -> " + J + ";").c_str(), lh_newGearJoint, nullptr)
-		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + ", number^ -> " + J + ";").c_str(), lh_newGearJoint, nullptr)
-		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + ", number^, bool^ -> " + J + ";").c_str(), lh_newGearJoint, nullptr)
-		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> " + J + ";").c_str(), lh_newFrictionJoint, nullptr)
-		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> " + J + ";").c_str(), lh_newFrictionJoint, nullptr)
-		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newFrictionJoint, nullptr)
-		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newFrictionJoint, nullptr)
-		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> " + J + ";").c_str(), lh_newWeldJoint, nullptr)
-		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> " + J + ";").c_str(), lh_newWeldJoint, nullptr)
-		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newWeldJoint, nullptr)
-		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newWeldJoint, nullptr)
-		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^, number^ -> " + J + ";").c_str(), lh_newWeldJoint, nullptr)
-		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newWheelJoint, nullptr)
-		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newWheelJoint, nullptr)
-		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newWheelJoint, nullptr)
-		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newWheelJoint, nullptr)
-		&& ctx.func(m, "newRopeJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^ -> " + J + ";").c_str(), lh_newRopeJoint, nullptr)
-		&& ctx.func(m, "newRopeJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, bool^ -> " + J + ";").c_str(), lh_newRopeJoint, nullptr)
-		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + " -> " + J + ";").c_str(), lh_newMotorJoint, nullptr)
-		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + ", number^ -> " + J + ";").c_str(), lh_newMotorJoint, nullptr)
-		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + ", number^, bool^ -> " + J + ";").c_str(), lh_newMotorJoint, nullptr)
+		&& ctx.func(m, "newCircleBody", (std::string("p^") + W + ", string^, number^, number^, number^" + bodyAnd("CircleShape")).c_str(), lh_newCircleBody, nullptr)
+		&& ctx.func(m, "newRectangleBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^" + bodyAnd("PolygonShape")).c_str(), lh_newRectangleBody, nullptr)
+		&& ctx.func(m, "newRectangleBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^" + bodyAnd("PolygonShape")).c_str(), lh_newRectangleBody, nullptr)
+		&& ctx.func(m, "newPolygonBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^, number^, ..." + bodyAnd("PolygonShape")).c_str(), lh_newPolygonBody, nullptr)
+		&& ctx.func(m, "newEdgeBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^" + bodyAnd("EdgeShape")).c_str(), lh_newEdgeBody, nullptr)
+		&& ctx.func(m, "newEdgeBody", (std::string("p^") + W + ", string^, number^, number^, number^, number^, number^, number^, number^, number^" + bodyAnd("EdgeShape")).c_str(), lh_newEdgeBody, nullptr)
+		&& ctx.func(m, "newChainBody", (std::string("p^") + W + ", string^, bool^, number^, number^, ..." + bodyAnd("ChainShape")).c_str(), lh_newChainBody, nullptr)
+		&& ctx.func(m, "newCircleShape", (std::string("p^") + B + ", number^ -> love.physics.CircleShape;").c_str(), lh_newCircleShape, nullptr)
+		&& ctx.func(m, "newCircleShape", (std::string("p^") + B + ", number^, number^, number^ -> love.physics.CircleShape;").c_str(), lh_newCircleShape, nullptr)
+		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^ -> love.physics.PolygonShape;").c_str(), lh_newRectangleShape, nullptr)
+		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^, number^, number^ -> love.physics.PolygonShape;").c_str(), lh_newRectangleShape, nullptr)
+		&& ctx.func(m, "newRectangleShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^ -> love.physics.PolygonShape;").c_str(), lh_newRectangleShape, nullptr)
+		&& ctx.func(m, "newEdgeShape", (std::string("p^") + B + ", number^, number^, number^, number^ -> love.physics.EdgeShape;").c_str(), lh_newEdgeShape, nullptr)
+		&& ctx.func(m, "newEdgeShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^, number^, number^, number^ -> love.physics.EdgeShape;").c_str(), lh_newEdgeShape, nullptr)
+		&& ctx.func(m, "newPolygonShape", (std::string("p^") + B + ", number^, number^, number^, number^, number^, number^, ... -> love.physics.PolygonShape;").c_str(), lh_newPolygonShape, nullptr)
+		&& ctx.func(m, "newChainShape", (std::string("p^") + B + ", bool^, number^, number^, ... -> love.physics.ChainShape;").c_str(), lh_newChainShape, nullptr)
+		&& ctx.func(m, "newDistanceJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.DistanceJoint;").c_str(), lh_newDistanceJoint, nullptr)
+		&& ctx.func(m, "newDistanceJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.DistanceJoint;").c_str(), lh_newDistanceJoint, nullptr)
+		&& ctx.func(m, "newMouseJoint", (std::string("p^") + B + ", number^, number^ -> love.physics.MouseJoint;").c_str(), lh_newMouseJoint, nullptr)
+		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> love.physics.RevoluteJoint;").c_str(), lh_newRevoluteJoint, nullptr)
+		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> love.physics.RevoluteJoint;").c_str(), lh_newRevoluteJoint, nullptr)
+		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.RevoluteJoint;").c_str(), lh_newRevoluteJoint, nullptr)
+		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.RevoluteJoint;").c_str(), lh_newRevoluteJoint, nullptr)
+		&& ctx.func(m, "newRevoluteJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^, number^ -> love.physics.RevoluteJoint;").c_str(), lh_newRevoluteJoint, nullptr)
+		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.PrismaticJoint;").c_str(), lh_newPrismaticJoint, nullptr)
+		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.PrismaticJoint;").c_str(), lh_newPrismaticJoint, nullptr)
+		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^ -> love.physics.PrismaticJoint;").c_str(), lh_newPrismaticJoint, nullptr)
+		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^ -> love.physics.PrismaticJoint;").c_str(), lh_newPrismaticJoint, nullptr)
+		&& ctx.func(m, "newPrismaticJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^, number^ -> love.physics.PrismaticJoint;").c_str(), lh_newPrismaticJoint, nullptr)
+		&& ctx.func(m, "newPulleyJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, number^, number^, number^ -> love.physics.PulleyJoint;").c_str(), lh_newPulleyJoint, nullptr)
+		&& ctx.func(m, "newPulleyJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, number^, number^, number^, bool^ -> love.physics.PulleyJoint;").c_str(), lh_newPulleyJoint, nullptr)
+		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + " -> love.physics.GearJoint;").c_str(), lh_newGearJoint, nullptr)
+		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + ", number^ -> love.physics.GearJoint;").c_str(), lh_newGearJoint, nullptr)
+		&& ctx.func(m, "newGearJoint", (std::string("p^") + J + ", " + J + ", number^, bool^ -> love.physics.GearJoint;").c_str(), lh_newGearJoint, nullptr)
+		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> love.physics.FrictionJoint;").c_str(), lh_newFrictionJoint, nullptr)
+		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> love.physics.FrictionJoint;").c_str(), lh_newFrictionJoint, nullptr)
+		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.FrictionJoint;").c_str(), lh_newFrictionJoint, nullptr)
+		&& ctx.func(m, "newFrictionJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.FrictionJoint;").c_str(), lh_newFrictionJoint, nullptr)
+		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^ -> love.physics.WeldJoint;").c_str(), lh_newWeldJoint, nullptr)
+		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, bool^ -> love.physics.WeldJoint;").c_str(), lh_newWeldJoint, nullptr)
+		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.WeldJoint;").c_str(), lh_newWeldJoint, nullptr)
+		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.WeldJoint;").c_str(), lh_newWeldJoint, nullptr)
+		&& ctx.func(m, "newWeldJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^, number^ -> love.physics.WeldJoint;").c_str(), lh_newWeldJoint, nullptr)
+		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^ -> love.physics.WheelJoint;").c_str(), lh_newWheelJoint, nullptr)
+		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, bool^ -> love.physics.WheelJoint;").c_str(), lh_newWheelJoint, nullptr)
+		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^ -> love.physics.WheelJoint;").c_str(), lh_newWheelJoint, nullptr)
+		&& ctx.func(m, "newWheelJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, number^, bool^ -> love.physics.WheelJoint;").c_str(), lh_newWheelJoint, nullptr)
+		&& ctx.func(m, "newRopeJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^ -> love.physics.RopeJoint;").c_str(), lh_newRopeJoint, nullptr)
+		&& ctx.func(m, "newRopeJoint", (std::string("p^") + B + ", " + B + ", number^, number^, number^, number^, number^, bool^ -> love.physics.RopeJoint;").c_str(), lh_newRopeJoint, nullptr)
+		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + " -> love.physics.MotorJoint;").c_str(), lh_newMotorJoint, nullptr)
+		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + ", number^ -> love.physics.MotorJoint;").c_str(), lh_newMotorJoint, nullptr)
+		&& ctx.func(m, "newMotorJoint", (std::string("p^") + B + ", " + B + ", number^, bool^ -> love.physics.MotorJoint;").c_str(), lh_newMotorJoint, nullptr)
 		&& ctx.func(m, "getDistance", (std::string("f^") + S + ", " + S + " -> (number^, number^, number^, number^, number^);").c_str(), lh_getDistance, nullptr)
 		&& ctx.func(m, "getMeter", "f^ -> number^;", lh_getMeter, nullptr)
 		&& ctx.func(m, "setMeter", "p^number^;", lh_setMeter, nullptr)
