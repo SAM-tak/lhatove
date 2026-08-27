@@ -9,8 +9,8 @@ var^frames = 0
 var^x = 0
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
-    x := x + 200 * dt
+    frames += 1
+    x += 200 * dt
     if^frames = 90 { love.event.quit(3) }
 }
 

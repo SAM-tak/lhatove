@@ -22,7 +22,7 @@ public^let^load = p^{
 }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     if^frames = 30 {
         if^carried fits^nil^{
             print("asking for a restart")

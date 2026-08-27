@@ -17,11 +17,11 @@ public^let^load = p^{
 }
 
 public^let^update = p^dt:number^{
-    x := x + dx * dt
+    x += dx * dt
     let^w, h = love.graphics.getDimensions()
     if^x > w - 50 { dx := -120 }
     if^x < 0 { dx := 120 }
-    frames := frames + 1
+    frames += 1
 }
 
 public^let^draw = p^{

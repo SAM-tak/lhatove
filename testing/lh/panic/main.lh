@@ -6,7 +6,7 @@ var^frames = 0
 let^explode = p^{ panic^$"boom at frame {frames}" }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     if^frames = 10 {
         explode()
         print("unreachable")

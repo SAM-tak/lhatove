@@ -32,13 +32,13 @@ public^let^load = p^{
 }
 
 public^let^threaderror = p^thread:love.thread.Thread, message:string^{
-    errors := errors + 1
+    errors += 1
     errorText := message
     print($"threaderror: {message}")
 }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     repeat^{
         let^got = results.pop()
         if^got fits^nil^{ break^}

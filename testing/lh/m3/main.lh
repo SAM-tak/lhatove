@@ -68,7 +68,7 @@ public^let^load = p^{
     let^img = love.image.newImageData("assets/love.png") catch^nil^
     if^img fits^love.image.ImageData {
         let^r, g, b, a = img.getPixel(32, 32)
-        img.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^-> (number^, number^, number^, number^) {
+        img.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^-> number^, number^, number^, number^ {
             return^1 - r, 1 - g, 1 - b, a
         })
         let^r2, g2, b2, a2 = img.getPixel(32, 32)
@@ -80,7 +80,7 @@ public^let^load = p^{
 }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     if^frames = 60 { love.event.quit(6) }
 }
 

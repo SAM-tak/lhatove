@@ -145,7 +145,7 @@ public^let^load = p^{
 }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     particles.update(dt)
     if^frames = 90 {
         if^video fits^love.graphics.Video {

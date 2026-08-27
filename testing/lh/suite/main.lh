@@ -60,7 +60,7 @@ public^let^load = p^{
 }
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
+    frames += 1
     # A couple of frames so the window has something on it before it goes.
     if^frames = 3 {
         if^failed { love.event.quit(1) else^: love.event.quit(0) }
@@ -80,6 +80,6 @@ public^let^draw = p^{
     var^y = 76
     for^line in^test.problems() {
         love.graphics.print(line, 20, y)
-        y := y + 16
+        y += 16
     }
 }

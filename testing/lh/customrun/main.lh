@@ -13,8 +13,8 @@ var^frames = 0
 var^angle = 0
 
 public^let^update = p^dt:number^{
-    frames := frames + 1
-    angle := angle + 90 * dt
+    frames += 1
+    angle += 90 * dt
     if^frames = 1 { print($"std.math: sin(90) = {std.math.sin(90)}, sqrt(2) = {std.math.sqrt(2)}, pi = {number^.pi}, clamp = {(5).clamp(0, 3)}") }
 }
 

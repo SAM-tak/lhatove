@@ -34,27 +34,27 @@ namespace lh
 // C answers a coroutine the engine resumes once per frame. The handlers
 // table holds one member per callback -- the game's own or a no-op --
 // built by the engine (Boot.cpp), so every call here is statically typed.
-static const char boot_lh[] = R"lh(import^ love.boot
-import^ love.event
-import^ love.timer
-import^ love.graphics
+static const char boot_lh[] = R"lh(import^love.boot
+import^love.event
+import^love.timer
+import^love.graphics
 
-return^ p^ {
-    let^ h = love.boot.handlers()
+return^p^{
+    let^h = love.boot.handlers()
     h.load()
 
     # We don't want the first frame's dt to include time taken by load.
     love.timer.step()
 
-    repeat^ {
+    repeat^{
         love.event.pump()
-        let^ code = love.event.dispatch(h)
-        if^ code? { return^ code }
+        let^code = love.event.dispatch(h)
+        if^code? { return^code }
 
-        let^ dt = love.timer.step()
+        let^dt = love.timer.step()
         h.update(dt)
 
-        if^ love.graphics.isActive() {
+        if^love.graphics.isActive() {
             love.graphics.origin()
             love.graphics.clear()
             h.draw()
@@ -71,60 +71,60 @@ return^ p^ {
 // with what the L^ bindings offer rather than with its embedded artwork --
 // a chain of letters swinging from a balloon (love.physics), clouds
 // drifting past, and a drop that restarts into the game dropped on it.
-static const char nogame_lh[] = R"lh(module^ nogame
+static const char nogame_lh[] = R"lh(module^nogame
 
-import^ love.boot
-import^ love.graphics
-import^ love.physics
-import^ love.window
-import^ love.event
-import^ love.timer
-import^ std.math
+import^love.boot
+import^love.graphics
+import^love.physics
+import^love.window
+import^love.event
+import^love.timer
+import^std.math
 
-let^ letters = { "n", "o", "g", "a", "m", "e" }
+let^letters = { "n", "o", "g", "a", "m", "e" }
 
-let^ world = love.physics.newWorld(0, 700, true^)
-var^ anchor : love.physics.Body|nil^ = nil^
-var^ balloon : love.physics.Body|nil^ = nil^
-var^ segments : t^{...:love.physics.Body} = {}
-var^ clouds : t^{...:t^{ x : number^, y : number^, w : number^, speed : number^ }} = {}
-var^ time = 0
-var^ blink = 0
+let^world = love.physics.newWorld(0, 700, true^)
+var^anchor : love.physics.Body|nil^= nil^
+var^balloon : love.physics.Body|nil^= nil^
+var^segments : t^{...:love.physics.Body} = {}
+var^clouds : t^{...:t^{ x : number^, y : number^, w : number^, speed : number^}} = {}
+var^time = 0
+var^blink = 0
 
 # The chain hangs from a fixed point and holds the balloon at its end; the
 # balloon pulls upwards, so the whole thing swings like nogame.lua's does.
-let^ build = p^ {
-    for^ body in^ world.getBodies() {
-        if^ !body.isDestroyed() { body.destroy() }
+let^build = p^{
+    for^body in^world.getBodies() {
+        if^!body.isDestroyed() { body.destroy() }
     }
     segments := {}
 
-    let^ w = love.graphics.getWidth()
-    let^ h = love.graphics.getHeight()
-    let^ top = h * 0.28
-    let^ length = 42
+    let^w = love.graphics.getWidth()
+    let^h = love.graphics.getHeight()
+    let^top = h * 0.28
+    let^length = 42
     anchor := love.physics.newBody(world, w / 2, top, "static")
 
-    var^ previous = anchor
-    for^ i from^ 1 to^ letters.length^ {
-        let^ y = top + i * length
-        let^ body, shape = love.physics.newCircleBody(world, "dynamic", w / 2, y, 17)
+    var^previous = anchor
+    for^i from^1 to^letters.length^{
+        let^y = top + i * length
+        let^body, shape = love.physics.newCircleBody(world, "dynamic", w / 2, y, 17)
         shape.setDensity(1.2)
         shape.setFriction(0.4)
         body.resetMassData()
         body.setLinearDamping(0.4)
         body.setAngularDamping(0.5)
-        if^ previous fits^ love.physics.Body {
+        if^previous fits^love.physics.Body {
             love.physics.newRevoluteJoint(previous, body, w / 2, y - length / 2, false^)
         }
         segments.push^(body)
         previous := body
     }
 
-    let^ tail = segments[segments.length^]
-    if^ tail fits^ love.physics.Body {
-        let^ tx, ty = tail.getPosition()
-        let^ ball, ballShape = love.physics.newCircleBody(world, "dynamic", tx, ty + length * 1.8, 32)
+    let^tail = segments[segments.length^]
+    if^tail fits^love.physics.Body {
+        let^tx, ty = tail.getPosition()
+        let^ball, ballShape = love.physics.newCircleBody(world, "dynamic", tx, ty + length * 1.8, 32)
         ballShape.setDensity(0.2)
         ballShape.setRestitution(0.4)
         ball.resetMassData()
@@ -135,11 +135,11 @@ let^ build = p^ {
     }
 
     # A push to one side so it is already swinging when the window opens.
-    let^ first = segments[1]
-    if^ first fits^ love.physics.Body { first.applyLinearImpulse(90, 0, true^) }
+    let^first = segments[1]
+    if^first fits^love.physics.Body { first.applyLinearImpulse(90, 0, true^) }
 
     clouds := {}
-    for^ i from^ 1 to^ 6 {
+    for^i from^1 to^6 {
         clouds.push^({
             x = (i * 173) % (w + 200) - 100,
             y = 40 + ((i * 97) % 260),
@@ -149,67 +149,67 @@ let^ build = p^ {
     }
 }
 
-public^let^ load = p^ {
-    let^ renderer, version, vendor, device = love.graphics.getRendererInfo()
+public^let^load = p^{
+    let^renderer, version, vendor, device = love.graphics.getRendererInfo()
     love.window.setTitle($"lhatove - {renderer}")
     love.graphics.setBackgroundColor(0.17, 0.65, 0.87)
     love.physics.setMeter(64)
     build()
 }
 
-public^let^ update = p^dt:number^ {
-    time := time + dt
+public^let^update = p^dt:number^{
+    time += dt
     world.update(dt)
 
-    let^ w = love.graphics.getWidth()
-    for^ cloud in^ clouds {
-        cloud.x := cloud.x + cloud.speed * dt
-        if^ cloud.x > w + 120 { cloud.x := -120 }
+    let^w = love.graphics.getWidth()
+    for^cloud in^clouds {
+        cloud.x += cloud.speed * dt
+        if^cloud.x > w + 120 { cloud.x := -120 }
     }
 
     # The balloon keeps its distance from the ceiling without a joint to it.
-    if^ balloon fits^ love.physics.Body {
-        let^ bx, by = balloon.getPosition()
-        if^ by < 60 { balloon.applyForce(0, 900, true^) }
+    if^balloon fits^love.physics.Body {
+        let^bx, by = balloon.getPosition()
+        if^by < 60 { balloon.applyForce(0, 900, true^) }
     }
 }
 
-let^ cloud = p^x:number^, y:number^, w:number^ {
+let^cloud = p^x:number^, y:number^, w:number^{
     love.graphics.ellipse("fill", x, y, w * 0.5, w * 0.28)
     love.graphics.ellipse("fill", x - w * 0.28, y + w * 0.06, w * 0.3, w * 0.19)
     love.graphics.ellipse("fill", x + w * 0.3, y + w * 0.05, w * 0.26, w * 0.17)
 }
 
-public^let^ draw = p^ {
-    let^ w = love.graphics.getWidth()
-    let^ h = love.graphics.getHeight()
+public^let^draw = p^{
+    let^w = love.graphics.getWidth()
+    let^h = love.graphics.getHeight()
 
     love.graphics.setColor(1, 1, 1, 0.85)
-    for^ c in^ clouds { cloud(c.x, c.y, c.w) }
+    for^c in^clouds { cloud(c.x, c.y, c.w) }
 
     # The chain: a line through the bodies, then a letter on each.
     love.graphics.setColor(0.15, 0.28, 0.4, 1)
     love.graphics.setLineWidth(4)
-    if^ anchor fits^ love.physics.Body {
-        var^ px, py = anchor.getPosition()
-        for^ body in^ segments {
-            let^ x, y = body.getPosition()
+    if^anchor fits^love.physics.Body {
+        var^px, py = anchor.getPosition()
+        for^body in^segments {
+            let^x, y = body.getPosition()
             love.graphics.line(px, py, x, y)
             px := x
             py := y
         }
-        if^ balloon fits^ love.physics.Body {
-            let^ bx, by = balloon.getPosition()
+        if^balloon fits^love.physics.Body {
+            let^bx, by = balloon.getPosition()
             love.graphics.line(px, py, bx, by)
         }
     }
 
-    let^ font = love.graphics.getFont()
-    for^ i from^ 1 to^ segments.length^ {
-        let^ body = segments[i]
-        let^ letter = letters[i]
-        if^ body fits^ love.physics.Body and^ letter fits^ string^ {
-            let^ x, y = body.getPosition()
+    let^font = love.graphics.getFont()
+    for^i from^1 to^segments.length^{
+        let^body = segments[i]
+        let^letter = letters[i]
+        if^body fits^love.physics.Body and^letter fits^string^{
+            let^x, y = body.getPosition()
             love.graphics.setColor(1, 1, 1, 1)
             love.graphics.circle("fill", x, y, 17)
             love.graphics.setColor(0.15, 0.28, 0.4, 1)
@@ -218,13 +218,13 @@ public^let^ draw = p^ {
     }
 
     # The balloon, with an eye that blinks now and then.
-    if^ balloon fits^ love.physics.Body {
-        let^ bx, by = balloon.getPosition()
+    if^balloon fits^love.physics.Body {
+        let^bx, by = balloon.getPosition()
         love.graphics.setColor(0.98, 0.85, 0.28, 1)
         love.graphics.circle("fill", bx, by, 34)
         love.graphics.setColor(0.15, 0.28, 0.4, 1)
-        let^ open = (time * 60) % 240 > 12
-        if^ open {
+        let^open = (time * 60) % 240 > 12
+        if^open {
             love.graphics.circle("fill", bx - 11, by - 6, 4)
             love.graphics.circle("fill", bx + 11, by - 6, 4)
         else^:
@@ -238,39 +238,39 @@ public^let^ draw = p^ {
     love.graphics.printf("No game was given.\n\nDrop a game folder or a .love file on this window to run it,\nor pass one on the command line:\n\n    lovec path/to/gamedir\n    lovec path/to/packagedgame.love\n    lovec path/to/file.lh\n\nPress Escape to quit.", 40, h - 190, w - 80)
 }
 
-public^let^ resize = p^width:number^, height:number^ {
+public^let^resize = p^width:number^, height:number^{
     build()
 }
 
 # A click lands on a body when it is inside one of its shapes; the sky
 # takes no notice.
-public^let^ mousepressed = p^x:number^, y:number^, button:number^, istouch:bool^, presses:number^ {
-    for^ body in^ world.getBodies() {
-        for^ shape in^ body.getShapes() {
-            if^ shape.testPoint(x, y) {
-                let^ bx, by = body.getPosition()
-                var^ dx = bx - x
-                var^ dy = by - y
+public^let^mousepressed = p^x:number^, y:number^, button:number^, istouch:bool^, presses:number^{
+    for^body in^world.getBodies() {
+        for^shape in^body.getShapes() {
+            if^shape.testPoint(x, y) {
+                let^bx, by = body.getPosition()
+                var^dx = bx - x
+                var^dy = by - y
                 # A click dead centre still has to go somewhere: upwards.
-                if^ dx * dx + dy * dy < 1 { dy := -1 }
-                let^ push = 60 * body.getMass()
+                if^dx * dx + dy * dy < 1 { dy := -1 }
+                let^push = 60 * body.getMass()
                 body.applyLinearImpulse(dx * push, dy * push, true^)
             }
         }
     }
 }
 
-public^let^ keypressed = p^key:string^, scancode:string^, isrepeat:bool^ {
-    if^ key = "escape" { love.event.quit() }
+public^let^keypressed = p^key:string^, scancode:string^, isrepeat:bool^{
+    if^key = "escape" { love.event.quit() }
 }
 
 # A game dropped on the window is what the next boot runs (nogame.lua's
 # _noGameRestartInfo).
-public^let^ filedropped = p^path:string^ {
+public^let^filedropped = p^path:string^{
     love.boot.restartInto(path)
 }
 
-public^let^ directorydropped = p^path:string^ {
+public^let^directorydropped = p^path:string^{
     love.boot.restartInto(path)
 }
 )lh";

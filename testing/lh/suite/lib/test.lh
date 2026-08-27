@@ -16,7 +16,7 @@ public^let^begin = p^name:string^{
 }
 
 let^record = p^label:string^, ok:bool^, detail:string^{
-    checks := checks + 1
+    checks += 1
     if^!ok { failures.push^($"{group}: {label} -- {detail}") }
 }
 
