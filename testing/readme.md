@@ -4,13 +4,13 @@ Test suite for the [Löve](https://github.com/love2d/love) APIs, based off of [t
 
 Currently written for [Löve 12](https://github.com/love2d/love/tree/12.0-development), which is still in development. As such the test suite may fail if you try to run it with an older version of Löve due to it trying to call methods that don't exist.
 
-While the test suite is part of the main Löve repo, the test suite has it's own repo [here](https://github.com/ellraiser/love-test) so that it can be used with other builds like [love-potion](https://github.com/lovebrew/lovepotion). If you would like to contribute to the test suite please raise a PR on the [love-test](https://github.com/ellraiser/love-test) repo.
+While the test suite is part of the main Löve repo, the test suite has it's [own repo here](https://github.com/ellraiser/love-test) so that it can be used with other builds like [love-potion](https://github.com/lovebrew/lovepotion). If you would like to contribute to the test suite please raise a PR on the [love-test](https://github.com/ellraiser/love-test) repo.
 
 ---
 
 ## Features
 
-- [x] Simple pass/fail tests written in Lua with minimal setup 
+- [x] Simple pass/fail tests written in Lua with minimal setup
 - [x] Ability to run all tests with a simple command
 - [x] Ability to see how many tests are passing/failing
 - [x] Ability to run a subset of tests
@@ -134,10 +134,10 @@ By default all graphic tests are run with pixel precision and 0 rgba tolerance.
 
 However there are a couple of methods that on some platforms require some slight tolerance to allow for tiny differences in rendering.
 
-| Test                        |    OS     |      Exception      | Reason |
-| --------------------------  | --------- | ------------------- | ------ |
+| Test                        |    OS     |      Exception      | Reason                                                                                             |
+| --------------------------- | --------- | ------------------- | -------------------------------------------------------------------------------------------------- |
 | love.graphics.drawInstanced |  Windows  |   1rgba tolerance   | On Windows there's a couple pixels a tiny bit off, most likely due to complexity of the mesh drawn |
-| love.graphics.setBlendMode  |  Win/Lin  |   1rgba tolerance   | Blendmodes have some small varience on some machines |
+| love.graphics.setBlendMode  |  Win/Lin  |   1rgba tolerance   | Blendmodes have some small varience on some machines                                               |
 
 ---
 
@@ -149,9 +149,9 @@ These exceptions are either skipped, or handled by using a 1px or 1/255rgba tole
 You can specify the test suite is being run on a runner by adding the `--isRunner` flag in your workflow file, i.e.:  
 `& 'c:\Program Files\LOVE\love.exe' PATH_TO_TESTING_FOLDER/main.lua --console --all --isRunner`
 
-| Test                       |    OS     |      Exception      | Reason |
-| -------------------------- | --------- | ------------------- | ------ |
-| love.graphics.setWireframe |   MacOS   |    1px tolerance    | Wireframes are offset by 1,1 when drawn |
-| love.graphica.arc          |   MacOS   |       Skipped       | Arc curves are drawn slightly off at really low scale  |
+| Test                       |    OS     |      Exception      | Reason                                                   |
+| -------------------------- | --------- | ------------------- | -------------------------------------------------------- |
+| love.graphics.setWireframe |   MacOS   |    1px tolerance    | Wireframes are offset by 1,1 when drawn                  |
+| love.graphica.arc          |   MacOS   |       Skipped       | Arc curves are drawn slightly off at really low scale    |
 | love.graphics.setLineStyle |   Linux   |   1rgba tolerance   | 'Rough' lines blend differently with the background rgba |
-| love.audio.RecordingDevice |    All    |       Skipped       | Recording devices can't be emulated on runners |
+| love.audio.RecordingDevice |    All    |       Skipped       | Recording devices can't be emulated on runners           |
