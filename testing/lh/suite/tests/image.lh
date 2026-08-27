@@ -12,7 +12,7 @@ public^let^ run = p^ {
     test.begin("love.image")
 
     let^ picture = love.image.newImageData("assets/love.png") catch^ nil^
-    if^ picture isa^ nil^ {
+    if^ picture = nil^ {
         test.isTrue("newImageData reads a png", false^)
     else^:
         test.text("type", "ImageData", picture.type())
@@ -53,7 +53,7 @@ public^let^ run = p^ {
     test.number("an empty string has no width", 0, font.getWidth(""))
 
     let^ ttf = love.graphics.newFont("assets/font.ttf", 24) catch^ nil^
-    if^ ttf isa^ nil^ {
+    if^ ttf = nil^ {
         test.isTrue("newFont reads a ttf", false^)
     else^:
         test.isTrue("the bigger font is taller", ttf.getHeight() > font.getHeight())

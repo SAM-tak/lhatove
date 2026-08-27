@@ -37,7 +37,7 @@ public^let^ run = p^ {
     repeat^ {
         love.event.pump()
         let^ code = love.event.dispatch(h)
-        if^ code isa^ number^ { return^ code }
+        if^ code fits^ number^ { return^ code }
         h.update(love.timer.step())
         love.graphics.origin()
         love.graphics.clear(0.05, 0.05, 0.1)

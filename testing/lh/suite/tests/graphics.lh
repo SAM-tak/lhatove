@@ -143,7 +143,7 @@ public^let^ run = p^ {
     test.number("canvas width", 32, canvas.getWidth())
     test.isTrue("a canvas has a format", canvas.getFormat().length > 0)
     test.number("one mip level", 1, canvas.getMipmapCount())
-    test.isTrue("nothing is set as the canvas", love.graphics.getCanvas() isa^ nil^)
+    test.isTrue("nothing is set as the canvas", love.graphics.getCanvas() fits^ nil^)
     love.graphics.setCanvas(canvas)
     test.isTrue("setCanvas is seen by getCanvas", love.graphics.getCanvas() = canvas)
     love.graphics.setCanvas()
@@ -183,7 +183,7 @@ public^let^ run = p^ {
 
     # Shader
     let^ shader = love.graphics.newShader(shaderCode) catch^ nil^
-    if^ shader isa^ nil^ {
+    if^ shader = nil^ {
         test.isTrue("newShader compiles", false^)
     else^:
         test.isTrue("the shader has its uniform", shader.hasUniform("tint"))
@@ -196,7 +196,7 @@ public^let^ run = p^ {
         })
         let^ br2, _bg2, bb2, _ba2 = tinted.getPixel(8, 8)
         test.isTrue("the shader tinted what was drawn", bb2 > 0.9 and^ br2 < 0.1)
-        test.isTrue("no shader is set afterwards", love.graphics.getShader() isa^ nil^)
+        test.isTrue("no shader is set afterwards", love.graphics.getShader() fits^ nil^)
     }
     let^ ok, message = love.graphics.validateShader(false^, "vec4 effect(vec4 c, Image t, vec2 tc, vec2 sc) { return nonsense; }")
     test.isFalse("validateShader refuses nonsense", ok)
@@ -214,7 +214,7 @@ public^let^ run = p^ {
     test.number("setVertex moves it", 8, mx2)
     test.near("and recolors it", 0, mg3, 0.01)
     mesh.setTexture(texture)
-    test.isTrue("the mesh has a texture", !(mesh.getTexture() isa^ nil^))
+    test.isTrue("the mesh has a texture", mesh.getTexture()?)
     mesh.setDrawMode("triangles")
     mesh.setVertexMap(1, 2, 3, 3, 4, 1)
     test.number("the vertex map is kept", 6, mesh.getVertexMap().length^)

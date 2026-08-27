@@ -1,6 +1,6 @@
 # A thread body: reads its arguments as `...`, works through the "jobs"
 # channel and answers on "results". The `...` table holds what start()
-# was given; each entry is any^ and narrows with isa^.
+# was given; each entry is any^ and narrows with fits^.
 import^ love.thread
 import^ love.timer
 
@@ -10,22 +10,22 @@ let^ results = love.thread.getChannel("results")
 
 var^ name = "worker"
 let^ first = args[1]
-if^ first isa^ string^ { name := first }
+if^ first fits^ string^ { name := first }
 var^ scale = 1
 let^ second = args[2]
-if^ second isa^ number^ { scale := second }
+if^ second fits^ number^ { scale := second }
 
 results.push($"{name} started with scale {scale}")
 
 repeat^ {
     let^ job = jobs.demand()
-    if^ job isa^ nil^ { break^ }
-    if^ job isa^ string^ {
+    if^ job fits^ nil^ { break^ }
+    if^ job fits^ string^ {
         if^ job = "stop" { break^ }
         results.push($"{name} got string {job}")
-    elseif^ job isa^ number^:
+    elseif^ job fits^ number^:
         results.push(job * scale)
-    elseif^ job isa^ t^{ x : number^, y : number^ }:
+    elseif^ job fits^ t^{ x : number^, y : number^ }:
         # a carried table: answered back as a table
         results.push({ sum = job.x + job.y, from = name })
     }

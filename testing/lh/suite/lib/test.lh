@@ -45,7 +45,7 @@ public^let^ text = p^label:string^, expected:string^, actual:string^ {
 }
 
 public^let^ notNil = p^label:string^, value:any^ {
-    record(label, !(value isa^ nil^), "expected a value, got nil^")
+    record(label, value?, "expected a value, got nil^")
 }
 
 public^let^ count = f^ -> number^ {

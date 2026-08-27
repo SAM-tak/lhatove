@@ -49,7 +49,7 @@ return^ p^ {
     repeat^ {
         love.event.pump()
         let^ code = love.event.dispatch(h)
-        if^ !(code isa^ nil^) { return^ code }
+        if^ code? { return^ code }
 
         let^ dt = love.timer.step()
         h.update(dt)
@@ -114,7 +114,7 @@ let^ build = p^ {
         body.resetMassData()
         body.setLinearDamping(0.4)
         body.setAngularDamping(0.5)
-        if^ previous isa^ love.physics.Body {
+        if^ previous fits^ love.physics.Body {
             love.physics.newRevoluteJoint(previous, body, w / 2, y - length / 2, false^)
         }
         segments.push^(body)
@@ -122,7 +122,7 @@ let^ build = p^ {
     }
 
     let^ tail = segments[segments.length^]
-    if^ tail isa^ love.physics.Body {
+    if^ tail fits^ love.physics.Body {
         let^ tx, ty = tail.getPosition()
         let^ ball, ballShape = love.physics.newCircleBody(world, "dynamic", tx, ty + length * 1.8, 32)
         ballShape.setDensity(0.2)
@@ -136,7 +136,7 @@ let^ build = p^ {
 
     # A push to one side so it is already swinging when the window opens.
     let^ first = segments[1]
-    if^ first isa^ love.physics.Body { first.applyLinearImpulse(90, 0, true^) }
+    if^ first fits^ love.physics.Body { first.applyLinearImpulse(90, 0, true^) }
 
     clouds := {}
     for^ i from^ 1 to^ 6 {
@@ -168,7 +168,7 @@ public^let^ update = p^dt:number^ {
     }
 
     # The balloon keeps its distance from the ceiling without a joint to it.
-    if^ balloon isa^ love.physics.Body {
+    if^ balloon fits^ love.physics.Body {
         let^ bx, by = balloon.getPosition()
         if^ by < 60 { balloon.applyForce(0, 900, true^) }
     }
@@ -190,7 +190,7 @@ public^let^ draw = p^ {
     # The chain: a line through the bodies, then a letter on each.
     love.graphics.setColor(0.15, 0.28, 0.4, 1)
     love.graphics.setLineWidth(4)
-    if^ anchor isa^ love.physics.Body {
+    if^ anchor fits^ love.physics.Body {
         var^ px, py = anchor.getPosition()
         for^ body in^ segments {
             let^ x, y = body.getPosition()
@@ -198,7 +198,7 @@ public^let^ draw = p^ {
             px := x
             py := y
         }
-        if^ balloon isa^ love.physics.Body {
+        if^ balloon fits^ love.physics.Body {
             let^ bx, by = balloon.getPosition()
             love.graphics.line(px, py, bx, by)
         }
@@ -208,7 +208,7 @@ public^let^ draw = p^ {
     for^ i from^ 1 to^ segments.length^ {
         let^ body = segments[i]
         let^ letter = letters[i]
-        if^ body isa^ love.physics.Body and^ letter isa^ string^ {
+        if^ body fits^ love.physics.Body and^ letter fits^ string^ {
             let^ x, y = body.getPosition()
             love.graphics.setColor(1, 1, 1, 1)
             love.graphics.circle("fill", x, y, 17)
@@ -218,7 +218,7 @@ public^let^ draw = p^ {
     }
 
     # The balloon, with an eye that blinks now and then.
-    if^ balloon isa^ love.physics.Body {
+    if^ balloon fits^ love.physics.Body {
         let^ bx, by = balloon.getPosition()
         love.graphics.setColor(0.98, 0.85, 0.28, 1)
         love.graphics.circle("fill", bx, by, 34)

@@ -33,7 +33,7 @@ var^ rayHits = 0
 
 let^ nameOf = f^s:love.physics.Shape -> string^ {
     let^ data = s.getUserData()
-    if^ data isa^ string^ { return^ data }
+    if^ data fits^ string^ { return^ data }
     return^ "?"
 }
 
@@ -81,11 +81,11 @@ public^let^ load = p^ {
     let^ ax1, ay1, ax2, ay2 = pendulum.getAnchors()
     print($"joints: {pendulum.getType()} length={pendulum.getLength()} anchors={ax1},{ay1}-{ax2},{ay2}; {hinge.getType()} userdata={hinge.getUserData()}")
     let^ data = box.getUserData()
-    if^ data isa^ t^{ kind : string^, mass : number^ } { print($"box userdata: {data.kind} mass={data.mass}") }
+    if^ data fits^ t^{ kind : string^, mass : number^ } { print($"box userdata: {data.kind} mass={data.mass}") }
     let^ d, x1, y1, x2, y2 = love.physics.getDistance(boxShape, groundShape)
     print($"distance box-ground = {d}")
     let^ cb1, cb2, cb3, cb4 = world.getCallbacks()
-    print($"callbacks set: {!(cb1 isa^ nil^)} {!(cb4 isa^ nil^)}")
+    print($"callbacks set: {cb1?} {cb4?}")
 }
 
 public^let^ update = p^dt:number^ {
@@ -107,10 +107,10 @@ public^let^ update = p^dt:number^ {
         let^ closest = world.rayCastClosest(400, 0, 400, 600)
         let^ any = world.rayCastAny(400, 0, 400, 600)
         var^ closestName = "nothing"
-        if^ closest isa^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
+        if^ closest fits^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
             closestName := $"{nameOf(closest.shape)} at y={closest.y.round()} fraction={closest.fraction}"
         }
-        print($"queries: area visited {queried}, listed {there.length^}; ray hits {rayHits}, closest {closestName}, any {any isa^ nil^}")
+        print($"queries: area visited {queried}, listed {there.length^}; ray hits {rayHits}, closest {closestName}, any {any = nil^}")
         let^ bx, by = box.getPosition()
         print($"box: pos={bx.round()},{by.round()} shapes={box.getShapes().length^} joints={box.getJoints().length^} contacts={box.getContacts().length^} awake={box.isAwake()}")
         hinge.destroy()

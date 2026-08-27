@@ -12,9 +12,9 @@ var^ frames = 0
 let^ carried = love.event.restartValue()
 
 public^let^ load = p^ {
-    if^ carried isa^ nil^ {
+    if^ carried fits^ nil^ {
         print("first run: no restart value")
-    elseif^ carried isa^ t^{ round : number^, note : string^ }:
+    elseif^ carried fits^ t^{ round : number^, note : string^ }:
         print($"second run: round {carried.round}, note {carried.note}")
     else^:
         print($"second run: unexpected payload")
@@ -24,10 +24,10 @@ public^let^ load = p^ {
 public^let^ update = p^dt:number^ {
     frames := frames + 1
     if^ frames = 30 {
-        if^ carried isa^ nil^ {
+        if^ carried fits^ nil^ {
             print("asking for a restart")
             love.event.restart({ round = 2, note = "carried across" })
-        elseif^ carried isa^ t^{ round : number^, note : string^ }:
+        elseif^ carried fits^ t^{ round : number^, note : string^ }:
             if^ carried.round = 2 and^ carried.note = "carried across" {
                 love.event.quit(10)
             else^:

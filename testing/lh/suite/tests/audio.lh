@@ -12,7 +12,7 @@ public^let^ run = p^ {
     test.begin("love.sound")
 
     let^ data = love.sound.newSoundData("assets/tone.ogg") catch^ nil^
-    if^ data isa^ nil^ {
+    if^ data = nil^ {
         test.isTrue("newSoundData reads the file", false^)
     else^:
         test.isTrue("the sound has samples", data.getSampleCount() > 0)
@@ -32,7 +32,7 @@ public^let^ run = p^ {
     test.begin("love.audio")
 
     let^ source = love.audio.newSource("assets/tone.ogg", "static") catch^ nil^
-    if^ source isa^ nil^ {
+    if^ source = nil^ {
         test.isTrue("newSource reads the file", false^)
     else^:
         test.text("type", "Source", source.type())

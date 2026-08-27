@@ -24,13 +24,13 @@ var^ picture : love.graphics.Texture|nil^ = nil^
 public^let^ load = p^ {
     # audio + sound
     tone := love.audio.newSource("assets/tone.ogg", "static") catch^ nil^
-    if^ tone isa^ love.audio.Source {
+    if^ tone fits^ love.audio.Source {
         tone.setVolume(0.3)
         tone.play()
         print($"audio: playing tone, duration {tone.getDuration()}s, channels {tone.getChannelCount()}, active {love.audio.getActiveSourceCount()}")
     }
     let^ data = love.sound.newSoundData("assets/tone.ogg") catch^ nil^
-    if^ data isa^ love.sound.SoundData {
+    if^ data fits^ love.sound.SoundData {
         print($"sound: {data.getSampleCount()} samples at {data.getSampleRate()} Hz, {data.getBitDepth()} bit")
     }
 
@@ -66,7 +66,7 @@ public^let^ load = p^ {
 
     # image pixels
     let^ img = love.image.newImageData("assets/love.png") catch^ nil^
-    if^ img isa^ love.image.ImageData {
+    if^ img fits^ love.image.ImageData {
         let^ r, g, b, a = img.getPixel(32, 32)
         img.mapPixel(f^x:number^, y:number^, r:number^, g:number^, b:number^, a:number^ -> (number^, number^, number^, number^) {
             return^ 1 - r, 1 - g, 1 - b, a
@@ -86,7 +86,7 @@ public^let^ update = p^dt:number^ {
 
 public^let^ draw = p^ {
     love.graphics.setColor(1, 1, 1)
-    if^ picture isa^ love.graphics.Texture { love.graphics.draw(picture, 100, 100, 0, 3, 3) }
+    if^ picture fits^ love.graphics.Texture { love.graphics.draw(picture, 100, 100, 0, 3, 3) }
     love.graphics.print($"M3 frame {frames}", 10, 10)
 }
 

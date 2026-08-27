@@ -47,7 +47,7 @@ public^let^ load = p^ {
     check("canvas size", cw = 64 and^ ch = 64)
 
     # the shader keeps a quarter of the red square's red and drops the rest
-    if^ shader isa^ love.graphics.Shader {
+    if^ shader fits^ love.graphics.Shader {
         check("shader has tint", shader.hasUniform("tint") and^ !shader.hasUniform("nothing"))
         shader.send("tint", 0.5, 1, 0, 1)
         shader.send("amount", 0.5)
@@ -60,7 +60,7 @@ public^let^ load = p^ {
         let^ tp = love.graphics.readbackTexture(tinted)
         let^ tr, tg, tb, ta = tp.getPixel(32, 32)
         check("shader tinted", tr > 0.2 and^ tr < 0.3 and^ tg < 0.05 and^ ta > 0.99)
-        check("shader active cleared", love.graphics.getShader() isa^ nil^)
+        check("shader active cleared", love.graphics.getShader() fits^ nil^)
     else^:
         check("shader compiled", false^)
     }
@@ -80,7 +80,7 @@ public^let^ load = p^ {
     mesh.setVertex(3, 60, 60, 1, 1, 0.5, 0.5, 0.5, 1)
     let^ mx2, my2, _u, _v, mr2, _g, _b, _a = mesh.getVertex(3)
     check("mesh set vertex", mx2 = 60 and^ (mr2 - 0.5).abs() < 0.01)
-    check("mesh count/mode", mesh.getVertexCount() = 4 and^ mesh.getDrawMode() = "fan" and^ !(mesh.getTexture() isa^ nil^))
+    check("mesh count/mode", mesh.getVertexCount() = 4 and^ mesh.getDrawMode() = "fan" and^ mesh.getTexture()?)
     mesh.setDrawMode("triangles")
     mesh.setVertexMap(1, 2, 3, 3, 4, 1)
     check("mesh vertex map", mesh.getVertexMap().length^ = 6 and^ mesh.getDrawMode() = "triangles")
@@ -134,7 +134,7 @@ public^let^ load = p^ {
     print($"renderer: {name} {version} ({vendor}, {device})")
 
     # video
-    if^ video isa^ love.graphics.Video {
+    if^ video fits^ love.graphics.Video {
         video.play()
         let^ vw, vh = video.getDimensions()
         check("video size", vw > 0 and^ vh > 0)
@@ -148,7 +148,7 @@ public^let^ update = p^dt:number^ {
     frames := frames + 1
     particles.update(dt)
     if^ frames = 90 {
-        if^ video isa^ love.graphics.Video {
+        if^ video fits^ love.graphics.Video {
             print($"video: playing={video.isPlaying()} tell={video.tell()}")
             # the sample is about a second long, so it may already have ended
             check("video advanced", video.tell() > 0.5)
@@ -172,8 +172,8 @@ public^let^ draw = p^ {
     love.graphics.draw(batch, 280, 40)
     love.graphics.draw(particles, 400, 100)
     love.graphics.draw(text, 10, 120)
-    if^ video isa^ love.graphics.Video { love.graphics.draw(video, 10, 160, 0, 0.5, 0.5) }
-    if^ picture isa^ love.graphics.Texture { love.graphics.draw(picture, 400, 200) }
+    if^ video fits^ love.graphics.Video { love.graphics.draw(video, 10, 160, 0, 0.5, 0.5) }
+    if^ picture fits^ love.graphics.Texture { love.graphics.draw(picture, 400, 200) }
     love.graphics.ellipse("line", 600, 100, 40, 20)
     love.graphics.arc("fill", "pie", 700, 100, 30, 0, 2)
     love.graphics.print($"M5 graphics: frame {frames}", 10, 10)

@@ -12,7 +12,7 @@ import^ love.timer
 let^ jobs = love.thread.getChannel("jobs")
 let^ results = love.thread.getChannel("results")
 let^ worker = love.thread.newThread("worker.lh")
-let^ echo = love.thread.newThread("import^ love.thread\nlet^ args = ...\nlet^ f = args[1]\nlet^ out = love.thread.getChannel(\"results\")\nif^ f isa^ p^number^ -> number^; { out.push($\"closure says {f(20)}\") }\nout.push(\"echo done\")\n")
+let^ echo = love.thread.newThread("import^ love.thread\nlet^ args = ...\nlet^ f = args[1]\nlet^ out = love.thread.getChannel(\"results\")\nif^ f fits^ p^number^ -> number^; { out.push($\"closure says {f(20)}\") }\nout.push(\"echo done\")\n")
 let^ broken = love.thread.newThread("let^ t = {}\npanic^ \"boom from a thread\"\n")
 
 var^ frames = 0
@@ -41,12 +41,12 @@ public^let^ update = p^dt:number^ {
     frames := frames + 1
     repeat^ {
         let^ got = results.pop()
-        if^ got isa^ nil^ { break^ }
-        if^ got isa^ string^ {
+        if^ got fits^ nil^ { break^ }
+        if^ got fits^ string^ {
             received.push^(got)
-        elseif^ got isa^ number^:
+        elseif^ got fits^ number^:
             received.push^($"number {got}")
-        elseif^ got isa^ t^{ sum : number^, from : string^ }:
+        elseif^ got fits^ t^{ sum : number^, from : string^ }:
             received.push^($"table sum={got.sum} from {got.from}")
         }
     }
@@ -57,13 +57,13 @@ public^let^ update = p^dt:number^ {
         var^ atomic = 0
         results.performAtomic(p^c:love.thread.Channel, extra:any^ {
             c.push("atomic")
-            if^ extra isa^ number^ { atomic := c.getCount() + extra }
+            if^ extra fits^ number^ { atomic := c.getCount() + extra }
         }, 100)
         print($"atomic count {atomic}, pending {results.getCount()}, popped {results.pop()}")
         for^ line in^ received { print($"  {line}") }
         let^ err = broken.getError()
         print($"broken error: {err}")
-        let^ ok = received.length^ = 7 and^ atomic = 101 and^ err isa^ string^ and^ worker.getError() isa^ nil^
+        let^ ok = received.length^ = 7 and^ atomic = 101 and^ err fits^ string^ and^ worker.getError() fits^ nil^
         if^ ok { love.event.quit(8) else^: love.event.quit(1) }
     }
     if^ frames > 600 { love.event.quit(2) }

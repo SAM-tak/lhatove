@@ -117,14 +117,14 @@ public^let^ run = p^ {
     # user data is any L^ value
     boxShape.setUserData("the box")
     let^ data = boxShape.getUserData()
-    if^ data isa^ string^ {
+    if^ data fits^ string^ {
         test.text("shape user data", "the box", data)
     else^:
         test.isTrue("shape user data comes back as it went in", false^)
     }
     box.setUserData({ name = "box", hits = 0 })
     let^ bodydata = box.getUserData()
-    if^ bodydata isa^ t^{ name : string^, hits : number^ } {
+    if^ bodydata fits^ t^{ name : string^, hits : number^ } {
         test.text("body user data", "box", bodydata.name)
     else^:
         test.isTrue("body user data comes back as a table", false^)
@@ -169,12 +169,12 @@ public^let^ run = p^ {
     })
     test.isTrue("the ray hit something", hits >= 1)
     let^ closest = world.rayCastClosest(200, 0, 200, 500)
-    if^ closest isa^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
+    if^ closest fits^ t^{ shape : love.physics.Shape, x : number^, y : number^, nx : number^, ny : number^, fraction : number^ } {
         test.range("the closest hit is on the ray", closest.fraction, 0, 1)
     else^:
         test.isTrue("rayCastClosest answers a hit", false^)
     }
-    test.isTrue("a ray into nothing answers nil^", world.rayCastClosest(0, 0, 0, 1) isa^ nil^)
+    test.isTrue("a ray into nothing answers nil^", world.rayCastClosest(0, 0, 0, 1) fits^ nil^)
 
     # the distance between two shapes
     let^ distance, dx1, dy1, dx2, dy2 = love.physics.getDistance(boxShape, groundShape)

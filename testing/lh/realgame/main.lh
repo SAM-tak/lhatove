@@ -45,11 +45,11 @@ public^let^ update = p^dt:number^ {
 
 public^let^ draw = p^ {
     love.graphics.setColor(1, 1, 1)
-    if^ logo isa^ love.graphics.Texture {
+    if^ logo fits^ love.graphics.Texture {
         let^ w, h = logo.getDimensions()
         love.graphics.draw(logo, 320 - w, 200 - h, 0, 2, 2)
     }
-    if^ big isa^ love.graphics.Font {
+    if^ big fits^ love.graphics.Font {
         love.graphics.print("Real game on disk", big, 40, 300)
     }
     love.graphics.print(status, 40, 360)
