@@ -52,7 +52,7 @@ static Video *checkVideo(LhatMachine *machine, const LhatValue *args, size_t cou
 	return video;
 }
 
-#define VIDEO_SELF() Video *video = checkVideo(machine, args, count, 0); if (video == nullptr) return lhat_nil()
+#define VIDEO_SELF() Video *video = checkVideo(machine, args, count, 0); if (video == nullptr) return
 
 // An audio Source streaming the file, or nullptr when there is no audio
 // module or no audio track.
@@ -77,13 +77,17 @@ static love::audio::Source *audioFor(const std::string &path)
 
 // newVideo(path[, settings]) where settings may say audio = false and
 // dpiscale = n.
-static LhatValue lh_newVideo(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newVideo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto videomodule = Module::getInstance<love::video::Video>(Module::M_VIDEO);
 	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
 	if (videomodule == nullptr || fs == nullptr)
-		return lh::raise(machine, "Cannot create videos without the love.video and love.filesystem modules.");
+	{
+		lh::raise(machine, "Cannot create videos without the love.video and love.filesystem modules.");
+		return;
+	}
 	std::string path = lh::optString(args, count, 0, "");
 	bool wantAudio = true;
 	float dpiscale = 1.0f;
@@ -92,7 +96,7 @@ static LhatValue lh_newVideo(LhatMachine *machine, void *context, const LhatValu
 		wantAudio = lh::fieldBool(machine, args[1], "audio", true);
 		dpiscale = (float) lh::fieldNumber(machine, args[1], "dpiscale", 1.0);
 	}
-	return lh::catchexcept(machine, binding.errors->io, [&]() {
+	lh::catchexcept(machine, binding.errors->io, [&]() {
 		StrongRef<love::filesystem::File> file(fs->openFile(path.c_str(), love::filesystem::File::MODE_READ), Acquire::NORETAIN);
 		StrongRef<love::video::VideoStream> stream(videomodule->newVideoStream(file.get()), Acquire::NORETAIN);
 		StrongRef<Video> video(instance()->newVideo(stream.get(), dpiscale), Acquire::NORETAIN);
@@ -104,105 +108,136 @@ static LhatValue lh_newVideo(LhatMachine *machine, void *context, const LhatValu
 			StrongRef<love::video::VideoStream::FrameSync> sync(new love::video::VideoStream::DeltaSync(), Acquire::NORETAIN);
 			stream->setSync(sync.get());
 		}
-		return lh::pushObject(machine, *binding.registry, video.get());
-	});
+		answers[0] = lh::pushObject(machine, *binding.registry, video.get());
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
 #define VIDEO_DO(name, call) \
-	static LhatValue lh_Video_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Video_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                            LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		VIDEO_SELF(); \
-		return lh::guard(machine, [&]() { video->getStream()->call; return lhat_nil(); }); \
+		lh::guard(machine, [&]() { video->getStream()->call; }); \
 	}
 
 VIDEO_DO(play, play())
 VIDEO_DO(pause, pause())
 VIDEO_DO(rewind, seek(0))
 
-static LhatValue lh_Video_seek(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_seek(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	double offset = lh::optNumber(args, count, 1, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		video->getStream()->seek(offset);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Video_tell(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_tell(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
-	return lhat_real(video->getStream()->tell());
+	answers[0] = lhat_real(video->getStream()->tell());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Video_isPlaying(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_isPlaying(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
-	return lhat_bool(video->getStream()->isPlaying());
+	answers[0] = lhat_bool(video->getStream()->isPlaying());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Video_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
-	return lhat_integer(video->getWidth());
+	answers[0] = lhat_integer(video->getWidth());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Video_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
-	return lhat_integer(video->getHeight());
+	answers[0] = lhat_integer(video->getHeight());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Video_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	float values[2] = {(float) video->getWidth(), (float) video->getHeight()};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_Video_getSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_getSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	love::audio::Source *source = video->getSource();
-	return source != nullptr ? lh::pushObject(machine, *binding.registry, source) : lhat_nil();
+	answers[0] = source != nullptr ? lh::pushObject(machine, *binding.registry, source) : lhat_nil();
+	*answerCount = 1;
+	return;
 }
 
 // setSource(source) / setSource() to detach the audio.
-static LhatValue lh_Video_setSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_setSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	if (count < 2)
 	{
 		video->setSource(nullptr);
-		return lhat_nil();
+		return;
 	}
 	auto *source = lh::checkObject<love::audio::Source>(args[1], *binding.registry);
 	if (source == nullptr)
-		return lh::raise(machine, "Expected a Source");
+	{
+		lh::raise(machine, "Expected a Source");
+		return;
+	}
 	video->setSource(source);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_Video_getFilename(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_getFilename(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, video->getStream()->getFilename(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
 // setFilter(min[, mag])
-static LhatValue lh_Video_setFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Video_setFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
@@ -210,12 +245,18 @@ static LhatValue lh_Video_setFilter(LhatMachine *machine, void *context, const L
 	std::string minstr = lh::optString(args, count, 1, "linear");
 	std::string magstr = lh::optString(args, count, 2, minstr);
 	if (!SamplerState::getConstant(minstr.c_str(), s.minFilter))
-		return lh::raise(machine, "Invalid filter mode: " + minstr);
+	{
+		lh::raise(machine, "Invalid filter mode: " + minstr);
+		return;
+	}
 	if (!SamplerState::getConstant(magstr.c_str(), s.magFilter))
-		return lh::raise(machine, "Invalid filter mode: " + magstr);
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Invalid filter mode: " + magstr);
+		return;
+	}
+	lh::guard(machine, [&]() {
 		video->setSamplerState(s);
-		return lhat_nil();
+		return;
 	});
 }
 

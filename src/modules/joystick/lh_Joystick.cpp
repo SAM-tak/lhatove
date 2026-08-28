@@ -51,14 +51,19 @@ static Joystick *checkJoystick(LhatMachine *machine, const LhatValue *arguments,
 	return j;
 }
 
-static LhatValue lh_getJoysticks(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getJoysticks(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	int n = instance()->getJoystickCount();
 	for (int i = 0; i < n; i++)
@@ -67,158 +72,235 @@ static LhatValue lh_getJoysticks(LhatMachine *machine, void *context, const Lhat
 		bool refused = false;
 		lhat_table_set(t, lhat_integer(i + 1), lh::pushObject(machine, *binding.registry, stick), &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getJoystickCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getJoystickCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_integer(instance()->getJoystickCount());
+	answers[0] = lhat_integer(instance()->getJoystickCount());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_isConnected(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_isConnected(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_bool(j != nullptr && j->isConnected());
+	answers[0] = lhat_bool(j != nullptr && j->isConnected());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getName(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getName(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	LhatValue out = lhat_nil();
 	if (j != nullptr)
 		lh::makeString(machine, j->getName(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getID(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getID(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_integer(j != nullptr ? j->getID() : 0);
+	answers[0] = lhat_integer(j != nullptr ? j->getID() : 0);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getGUID(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getGUID(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	LhatValue out = lhat_nil();
 	if (j != nullptr)
 		lh::makeString(machine, j->getGUID(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getAxisCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getAxisCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_integer(j != nullptr ? j->getAxisCount() : 0);
+	answers[0] = lhat_integer(j != nullptr ? j->getAxisCount() : 0);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getButtonCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getButtonCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_integer(j != nullptr ? j->getButtonCount() : 0);
+	answers[0] = lhat_integer(j != nullptr ? j->getButtonCount() : 0);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getHatCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getHatCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_integer(j != nullptr ? j->getHatCount() : 0);
+	answers[0] = lhat_integer(j != nullptr ? j->getHatCount() : 0);
+	*answerCount = 1;
+	return;
 }
 
 // getAxis(index) -- 1-based, as the Lua API.
-static LhatValue lh_Joystick_getAxis(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getAxis(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_real(j != nullptr ? j->getAxis((int) lh::optNumber(arguments, count, 1, 1) - 1) : 0.0f);
+	answers[0] = lhat_real(j != nullptr ? j->getAxis((int) lh::optNumber(arguments, count, 1, 1) - 1) : 0.0f);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getHat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getHat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	if (j == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	const char *name = "c";
 	Joystick::getConstant(j->getHat((int) lh::optNumber(arguments, count, 1, 1) - 1), name);
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, name, &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
 // isDown(button, ...) -- 1-based buttons; true if any is down.
-static LhatValue lh_Joystick_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	if (j == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::vector<int> buttons;
 	for (size_t i = 1; i < count; i++)
 		buttons.push_back((int) lh::optNumber(arguments, count, i, 1) - 1);
-	return lhat_bool(j->isDown(buttons));
+	answers[0] = lhat_bool(j->isDown(buttons));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_isGamepad(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_isGamepad(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
-	return lhat_bool(j != nullptr && j->isGamepad());
+	answers[0] = lhat_bool(j != nullptr && j->isGamepad());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_getGamepadAxis(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_getGamepadAxis(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	if (j == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::string name = lh::optString(arguments, count, 1, "");
 	Joystick::GamepadAxis axis;
 	if (!Joystick::getConstant(name.c_str(), axis))
-		return lh::raise(machine, "Invalid gamepad axis: " + name);
-	return lhat_real(j->getGamepadAxis(axis));
+	{
+		lh::raise(machine, "Invalid gamepad axis: " + name);
+		return;
+	}
+	answers[0] = lhat_real(j->getGamepadAxis(axis));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Joystick_isGamepadDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_isGamepadDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	if (j == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::vector<Joystick::GamepadButton> buttons;
 	for (size_t i = 1; i < count; i++)
 	{
 		std::string name = lh::optString(arguments, count, i, "");
 		Joystick::GamepadButton button;
 		if (!Joystick::getConstant(name.c_str(), button))
-			return lh::raise(machine, "Invalid gamepad button: " + name);
+		{
+			lh::raise(machine, "Invalid gamepad button: " + name);
+			return;
+		}
 		buttons.push_back(button);
 	}
-	return lhat_bool(j->isGamepadDown(buttons));
+	answers[0] = lhat_bool(j->isGamepadDown(buttons));
+	*answerCount = 1;
+	return;
 }
 
 // setVibration(left, right[, duration]) / setVibration() to stop.
-static LhatValue lh_Joystick_setVibration(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Joystick_setVibration(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joystick *j = checkJoystick(machine, arguments, count);
 	if (j == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	if (count < 3)
-		return lhat_bool(j->setVibration());
+	{
+		answers[0] = lhat_bool(j->setVibration());
+		*answerCount = 1;
+		return;
+	}
 	float left = (float) lh::optNumber(arguments, count, 1, 0.0);
 	float right = (float) lh::optNumber(arguments, count, 2, left);
 	float duration = (float) lh::optNumber(arguments, count, 3, -1.0);
-	return lhat_bool(j->setVibration(left, right, duration));
+	answers[0] = lhat_bool(j->setVibration(left, right, duration));
+	*answerCount = 1;
+	return;
 }
 
 } // joystick

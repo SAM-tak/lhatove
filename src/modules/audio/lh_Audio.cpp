@@ -60,34 +60,50 @@ static Source *checkSource(LhatMachine *machine, const LhatValue *arguments, siz
 // newSource(path, "static" | "stream") / newSource(sounddata): wrap_Audio's
 // path through love.sound -- a decoder over the file, and for a static
 // source the whole of it decoded up front.
-static LhatValue lh_newSource(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_newSource(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto sound = Module::getInstance<love::sound::Sound>(Module::M_SOUND);
 	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
 	if (sound == nullptr)
-		return lh::raise(machine, "Cannot create sources without the love.sound module.");
+	{
+		lh::raise(machine, "Cannot create sources without the love.sound module.");
+		return;
+	}
 
 	if (count > 0 && lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
 	{
 		auto data = lh::checkObject<love::sound::SoundData>(arguments[0], *binding.registry);
 		if (data == nullptr)
-			return lh::raise(machine, "Expected a SoundData");
-		return lh::guard(machine, [&]() {
+		{
+			lh::raise(machine, "Expected a SoundData");
+			return;
+		}
+		lh::guard(machine, [&]() {
 			StrongRef<Source> source(instance()->newSource(data), Acquire::NORETAIN);
-			return lh::pushObject(machine, *binding.registry, source.get());
+			answers[0] = lh::pushObject(machine, *binding.registry, source.get());
+			*answerCount = 1;
+			return;
 		});
+		return;
 	}
 
 	std::string path = lh::optString(arguments, count, 0, "");
 	std::string typestr = lh::optString(arguments, count, 1, "stream");
 	Source::Type stype = Source::TYPE_STREAM;
 	if (!Source::getConstant(typestr.c_str(), stype) || stype == Source::TYPE_QUEUE)
-		return lh::raise(machine, "Invalid source type: " + typestr);
+	{
+		lh::raise(machine, "Invalid source type: " + typestr);
+		return;
+	}
 	if (fs == nullptr)
-		return lh::raise(machine, "love.filesystem is not loaded.");
+	{
+		lh::raise(machine, "love.filesystem is not loaded.");
+		return;
+	}
 
-	return lh::catchexcept(machine, binding.errors->io, [&]() {
+	lh::catchexcept(machine, binding.errors->io, [&]() {
 		StrongRef<love::filesystem::File> file(fs->openFile(path.c_str(), love::filesystem::File::MODE_READ), Acquire::NORETAIN);
 		StrongRef<love::sound::Decoder> decoder(sound->newDecoder(file.get(), love::sound::Decoder::DEFAULT_BUFFER_SIZE), Acquire::NORETAIN);
 		StrongRef<Source> source;
@@ -98,13 +114,15 @@ static LhatValue lh_newSource(LhatMachine *machine, void *context, const LhatVal
 		}
 		else
 			source.set(instance()->newSource(decoder.get()), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, source.get());
-	});
+		answers[0] = lh::pushObject(machine, *binding.registry, source.get());
+		*answerCount = 1;
+	}, answers, answerCount);
 }
 
 // play(source, ...) plays each; play() with nothing is a mistake in Lua, a
 // no-op here.
-static LhatValue lh_play(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_play(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Source *> sources;
@@ -112,171 +130,196 @@ static LhatValue lh_play(LhatMachine *machine, void *context, const LhatValue *a
 	{
 		Source *s = checkSource(machine, arguments, count, i);
 		if (s == nullptr)
-			return lhat_nil();
+		{
+			answers[0] = lhat_nil();
+			*answerCount = 1;
+			return;
+		}
 		sources.push_back(s);
 	}
-	return lh::guard(machine, [&]() {
-		return lhat_bool(sources.size() == 1 ? instance()->play(sources[0]) : instance()->play(sources));
+	lh::guard(machine, [&]() {
+		answers[0] = lhat_bool(sources.size() == 1 ? instance()->play(sources[0]) : instance()->play(sources));
+		*answerCount = 1;
 	});
 }
 
-static LhatValue lh_stop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_stop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count == 0)
 	{
 		instance()->stop();
-		return lhat_nil();
+		return;
 	}
 	std::vector<Source *> sources;
 	for (size_t i = 0; i < count; i++)
 	{
 		Source *s = checkSource(machine, arguments, count, i);
 		if (s == nullptr)
-			return lhat_nil();
+			return;
 		sources.push_back(s);
 	}
 	instance()->stop(sources);
-	return lhat_nil();
 }
 
-static LhatValue lh_pause(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_pause(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count == 0)
 	{
 		instance()->pause();
-		return lhat_nil();
+		return;
 	}
 	std::vector<Source *> sources;
 	for (size_t i = 0; i < count; i++)
 	{
 		Source *s = checkSource(machine, arguments, count, i);
 		if (s == nullptr)
-			return lhat_nil();
+			return;
 		sources.push_back(s);
 	}
 	instance()->pause(sources);
-	return lhat_nil();
 }
 
-static LhatValue lh_setVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setVolume((float) lh::optNumber(arguments, count, 0, 1.0));
-	return lhat_nil();
 }
 
-static LhatValue lh_getVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(instance()->getVolume());
+	answers[0] = lhat_real(instance()->getVolume());
+	*answerCount = 1;
 }
 
-static LhatValue lh_getActiveSourceCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getActiveSourceCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+									LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_integer(instance()->getActiveSourceCount());
+	answers[0] = lhat_integer(instance()->getActiveSourceCount());
+	*answerCount = 1;
 }
 
 // ---------------------------------------------------------------------------
 // Source
 // ---------------------------------------------------------------------------
 
-static LhatValue lh_Source_play(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_play(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() { return lhat_bool(s->play()); });
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() { answers[0] = lhat_bool(s->play()); *answerCount = 1; });
 }
 
-static LhatValue lh_Source_stop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_stop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s != nullptr)
 		s->stop();
-	return lhat_nil();
 }
 
-static LhatValue lh_Source_pause(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_pause(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s != nullptr)
 		s->pause();
-	return lhat_nil();
 }
 
-static LhatValue lh_Source_isPlaying(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_isPlaying(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
-	return lhat_bool(s != nullptr && s->isPlaying());
+	answers[0] = lhat_bool(s != nullptr && s->isPlaying());
+	*answerCount = 1;
 }
 
-static LhatValue lh_Source_setLooping(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_setLooping(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		s->setLooping(lh::optBool(arguments, count, 1, false));
-		return lhat_nil();
 	});
 }
 
-static LhatValue lh_Source_isLooping(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_isLooping(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
-	return lhat_bool(s != nullptr && s->isLooping());
+	answers[0] = lhat_bool(s != nullptr && s->isLooping());
+	*answerCount = 1;
 }
 
-static LhatValue lh_Source_setVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_setVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s != nullptr)
 		s->setVolume((float) lh::optNumber(arguments, count, 1, 1.0));
-	return lhat_nil();
 }
 
-static LhatValue lh_Source_getVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_getVolume(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
-	return lhat_real(s != nullptr ? s->getVolume() : 0.0f);
+	answers[0] = lhat_real(s != nullptr ? s->getVolume() : 0.0f);
+	*answerCount = 1;
 }
 
-static LhatValue lh_Source_setPitch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_setPitch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s == nullptr)
-		return lhat_nil();
+		return;
 	float pitch = (float) lh::optNumber(arguments, count, 1, 1.0);
 	if (pitch <= 0.0f)
-		return lh::raise(machine, "Pitch has to be a positive number.");
+	{
+		lh::raise(machine, "Pitch has to be a positive number.");
+		return;
+	}
 	s->setPitch(pitch);
-	return lhat_nil();
 }
 
-static LhatValue lh_Source_getPitch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_getPitch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
-	return lhat_real(s != nullptr ? s->getPitch() : 0.0f);
+	answers[0] = lhat_real(s != nullptr ? s->getPitch() : 0.0f);
+	*answerCount = 1;
 }
 
 static bool unitOf(LhatMachine *machine, const LhatValue *arguments, size_t count, size_t index, Source::Unit &unit)
@@ -293,56 +336,76 @@ static bool unitOf(LhatMachine *machine, const LhatValue *arguments, size_t coun
 	return true;
 }
 
-static LhatValue lh_Source_seek(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_seek(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	Source::Unit unit;
 	if (s == nullptr || !unitOf(machine, arguments, count, 2, unit))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		s->seek(lh::optNumber(arguments, count, 1, 0.0), unit);
-		return lhat_nil();
 	});
 }
 
-static LhatValue lh_Source_tell(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_tell(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	Source::Unit unit;
 	if (s == nullptr || !unitOf(machine, arguments, count, 1, unit))
-		return lhat_nil();
-	return lhat_real(s->tell(unit));
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_real(s->tell(unit));
+	*answerCount = 1;
 }
 
-static LhatValue lh_Source_getDuration(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_getDuration(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	Source::Unit unit;
 	if (s == nullptr || !unitOf(machine, arguments, count, 1, unit))
-		return lhat_nil();
-	return lhat_real(s->getDuration(unit));
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_real(s->getDuration(unit));
+	*answerCount = 1;
 }
 
-static LhatValue lh_Source_clone(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_clone(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
 	if (s == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		StrongRef<Source> copy(s->clone(), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, copy.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, copy.get());
+		*answerCount = 1;
 	});
 }
 
-static LhatValue lh_Source_getChannelCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_Source_getChannelCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Source *s = checkSource(machine, arguments, count);
-	return lhat_integer(s != nullptr ? s->getChannelCount() : 0);
+	answers[0] = lhat_integer(s != nullptr ? s->getChannelCount() : 0);
+	*answerCount = 1;
 }
 
 } // audio

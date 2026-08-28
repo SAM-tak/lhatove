@@ -63,8 +63,9 @@ Quad *checkQuad(LhatMachine *machine, const LhatValue *args, size_t count, size_
 bool drawModeOf(LhatMachine *machine, LhatValue value, Graphics::DrawMode &mode);
 
 Colorf colorOf(const LhatValue *args, size_t count, size_t first);
-LhatValue colorTuple(LhatMachine *machine, Colorf c);
-LhatValue numberTuple(LhatMachine *machine, const float *values, size_t count);
+void colorTuple(Colorf c, LhatValue *answers, int *answerCount);
+// 05 の 8.7: writes `count` answers into the machine's room.
+void numberTuple(const float *values, size_t count, LhatValue *answers, int *answerCount);
 
 // x, y pairs from args[first..count) -- an odd tail drops its last number.
 std::vector<Vector2> verticesOf(const LhatValue *args, size_t count, size_t first);

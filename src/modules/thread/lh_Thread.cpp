@@ -104,11 +104,20 @@ static LhatValue threadFromFile(LhatMachine *machine, const std::string &path)
 		std::lock_guard<std::mutex> hold(lh::programMutex());
 		unit = lhat_program_check(binding.program, path.c_str());
 		if (unit == nullptr)
-			return lh::raise(machine, "Could not read the thread file " + path);
+		{
+			lh::raise(machine, "Could not read the thread file " + path);
+			return lhat_nil();
+		}
 		if (!lhat_unit_ok(unit))
-			return lh::raise(machine, "The thread file " + path + " did not check:\n" + diagnosticsOf(unit));
+		{
+			lh::raise(machine, "The thread file " + path + " did not check:\n" + diagnosticsOf(unit));
+			return lhat_nil();
+		}
 		if (!lhat_program_compile(binding.program))
-			return lh::raise(machine, "The thread file " + path + " did not compile");
+		{
+			lh::raise(machine, "The thread file " + path + " did not compile");
+			return lhat_nil();
+		}
 	}
 	StrongRef<LhThread> thread(new LhThread(path, binding.program, lhat_unit_proto(unit), nullptr, binding.registry), Acquire::NORETAIN);
 	return lh::pushObject(machine, *binding.registry, thread.get());
@@ -127,10 +136,16 @@ static LhatValue threadFromText(LhatMachine *machine, const std::string &name, c
 		case LHAT_LOAD_REJECTED:
 		{
 			const char *why = lhat_program_load_failure(binding.program);
-			return lh::raise(machine, "The thread code did not check:\n" + std::string(why != nullptr ? why : "(no diagnostic)"));
+			{
+				lh::raise(machine, "The thread code did not check:\n" + std::string(why != nullptr ? why : "(no diagnostic)"));
+				return lhat_nil();
+			}
 		}
 		default:
-			return lh::raise(machine, "Could not load the thread code");
+			{
+				lh::raise(machine, "Could not load the thread code");
+				return lhat_nil();
+			}
 		}
 	}
 	StrongRef<LhThread> thread(new LhThread(name, binding.program, proto, proto, binding.registry), Acquire::NORETAIN);
@@ -140,11 +155,15 @@ static LhatValue threadFromText(LhatMachine *machine, const std::string &name, c
 // newThread(path | code | File | FileData): wrap_ThreadModule's rule -- a
 // string without a newline is a file name (".lh" here), anything else is
 // the code itself.
-static LhatValue lh_newThread(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newThread(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count < 1)
-		return lh::raise(machine, "newThread needs a file name, code, a File or a FileData");
+	{
+		lh::raise(machine, "newThread needs a file name, code, a File or a FileData");
+		return;
+	}
 
 	size_t length = 0;
 	const char *text = lh::stringOf(args[0], &length);
@@ -153,39 +172,61 @@ static LhatValue lh_newThread(LhatMachine *machine, void *context, const LhatVal
 		std::string s(text, length);
 		bool isFile = s.find('\n') == std::string::npos && s.size() > 3 && s.compare(s.size() - 3, 3, ".lh") == 0;
 		if (isFile)
-			return threadFromFile(machine, s);
-		return threadFromText(machine, "thread", text, length);
+		{
+			answers[0] = threadFromFile(machine, s);
+			*answerCount = 1;
+			return;
+		}
+		answers[0] = threadFromText(machine, "thread", text, length);
+		*answerCount = 1;
+		return;
 	}
 
 	auto *file = lh::checkObject<love::filesystem::File>(args[0], *binding.registry);
 	if (file != nullptr)
 	{
-		return lh::guard(machine, [&]() {
+		lh::guard(machine, [&]() {
 			StrongRef<love::filesystem::FileData> data(file->read(), Acquire::NORETAIN);
-			return threadFromText(machine, data->getFilename(), (const char *) data->getData(), data->getSize());
+			answers[0] = threadFromText(machine, data->getFilename(), (const char *) data->getData(), data->getSize());
+			*answerCount = 1;
+			return;
 		});
+		return;
 	}
 	auto *data = lh::checkObject<love::filesystem::FileData>(args[0], *binding.registry);
 	if (data != nullptr)
-		return threadFromText(machine, data->getFilename(), (const char *) data->getData(), data->getSize());
+	{
+		answers[0] = threadFromText(machine, data->getFilename(), (const char *) data->getData(), data->getSize());
+		*answerCount = 1;
+		return;
+	}
 
-	return lh::raise(machine, "newThread needs a file name, code, a File or a FileData");
+	{
+		lh::raise(machine, "newThread needs a file name, code, a File or a FileData");
+		return;
+	}
 }
 
-static LhatValue lh_newChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	StrongRef<Channel> channel(instance()->newChannel(), Acquire::NORETAIN);
-	return lh::pushObject(machine, *binding.registry, channel.get());
+	answers[0] = lh::pushObject(machine, *binding.registry, channel.get());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "");
-	return lh::pushObject(machine, *binding.registry, instance()->getChannel(name));
+	answers[0] = lh::pushObject(machine, *binding.registry, instance()->getChannel(name));
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -193,57 +234,72 @@ static LhatValue lh_getChannel(LhatMachine *machine, void *context, const LhatVa
 // ---------------------------------------------------------------------------
 
 // start(...): the arguments cross as Variants; one that cannot raises.
-static LhatValue lh_Thread_start(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Thread_start(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
 	if (thread == nullptr)
-		return lhat_nil();
+		return;
 	std::vector<Variant> carried;
 	for (size_t i = 1; i < count; i++)
 	{
 		Variant v;
 		std::string why;
 		if (!lh::variantOf(machine, *binding.registry, args[i], v, why))
-			return lh::raise(machine, "Thread argument " + std::to_string(i) + " cannot cross to the thread: " + why);
+		{
+			lh::raise(machine, "Thread argument " + std::to_string(i) + " cannot cross to the thread: " + why);
+			return;
+		}
 		carried.push_back(v);
 	}
 	thread->start(carried);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_Thread_wait(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Thread_wait(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
 	if (thread != nullptr)
 		thread->wait();
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_Thread_getError(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Thread_getError(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
 	if (thread == nullptr || !thread->hasError())
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, thread->getError(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Thread_isRunning(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Thread_isRunning(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
-	return lhat_bool(thread != nullptr && thread->isRunning());
+	answers[0] = lhat_bool(thread != nullptr && thread->isRunning());
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
 // Channel
 // ---------------------------------------------------------------------------
 
-#define CHANNEL_SELF() Channel *c = checkChannel(machine, args, count); if (c == nullptr) return lhat_nil()
+#define CHANNEL_SELF() Channel *c = checkChannel(machine, args, count); if (c == nullptr) return
 
 static bool variantArg(LhatMachine *machine, const LhatValue *args, size_t count, size_t index, Variant &out)
 {
@@ -261,90 +317,140 @@ static bool variantArg(LhatMachine *machine, const LhatValue *args, size_t count
 	return true;
 }
 
-static LhatValue lh_Channel_push(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_push(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	Variant v;
 	if (!variantArg(machine, args, count, 1, v))
-		return lhat_nil();
-	return lhat_integer((int64_t) c->push(v));
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_integer((int64_t) c->push(v));
+	*answerCount = 1;
+	return;
 }
 
 // supply(value[, timeout]) -> whether it was read.
-static LhatValue lh_Channel_supply(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_supply(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	Variant v;
 	if (!variantArg(machine, args, count, 1, v))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	if (count >= 3)
-		return lhat_bool(c->supply(v, lh::optNumber(args, count, 2, 0)));
-	return lhat_bool(c->supply(v));
+	{
+		answers[0] = lhat_bool(c->supply(v, lh::optNumber(args, count, 2, 0)));
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_bool(c->supply(v));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Channel_pop(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_pop(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	Variant v;
 	if (!c->pop(&v))
-		return lhat_nil();
-	return lh::pushVariant(machine, *binding.registry, v);
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lh::pushVariant(machine, *binding.registry, v);
+	*answerCount = 1;
+	return;
 }
 
 // demand([timeout]) -> the value, nil when the timeout passed.
-static LhatValue lh_Channel_demand(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_demand(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	Variant v;
 	bool got = count >= 2 ? c->demand(&v, lh::optNumber(args, count, 1, 0)) : c->demand(&v);
 	if (!got)
-		return lhat_nil();
-	return lh::pushVariant(machine, *binding.registry, v);
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lh::pushVariant(machine, *binding.registry, v);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Channel_peek(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_peek(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	Variant v;
 	if (!c->peek(&v))
-		return lhat_nil();
-	return lh::pushVariant(machine, *binding.registry, v);
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lh::pushVariant(machine, *binding.registry, v);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Channel_getCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_getCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
-	return lhat_integer(c->getCount());
+	answers[0] = lhat_integer(c->getCount());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Channel_hasRead(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_hasRead(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
-	return lhat_bool(c->hasRead((uint64) lh::optNumber(args, count, 1, 0)));
+	answers[0] = lhat_bool(c->hasRead((uint64) lh::optNumber(args, count, 1, 0)));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Channel_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	c->clear();
-	return lhat_nil();
+	return;
 }
 
 // performAtomic(fn, ...): fn(channel, ...) runs with the channel locked.
-static LhatValue lh_Channel_performAtomic(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Channel_performAtomic(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	if (count < 2 || !lhat_is_object_kind(args[1], LHAT_OBJECT_SUBROUTINE))
-		return lh::raise(machine, "performAtomic needs a procedure to call");
+	{
+		lh::raise(machine, "performAtomic needs a procedure to call");
+		return;
+	}
 	std::vector<LhatValue> passed;
 	passed.push_back(args[0]);
 	for (size_t i = 2; i < count; i++)
@@ -353,7 +459,7 @@ static LhatValue lh_Channel_performAtomic(LhatMachine *machine, void *context, c
 	LhatRunResult ran = lhat_machine_call(machine, args[1], passed.data(), passed.size());
 	c->unlockMutex();
 	(void) ran; // a fault ends the run the host function was called from
-	return lhat_nil();
+	return;
 }
 
 } // thread

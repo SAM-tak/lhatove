@@ -52,107 +52,157 @@ static bool bytesOf(LhatMachine *machine, const LhatValue *arguments, size_t cou
 }
 
 // encode(format, text) -> string; format is "base64" or "hex".
-static LhatValue lh_encode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_encode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
 	EncodeFormat format;
 	if (!getConstant(formatstr.c_str(), format))
-		return lh::raise(machine, "Invalid encode format: " + formatstr);
+	{
+		lh::raise(machine, "Invalid encode format: " + formatstr);
+		return;
+	}
 	const char *bytes = nullptr;
 	size_t size = 0;
 	if (!bytesOf(machine, arguments, count, 1, bytes, size))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	size_t linelen = (size_t) lh::optNumber(arguments, count, 2, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		size_t dstlen = 0;
 		char *dst = encode(format, bytes, size, dstlen, linelen);
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, std::string(dst != nullptr ? dst : "", dstlen), &out);
 		delete[] dst;
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_decode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_decode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
 	EncodeFormat format;
 	if (!getConstant(formatstr.c_str(), format))
-		return lh::raise(machine, "Invalid encode format: " + formatstr);
+	{
+		lh::raise(machine, "Invalid encode format: " + formatstr);
+		return;
+	}
 	const char *bytes = nullptr;
 	size_t size = 0;
 	if (!bytesOf(machine, arguments, count, 1, bytes, size))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		size_t dstlen = 0;
 		char *dst = decode(format, bytes, size, dstlen);
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, std::string(dst != nullptr ? dst : "", dstlen), &out);
 		delete[] dst;
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	});
 }
 
 // hash(function, text) -> the raw digest bytes, as a string.
-static LhatValue lh_hash(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hash(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string funcstr = lh::optString(arguments, count, 0, "");
 	HashFunction::Function function;
 	if (!HashFunction::getConstant(funcstr.c_str(), function))
-		return lh::raise(machine, "Invalid hash function: " + funcstr);
+	{
+		lh::raise(machine, "Invalid hash function: " + funcstr);
+		return;
+	}
 	const char *bytes = nullptr;
 	size_t size = 0;
 	if (!bytesOf(machine, arguments, count, 1, bytes, size))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, hash(function, bytes, size), &out);
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	});
 }
 
 // compress(format, text[, level]) -> the compressed bytes, as a string.
-static LhatValue lh_compress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_compress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
 	Compressor::Format format;
 	if (!Compressor::getConstant(formatstr.c_str(), format))
-		return lh::raise(machine, "Invalid compressed data format: " + formatstr);
+	{
+		lh::raise(machine, "Invalid compressed data format: " + formatstr);
+		return;
+	}
 	const char *bytes = nullptr;
 	size_t size = 0;
 	if (!bytesOf(machine, arguments, count, 1, bytes, size))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	int level = (int) lh::optNumber(arguments, count, 2, -1);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<CompressedData> data(compress(format, bytes, size, level), Acquire::NORETAIN);
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, std::string((const char *) data->getData(), data->getSize()), &out);
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_decompress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_decompress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
 	Compressor::Format format;
 	if (!Compressor::getConstant(formatstr.c_str(), format))
-		return lh::raise(machine, "Invalid compressed data format: " + formatstr);
+	{
+		lh::raise(machine, "Invalid compressed data format: " + formatstr);
+		return;
+	}
 	const char *bytes = nullptr;
 	size_t size = 0;
 	if (!bytesOf(machine, arguments, count, 1, bytes, size))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		size_t rawsize = 0;
 		char *raw = decompress(format, bytes, size, rawsize);
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, std::string(raw != nullptr ? raw : "", rawsize), &out);
 		delete[] raw;
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	});
 }
 

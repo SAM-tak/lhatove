@@ -289,7 +289,6 @@ std::string describeRun(LhatMachine *machine, const LhatRunResult &ran);
 // Measure-then-fill helpers.
 std::string valueText(LhatValue value);
 bool makeString(LhatMachine *machine, const std::string &text, LhatValue *out);
-bool makeTuple(LhatMachine *machine, const LhatValue *values, size_t count, LhatValue *out);
 
 // The string a value holds, or nullptr when it is not a string.
 const char *stringOf(LhatValue value, size_t *length = nullptr);
@@ -382,13 +381,17 @@ LhatValue fail(LhatMachine *machine, const LhatErrorKind *kind, const std::strin
 // return -- it is dropped.
 LhatValue raise(LhatMachine *machine, const std::string &message);
 
-// Runs `body`; a love::Exception thrown inside is raised as above.
-LhatValue guard(LhatMachine *machine, const std::function<LhatValue()> &body);
 
-// Runs `body`; a love::Exception thrown inside becomes an error value of
-// `kind`. The successor of luax_catchexcept -- errors are values here, so
-// the body's own answer is returned when nothing was thrown.
-LhatValue catchexcept(LhatMachine *machine, const LhatErrorKind *kind, const std::function<LhatValue()> &body);
+// Runs `body`; a love::Exception thrown inside is raised as above.
+//
+// 05 の 8.7: a binding is handed the machine's room and writes its answers
+// into it, so a body that has written them has nothing left to return.
+void guard(LhatMachine *machine, const std::function<void()> &body);
+
+// The same, and a love::Exception replaces whatever was written with one
+// error value of `kind` -- which is why this one needs the room.
+void catchexcept(LhatMachine *machine, const LhatErrorKind *kind,
+                 const std::function<void()> &body, LhatValue *answers, int *answerCount);
 
 // ---------------------------------------------------------------------------
 // Calling back

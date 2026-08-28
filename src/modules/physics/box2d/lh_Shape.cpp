@@ -44,7 +44,7 @@ static Shape *self(LhatMachine *machine, const LhatValue *args, size_t count)
 	return checkShape(machine, args, count, 0);
 }
 
-#define SHAPE_SELF() Shape *s = self(machine, args, count); if (s == nullptr) return lhat_nil()
+#define SHAPE_SELF() Shape *s = self(machine, args, count); if (s == nullptr) return
 
 // 8.8改 put each kind behind a type of its own, so a member registered on
 // CircleShape is reached only through one -- the checker turns the old
@@ -64,28 +64,33 @@ static T *kindOf(LhatMachine *machine, Shape *s, Shape::Type type, const char *n
 }
 
 #define SHAPE_NUMBER(name, expr) \
-	static LhatValue lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                            LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		SHAPE_SELF(); \
-		return lh::guard(machine, [&]() { return lhat_real(expr); }); \
+		lh::guard(machine, [&]() { answers[0] = lhat_real(expr); *answerCount = 1; }); \
 	}
 
 #define SHAPE_BOOL(name, expr) \
-	static LhatValue lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                            LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		SHAPE_SELF(); \
-		return lh::guard(machine, [&]() { return lhat_bool(expr); }); \
+		lh::guard(machine, [&]() { answers[0] = lhat_bool(expr); *answerCount = 1; }); \
 	}
 
 #define SHAPE_SET_NUMBER(name, call) \
-	static LhatValue lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Shape_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                            LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		SHAPE_SELF(); \
 		float v = numberAt(args, count, 1); \
-		return lh::guard(machine, [&]() { s->call; return lhat_nil(); }); \
+		lh::guard(machine, [&]() { s->call; }); \
 	}
 
 SHAPE_NUMBER(getRadius, s->getRadius())
@@ -99,7 +104,8 @@ SHAPE_NUMBER(getDensity, s->getDensity())
 SHAPE_BOOL(isSensor, s->isSensor())
 SHAPE_NUMBER(getGroupIndex, (float) s->getGroupIndex())
 
-static LhatValue lh_Shape_getType(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getType(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -107,62 +113,77 @@ static LhatValue lh_Shape_getType(LhatMachine *machine, void *context, const Lha
 	Shape::getConstant(s->getType(), type);
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, type, &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Shape_setSensor(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setSensor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	bool sensor = boolAt(args, count, 1);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		s->setSensor(sensor);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_setGroupIndex(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setGroupIndex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	int index = (int) numberAt(args, count, 1);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		s->setGroupIndex(index);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_getBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	Body *body = s->getBody();
-	return body != nullptr ? pushBody(machine, body) : lhat_nil();
+	answers[0] = body != nullptr ? pushBody(machine, body) : lhat_nil();
+	*answerCount = 1;
+	return;
 }
 
 // testPoint(x, y) against the fixture; testPoint(x, y, r, px, py) against
 // the bare shape placed at (x, y, r).
-static LhatValue lh_Shape_testPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_testPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (count >= 6)
-			return lhat_bool(s->testPoint(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4), numberAt(args, count, 5)));
-		return lhat_bool(s->testPoint(numberAt(args, count, 1), numberAt(args, count, 2)));
+		{
+			answers[0] = lhat_bool(s->testPoint(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4), numberAt(args, count, 5)));
+			*answerCount = 1;
+			return;
+		}
+		answers[0] = lhat_bool(s->testPoint(numberAt(args, count, 1), numberAt(args, count, 2)));
+		*answerCount = 1;
+		return;
 	});
 }
 
 // rayCast(x1, y1, x2, y2, maxFraction[, childIndex]) -> (hit, nx, ny, fraction)
 // rayCast(x1, y1, x2, y2, maxFraction, x, y, r[, childIndex]) -> the same, against the bare shape
-static LhatValue lh_Shape_rayCast(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_rayCast(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	float x1 = numberAt(args, count, 1), y1 = numberAt(args, count, 2);
 	float x2 = numberAt(args, count, 3), y2 = numberAt(args, count, 4);
 	float maxFraction = numberAt(args, count, 5);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float nx = 0, ny = 0, fraction = 0;
 		bool hit = false;
 		if (count >= 9)
@@ -175,59 +196,68 @@ static LhatValue lh_Shape_rayCast(LhatMachine *machine, void *context, const Lha
 			int childIndex = (int) numberAt(args, count, 6, 1) - 1;
 			hit = s->rayCast(x1, y1, x2, y2, maxFraction, childIndex, nx, ny, fraction);
 		}
-		LhatValue items[4] = {lhat_bool(hit), lhat_real(nx), lhat_real(ny), lhat_real(fraction)};
-		LhatValue out = lhat_nil();
-		lh::makeTuple(machine, items, 4, &out);
-		return out;
+		answers[0] = lhat_bool(hit);
+		answers[1] = lhat_real(nx);
+		answers[2] = lhat_real(ny);
+		answers[3] = lhat_real(fraction);
+		*answerCount = 4;
+		return;
 	});
 }
 
 // computeAABB(x, y, r[, childIndex]) -> (lx, ly, ux, uy)
-static LhatValue lh_Shape_computeAABB(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_computeAABB(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float out[4];
 		s->computeAABB(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), (int) numberAt(args, count, 4, 1) - 1, out[0], out[1], out[2], out[3]);
-		return numbers(machine, out, 4);
+		numbers(out, 4, answers, answerCount);
+		return;
 	});
 }
 
 // computeMass(density) -> (x, y, mass, inertia)
-static LhatValue lh_Shape_computeMass(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_computeMass(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float out[4];
 		s->computeMass(numberAt(args, count, 1), out[0], out[1], out[2], out[3]);
-		return numbers(machine, out, 4);
+		numbers(out, 4, answers, answerCount);
+		return;
 	});
 }
 
-static LhatValue lh_Shape_setFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	int v[3] = {(int) numberAt(args, count, 1), (int) numberAt(args, count, 2), (int) numberAt(args, count, 3)};
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		s->setFilterData(v);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_getFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		int v[3];
 		s->getFilterData(v);
-		LhatValue items[3] = {lhat_integer(v[0]), lhat_integer(v[1]), lhat_integer(v[2])};
-		LhatValue out = lhat_nil();
-		lh::makeTuple(machine, items, 3, &out);
-		return out;
+		answers[0] = lhat_integer(v[0]);
+		answers[1] = lhat_integer(v[1]);
+		answers[2] = lhat_integer(v[2]);
+		*answerCount = 3;
+		return;
 	});
 }
 
@@ -261,47 +291,52 @@ static LhatValue bitList(LhatMachine *machine, uint16 bits)
 
 // setCategory() with no bits puts the shape back in category 1, and
 // setMask() with none lets it collide with everything (wrap_Shape.cpp).
-static LhatValue lh_Shape_setCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	uint16 bits = count > 1 ? 0 : 1;
 	if (!bitsOf(machine, args, count, bits))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		s->setCategory(bits);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_setMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	uint16 bits = 0;
 	if (!bitsOf(machine, args, count, bits))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		s->setMask(bits);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_getCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() { return bitList(machine, s->getCategory()); });
+	lh::guard(machine, [&]() { answers[0] = bitList(machine, s->getCategory()); *answerCount = 1; });
 }
 
-static LhatValue lh_Shape_getMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() { return bitList(machine, s->getMask()); });
+	lh::guard(machine, [&]() { answers[0] = bitList(machine, s->getMask()); *answerCount = 1; });
 }
 
-static LhatValue lh_Shape_setUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -312,85 +347,102 @@ static LhatValue lh_Shape_setUserData(LhatMachine *machine, void *context, const
 		StrongRef<lh::Parked> parked(new lh::Parked(lh::ParkingLot::lotOf(machine), args[1]), Acquire::NORETAIN);
 		s->setUserData(parked.get());
 	}
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_Shape_getUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	lh::Parked *parked = dynamic_cast<lh::Parked *>(s->getUserData());
-	return parked != nullptr ? parked->get() : lhat_nil();
+	answers[0] = parked != nullptr ? parked->get() : lhat_nil();
+	*answerCount = 1;
+	return;
 }
 
 // getBoundingBox([childIndex]) -> (lx, ly, ux, uy)
-static LhatValue lh_Shape_getBoundingBox(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getBoundingBox(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float out[4];
 		s->getBoundingBox((int) numberAt(args, count, 1, 1) - 1, out[0], out[1], out[2], out[3]);
-		return numbers(machine, out, 4);
+		numbers(out, 4, answers, answerCount);
+		return;
 	});
 }
 
-static LhatValue lh_Shape_getMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float out[4];
 		s->getMassData(out[0], out[1], out[2], out[3]);
-		return numbers(machine, out, 4);
+		numbers(out, 4, answers, answerCount);
+		return;
 	});
 }
 
-static LhatValue lh_Shape_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		s->destroy();
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Shape_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lhat_bool(!s->isValid());
+	answers[0] = lhat_bool(!s->isValid());
+	*answerCount = 1;
+	return;
 }
 
 // --- CircleShape ---
 
-static LhatValue lh_Shape_setRadius(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setRadius(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	CircleShape *c = kindOf<CircleShape>(machine, s, Shape::SHAPE_CIRCLE, "setRadius");
 	if (c == nullptr)
-		return lhat_nil();
+		return;
 	float r = numberAt(args, count, 1);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		c->setRadius(r);
-		return lhat_nil();
+		return;
 	});
 }
 
 // getPoint() -> (x, y) of a circle; getPoint(index) -> (x, y) of a chain's vertex.
-static LhatValue lh_Shape_getPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float out[2] = {0, 0};
 		if (count >= 2)
 		{
 			ChainShape *chain = kindOf<ChainShape>(machine, s, Shape::SHAPE_CHAIN, "getPoint(index)");
 			if (chain == nullptr)
-				return lhat_nil();
+			{
+				answers[0] = lhat_nil();
+				*answerCount = 1;
+				return;
+			}
 			b2Vec2 v = chain->getPoint((int) numberAt(args, count, 1, 1) - 1);
 			out[0] = v.x;
 			out[1] = v.y;
@@ -399,24 +451,36 @@ static LhatValue lh_Shape_getPoint(LhatMachine *machine, void *context, const Lh
 		{
 			CircleShape *c = kindOf<CircleShape>(machine, s, Shape::SHAPE_CIRCLE, "getPoint()");
 			if (c == nullptr)
-				return lhat_nil();
+			{
+				answers[0] = lhat_nil();
+				*answerCount = 1;
+				return;
+			}
 			c->getPoint(out[0], out[1]);
 		}
-		return numbers(machine, out, 2);
+		numbers(out, 2, answers, answerCount);
+		return;
 	});
 }
 
-static LhatValue lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	CircleShape *c = kindOf<CircleShape>(machine, s, Shape::SHAPE_CIRCLE, "setPoint");
 	if (c == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = numberAt(args, count, 1), y = numberAt(args, count, 2);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		c->setPoint(x, y);
-		return lhat_nil();
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -424,11 +488,12 @@ static LhatValue lh_Shape_setPoint(LhatMachine *machine, void *context, const Lh
 
 // getPoints() -> t^{...:number^}: the vertices as x, y pairs, for polygon,
 // edge and chain shapes alike.
-static LhatValue lh_Shape_getPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		std::vector<float> points;
 		switch (s->getType())
 		{
@@ -455,9 +520,14 @@ static LhatValue lh_Shape_getPoints(LhatMachine *machine, void *context, const L
 			break;
 		}
 		default:
-			return lh::raise(machine, "getPoints is not a member of a circle shape.");
+			{
+				lh::raise(machine, "getPoints is not a member of a circle shape.");
+				return;
+			}
 		}
-		return numberList(machine, points);
+		answers[0] = numberList(machine, points);
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -467,71 +537,83 @@ typedef b2Vec2 (EdgeShape::*EdgeGetter)() const;
 typedef void (ChainShape::*ChainSetter)(float, float);
 typedef b2Vec2 (ChainShape::*ChainGetter)() const;
 
-static LhatValue setVertex(LhatMachine *machine, Shape *s, const LhatValue *args, size_t count, EdgeSetter edge, ChainSetter chain, const char *name)
+static void setVertex(LhatMachine *machine, Shape *s, const LhatValue *args, size_t count, EdgeSetter edge, ChainSetter chain, const char *name)
 {
 	float x = numberAt(args, count, 1), y = numberAt(args, count, 2);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (s->getType() == Shape::SHAPE_EDGE)
 			(((EdgeShape *) s)->*edge)(x, y);
 		else if (s->getType() == Shape::SHAPE_CHAIN)
 			(((ChainShape *) s)->*chain)(x, y);
 		else
-			return lh::raise(machine, std::string(name) + " is only a member of edge and chain shapes.");
-		return lhat_nil();
+			lh::raise(machine, std::string(name) + " is only a member of edge and chain shapes.");
 	});
 }
 
-static LhatValue getVertex(LhatMachine *machine, Shape *s, EdgeGetter edge, ChainGetter chain, const char *name)
+static void getVertex(LhatMachine *machine, Shape *s, EdgeGetter edge, ChainGetter chain, const char *name,
+                      LhatValue *answers, int *answerCount)
 {
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		b2Vec2 v;
 		if (s->getType() == Shape::SHAPE_EDGE)
 			v = (((EdgeShape *) s)->*edge)();
 		else if (s->getType() == Shape::SHAPE_CHAIN)
 			v = (((ChainShape *) s)->*chain)();
 		else
-			return lh::raise(machine, std::string(name) + " is only a member of edge and chain shapes.");
+		{
+			lh::raise(machine, std::string(name) + " is only a member of edge and chain shapes.");
+			return;
+		}
 		float out[2] = {v.x, v.y};
-		return numbers(machine, out, 2);
+		numbers(out, 2, answers, answerCount);
 	});
 }
 
-static LhatValue lh_Shape_setNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return setVertex(machine, s, args, count, &EdgeShape::setNextVertex, &ChainShape::setNextVertex, "setNextVertex");
+	setVertex(machine, s, args, count, &EdgeShape::setNextVertex, &ChainShape::setNextVertex, "setNextVertex");
 }
 
-static LhatValue lh_Shape_setPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_setPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return setVertex(machine, s, args, count, &EdgeShape::setPreviousVertex, &ChainShape::setPreviousVertex, "setPreviousVertex");
+	setVertex(machine, s, args, count, &EdgeShape::setPreviousVertex, &ChainShape::setPreviousVertex, "setPreviousVertex");
 }
 
-static LhatValue lh_Shape_getNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return getVertex(machine, s, &EdgeShape::getNextVertex, &ChainShape::getNextVertex, "getNextVertex");
+	getVertex(machine, s, &EdgeShape::getNextVertex, &ChainShape::getNextVertex, "getNextVertex", answers, answerCount);
 }
 
-static LhatValue lh_Shape_getPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
-	return getVertex(machine, s, &EdgeShape::getPreviousVertex, &ChainShape::getPreviousVertex, "getPreviousVertex");
+	getVertex(machine, s, &EdgeShape::getPreviousVertex, &ChainShape::getPreviousVertex, "getPreviousVertex", answers, answerCount);
 }
 
-static LhatValue lh_Shape_getVertexCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Shape_getVertexCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	ChainShape *chain = kindOf<ChainShape>(machine, s, Shape::SHAPE_CHAIN, "getVertexCount");
 	if (chain == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() { return lhat_integer(chain->getVertexCount()); });
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() { answers[0] = lhat_integer(chain->getVertexCount()); *answerCount = 1; });
 }
 
 bool lhPhysicsShape(lh::Context &ctx)

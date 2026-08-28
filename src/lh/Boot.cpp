@@ -224,42 +224,51 @@ struct BootState
 	const TypeRegistry *registry = nullptr;
 };
 
-static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
+static void lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount);
 
-static LhatValue lh_boot_handlers(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_boot_handlers(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) arguments;
 	(void) count;
-	return ((const BootState *) context)->handlers;
+	answers[0] = ((const BootState *) context)->handlers;
+	*answerCount = 1;
 }
 
 // The no-op a missing callback gets. Variadic, so it fits any of them.
-static LhatValue lh_boot_noop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_boot_noop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_nil();
+	answers[0] = lhat_nil();
+	*answerCount = 1;
 }
 
 // quit's no-op answers false: "I did not veto the quit".
-static LhatValue lh_boot_noquit(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_boot_noquit(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(false);
+	answers[0] = lhat_bool(false);
+	*answerCount = 1;
 }
 
 // One per process: a boot owns one program, and the registration context
 // has to outlive it.
 static BootState bootState;
 
-static LhatValue lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
-static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count);
+static void lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							LhatValue *answers, int *answerCount);
+static void lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount);
 
 static bool lhopen_love_boot(Context &ctx)
 {
@@ -527,17 +536,20 @@ const Variant &restartPayload()
 
 // love.boot.restartInto(path): the no-game screen restarting with a
 // dropped game, as nogame.lua returned _noGameRestartInfo.
-static LhatValue lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_boot_restartInto(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string path = lh::optString(arguments, count, 0, "");
 	auto event = Module::getInstance<love::event::Event>(Module::M_EVENT);
 	if (event == nullptr)
-		return lh::raise(machine, "love.event is not loaded");
+	{
+		lh::raise(machine, "love.event is not loaded");
+		return;
+	}
 	std::vector<Variant> args = {Variant("restart", 7), Variant(), Variant(path)};
 	StrongRef<love::event::Message> message(new love::event::Message("quit", args), Acquire::NORETAIN);
 	event->push(message);
-	return lhat_nil();
 }
 
 // The last path component, as love.path.leaf.

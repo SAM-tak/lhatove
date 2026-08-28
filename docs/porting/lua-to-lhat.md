@@ -2,7 +2,7 @@
 
 lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定事項と対応表。
 進捗は [status.md](status.md)、ゲーム作者向けの書き方は [main-lh.md](main-lh.md)。
-前提 lhat: HEAD `b3d6b5f` 以降（列挙は AGENT.md の「登録」節）。
+前提 lhat: HEAD `16caa92` 以降（列挙は AGENT.md の「登録」節）。
 
 ## 確定した方針
 
@@ -29,7 +29,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 | pcall / error / errorhandler | エラーは値（`love.Error{Misuse,IO,NotSupported}`）。C++ 例外は `lh::catchexcept` でエラー値化。fault/panic は `lhat_machine_traceback` → ネイティブエラー画面 |
 | package.loaders + PhysFS | `LhatProgramLoader` 実装（src/lh/PhysfsLoader.cpp）。PhysFS は 1 名前空間なので 1 program = 1 loader 制約と適合 |
 | `love.filesystem.load` / loadstring | `lhat_program_load_text` + `lhat_machine_adopt_script`。スクリプトからは `std.load.file/text` も可 |
-| 多値戻り (`getPosition() -> x, y`) | 型付きタプル `-> (number^, number^)`（`lhat_make_tuple`） |
+| 多値戻り (`getPosition() -> x, y`) | 型付きタプル `-> (number^, number^)`。ホスト側は machine が渡す room に `answers[0..n]` と書き `*answerCount` を立てる（8.7、lhat `16caa92`） |
 | `string.*` / `table.*` | 組込メンバ（`s.find/replace/split/…`、`t.sort^/push^/join^/…`）。`string.format` → `$""` 補間。Lua パターン → `std.regex`（実正規表現サブセット） |
 | enum 文字列（"fill"/"line"） | 当面 `string^` のまま既存 StringMap で実行時検証 |
 | LuaJIT FFI 高速化 shim（wrap_*.lua） | 廃止。ImageData = hostdata + ピクセル host value 型（フィールド直読み書き）+ C 側 `mapPixel` 一括メンバ |

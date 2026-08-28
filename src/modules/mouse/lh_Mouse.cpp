@@ -32,31 +32,22 @@ namespace mouse
 
 #define instance() (Module::getInstance<Mouse>(Module::M_MOUSE))
 
-static LhatValue lh_getPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	double x = 0.0, y = 0.0;
 	instance()->getPosition(x, y);
-	LhatValue parts[2] = {lhat_real(x), lhat_real(y)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, parts, 2, &out);
-	return out;
+	answers[0] = lhat_real(x);
+	answers[1] = lhat_real(y);
+	*answerCount = 2;
+	return;
 }
 
-static LhatValue lh_getX(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
-{
-	(void) machine;
-	(void) context;
-	(void) arguments;
-	(void) count;
-	double x = 0.0, y = 0.0;
-	instance()->getPosition(x, y);
-	return lhat_real(x);
-}
-
-static LhatValue lh_getY(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getX(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -64,19 +55,37 @@ static LhatValue lh_getY(LhatMachine *machine, void *context, const LhatValue *a
 	(void) count;
 	double x = 0.0, y = 0.0;
 	instance()->getPosition(x, y);
-	return lhat_real(y);
+	answers[0] = lhat_real(x);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getY(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
+{
+	(void) machine;
+	(void) context;
+	(void) arguments;
+	(void) count;
+	double x = 0.0, y = 0.0;
+	instance()->getPosition(x, y);
+	answers[0] = lhat_real(y);
+	*answerCount = 1;
+	return;
+}
+
+static void lh_setPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setPosition(lh::optNumber(arguments, count, 0, 0.0), lh::optNumber(arguments, count, 1, 0.0));
-	return lhat_nil();
+	return;
 }
 
 // isDown(button, ...): 1-based button numbers; true if any is down.
-static LhatValue lh_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -84,24 +93,30 @@ static LhatValue lh_isDown(LhatMachine *machine, void *context, const LhatValue 
 	buttons.reserve(count);
 	for (size_t i = 0; i < count; i++)
 		buttons.push_back((int) lh::optNumber(arguments, count, i, 0.0));
-	return lhat_bool(instance()->isDown(buttons));
+	answers[0] = lhat_bool(instance()->isDown(buttons));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setVisible(lh::optBool(arguments, count, 0, true));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_isVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->isVisible());
+	answers[0] = lhat_bool(instance()->isVisible());
+	*answerCount = 1;
+	return;
 }
 
 } // mouse

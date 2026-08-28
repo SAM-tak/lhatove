@@ -137,49 +137,69 @@ bool Context::bind(const char *name, const char *member) const
 // collector calls it once, and so may the program. The release must not
 // reach back into the lhat API (the sweep may be the caller); Object::release
 // does not.
-static LhatValue lh_object_dispose(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_object_dispose(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+							  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
-		return lhat_nil();
+		return;
 	LhatHostData *data = (LhatHostData *) lhat_as_object(arguments[0]);
 	if (data->pointer != nullptr)
 	{
 		((love::Object *) data->pointer)->release();
 		data->pointer = nullptr;
 	}
-	return lhat_nil();
 }
 
 // obj.type() -> the registered name of the wrapper's own type.
-static LhatValue lh_object_type(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_object_type(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	const LhatHostData *data = (const LhatHostData *) lhat_as_object(arguments[0]);
 	LhatValue out = lhat_nil();
 	makeString(machine, data->tag->name, &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
 }
 
 // obj.typeOf(name) -> whether the object is (or derives from) the named type.
-static LhatValue lh_object_typeOf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_object_typeOf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	const TypeRegistry *registry = (const TypeRegistry *) context;
 	if (count < 2 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
-		return lhat_bool(false);
+	{
+		answers[0] = lhat_bool(false);
+		*answerCount = 1;
+		return;
+	}
 	const char *name = stringOf(arguments[1]);
 	if (name == nullptr)
-		return lhat_bool(false);
+	{
+		answers[0] = lhat_bool(false);
+		*answerCount = 1;
+		return;
+	}
 	const LhatHostData *data = (const LhatHostData *) lhat_as_object(arguments[0]);
 	love::Type *own = registry->typeFor(data->tag);
 	love::Type *asked = love::Type::byName(name);
 	if (own == nullptr || asked == nullptr)
-		return lhat_bool(false);
-	return lhat_bool(own->isa(*asked));
+	{
+		answers[0] = lhat_bool(false);
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_bool(own->isa(*asked));
+	*answerCount = 1;
 }
 
 bool Context::objectType(const char *module, const char *name, love::Type &type) const
@@ -609,11 +629,6 @@ bool makeString(LhatMachine *machine, const std::string &text, LhatValue *out)
 	return lhat_machine_make_string(machine, text.data(), text.size(), out);
 }
 
-bool makeTuple(LhatMachine *machine, const LhatValue *values, size_t count, LhatValue *out)
-{
-	return lhat_make_tuple(machine, values, count, out);
-}
-
 const char *stringOf(LhatValue value, size_t *length)
 {
 	if (!lhat_is_object_kind(value, LHAT_OBJECT_STRING))
@@ -786,27 +801,31 @@ LhatValue raise(LhatMachine *machine, const std::string &message)
 	return lhat_nil();
 }
 
-LhatValue guard(LhatMachine *machine, const std::function<LhatValue()> &body)
+
+void guard(LhatMachine *machine, const std::function<void()> &body)
 {
 	try
 	{
-		return body();
+		body();
 	}
 	catch (const love::Exception &e)
 	{
-		return raise(machine, e.what());
+		raise(machine, e.what());
 	}
 }
 
-LhatValue catchexcept(LhatMachine *machine, const LhatErrorKind *kind, const std::function<LhatValue()> &body)
+void catchexcept(LhatMachine *machine, const LhatErrorKind *kind,
+                 const std::function<void()> &body, LhatValue *answers, int *answerCount)
 {
 	try
 	{
-		return body();
+		body();
 	}
 	catch (const love::Exception &e)
 	{
-		return fail(machine, kind, e.what());
+		// Whatever the body had written is replaced: an error is one answer.
+		answers[0] = fail(machine, kind, e.what());
+		*answerCount = 1;
 	}
 }
 

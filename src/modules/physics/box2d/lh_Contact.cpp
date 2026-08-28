@@ -42,34 +42,40 @@ static Contact *self(LhatMachine *machine, const LhatValue *args, size_t count)
 	return contact;
 }
 
-#define CONTACT_SELF() Contact *c = self(machine, args, count); if (c == nullptr) return lhat_nil()
+#define CONTACT_SELF() Contact *c = self(machine, args, count); if (c == nullptr) return
 
 #define CONTACT_NUMBER(name, expr) \
-	static LhatValue lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                              LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		CONTACT_SELF(); \
-		return lhat_real(expr); \
+		answers[0] = lhat_real(expr); \
+		*answerCount = 1; \
 	}
 
 #define CONTACT_BOOL(name, expr) \
-	static LhatValue lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                              LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		CONTACT_SELF(); \
-		return lhat_bool(expr); \
+		answers[0] = lhat_bool(expr); \
+		*answerCount = 1; \
 	}
 
 #define CONTACT_SET(name, call) \
-	static LhatValue lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_Contact_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                              LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		CONTACT_SELF(); \
 		float v = numberAt(args, count, 1); \
 		bool flag = boolAt(args, count, 1); \
 		(void) v; (void) flag; \
 		c->call; \
-		return lhat_nil(); \
 	}
 
 CONTACT_NUMBER(getFriction, c->getFriction())
@@ -85,56 +91,70 @@ CONTACT_SET(setTangentSpeed, setTangentSpeed(v))
 CONTACT_NUMBER(getTangentSpeed, c->getTangentSpeed())
 
 // getPositions() -> t^{...:number^}: the contact points as x, y pairs.
-static LhatValue lh_Contact_getPositions(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Contact_getPositions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
-	return numberList(machine, c->getPositions());
+	answers[0] = numberList(machine, c->getPositions());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Contact_getNormal(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Contact_getNormal(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
 	float out[2];
 	c->getNormal(out[0], out[1]);
-	return numbers(machine, out, 2);
+	numbers(out, 2, answers, answerCount);
+	return;
 }
 
 // getChildren() -> (childA, childB), 1-based.
-static LhatValue lh_Contact_getChildren(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Contact_getChildren(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
 	int a = 0, b = 0;
 	c->getChildren(a, b);
-	LhatValue items[2] = {lhat_integer(a + 1), lhat_integer(b + 1)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 2, &out);
-	return out;
+	answers[0] = lhat_integer(a + 1);
+	answers[1] = lhat_integer(b + 1);
+	*answerCount = 2;
+	return;
 }
 
-static LhatValue lh_Contact_getShapes(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Contact_getShapes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		Shape *a = nullptr, *b = nullptr;
 		c->getShapes(a, b);
-		LhatValue pair[2] = {pushShape(machine, a), pushShape(machine, b)};
-		LhatValue out = lhat_nil();
-		lh::makeTuple(machine, pair, 2, &out);
-		return out;
+		answers[0] = pushShape(machine, a);
+		answers[1] = pushShape(machine, b);
+		*answerCount = 2;
+		return;
 	});
 }
 
-static LhatValue lh_Contact_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Contact_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Contact *c = checkContact(machine, args, count, 0);
 	if (c == nullptr)
-		return lhat_nil();
-	return lhat_bool(!c->isValid());
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_bool(!c->isValid());
+	*answerCount = 1;
+	return;
 }
 
 bool lhPhysicsContact(lh::Context &ctx)

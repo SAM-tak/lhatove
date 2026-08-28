@@ -178,14 +178,13 @@ LhatValue pushContact(LhatMachine *machine, Contact *contact)
 	return lh::pushObject(machine, *physicsBinding.registry, contact);
 }
 
-LhatValue numbers(LhatMachine *machine, const float *values, size_t count)
+// 05 の 8.7: several answers go into the room the machine handed over, in
+// order -- what used to be one tuple value is just this now.
+void numbers(const float *values, size_t count, LhatValue *answers, int *answerCount)
 {
-	std::vector<LhatValue> items(count);
 	for (size_t i = 0; i < count; i++)
-		items[i] = lhat_real(values[i]);
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items.data(), count, &out);
-	return out;
+		answers[i] = lhat_real(values[i]);
+	*answerCount = (int) count;
 }
 
 LhatValue numberList(LhatMachine *machine, const std::vector<float> &values)
@@ -233,116 +232,157 @@ static bool bodyTypeAt(LhatMachine *machine, const LhatValue *args, size_t count
 }
 
 // Pushes (body, shape) and drops the references the factory handed over.
-static LhatValue bodyAndShape(LhatMachine *machine, Body *body, Shape *shape)
+static void bodyAndShape(LhatMachine *machine, Body *body, Shape *shape,
+                         LhatValue *answers, int *answerCount)
 {
-	LhatValue pair[2] = {pushBody(machine, body), pushShape(machine, shape)};
+	answers[0] = pushBody(machine, body);
+	answers[1] = pushShape(machine, shape);
+	*answerCount = 2;
 	body->release();
 	shape->release();
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, pair, 2, &out);
-	return out;
 }
 
 // newWorld([gx, gy[, sleep]])
-static LhatValue lh_newWorld(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newWorld(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	float gx = numberAt(args, count, 0);
 	float gy = numberAt(args, count, 1);
 	bool sleep = boolAt(args, count, 2, true);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<World> world(instance()->newWorld(gx, gy, sleep), Acquire::NORETAIN);
-		return pushWorld(machine, world.get());
+		answers[0] = pushWorld(machine, world.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newBody(world[, x, y[, type]])
-static LhatValue lh_newBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	if (world == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = numberAt(args, count, 1);
 	float y = numberAt(args, count, 2);
 	Body::Type btype = Body::BODY_STATIC;
 	if (!bodyTypeAt(machine, args, count, 3, btype))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		StrongRef<Body> body(instance()->newBody(world, x, y, btype), Acquire::NORETAIN);
-		return pushBody(machine, body.get());
+		answers[0] = pushBody(machine, body.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newCircleBody(world, type, x, y, radius) -> (Body, Shape)
-static LhatValue lh_newCircleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newCircleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	Body::Type btype = Body::BODY_STATIC;
 	if (world == nullptr || !bodyTypeAt(machine, args, count, 1, btype))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = numberAt(args, count, 2);
 	float y = numberAt(args, count, 3);
 	float radius = numberAt(args, count, 4);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		CircleShape *shape = nullptr;
 		Body *body = instance()->newCircleBody(world, btype, x, y, radius, shape);
-		return bodyAndShape(machine, body, shape);
+		bodyAndShape(machine, body, shape, answers, answerCount);
+		return;
 	});
 }
 
 // newRectangleBody(world, type, x, y, w, h[, angle]) -> (Body, Shape)
-static LhatValue lh_newRectangleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newRectangleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	Body::Type btype = Body::BODY_STATIC;
 	if (world == nullptr || !bodyTypeAt(machine, args, count, 1, btype))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = numberAt(args, count, 2);
 	float y = numberAt(args, count, 3);
 	float w = numberAt(args, count, 4);
 	float h = numberAt(args, count, 5);
 	float angle = numberAt(args, count, 6);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		PolygonShape *shape = nullptr;
 		Body *body = instance()->newRectangleBody(world, btype, x, y, w, h, angle, shape);
-		return bodyAndShape(machine, body, shape);
+		bodyAndShape(machine, body, shape, answers, answerCount);
+		return;
 	});
 }
 
 // newPolygonBody(world, type, x1, y1, x2, y2, x3, y3, ...) -> (Body, Shape)
-static LhatValue lh_newPolygonBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newPolygonBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	Body::Type btype = Body::BODY_STATIC;
 	if (world == nullptr || !bodyTypeAt(machine, args, count, 1, btype))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::vector<Vector2> coords;
 	if (!coordsOf(machine, args, count, 2, coords))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		PolygonShape *shape = nullptr;
 		Body *body = instance()->newPolygonBody(world, btype, coords.data(), (int) coords.size(), shape);
-		return bodyAndShape(machine, body, shape);
+		bodyAndShape(machine, body, shape, answers, answerCount);
+		return;
 	});
 }
 
 // newEdgeBody(world, type, x1, y1, x2, y2[, prevx, prevy, nextx, nexty]) -> (Body, Shape)
-static LhatValue lh_newEdgeBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newEdgeBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	Body::Type btype = Body::BODY_STATIC;
 	if (world == nullptr || !bodyTypeAt(machine, args, count, 1, btype))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x1 = numberAt(args, count, 2);
 	float y1 = numberAt(args, count, 3);
 	float x2 = numberAt(args, count, 4);
 	float y2 = numberAt(args, count, 5);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		EdgeShape *shape = nullptr;
 		Body *body = nullptr;
 		if (count >= 10)
@@ -355,36 +395,52 @@ static LhatValue lh_newEdgeBody(LhatMachine *machine, void *context, const LhatV
 		}
 		else
 			body = instance()->newEdgeBody(world, btype, x1, y1, x2, y2, shape);
-		return bodyAndShape(machine, body, shape);
+		bodyAndShape(machine, body, shape, answers, answerCount);
+		return;
 	});
 }
 
 // newChainBody(world, type, loop, x1, y1, x2, y2, ...) -> (Body, Shape)
-static LhatValue lh_newChainBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newChainBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
 	Body::Type btype = Body::BODY_STATIC;
 	if (world == nullptr || !bodyTypeAt(machine, args, count, 1, btype))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	bool loop = boolAt(args, count, 2);
 	std::vector<Vector2> coords;
 	if (!coordsOf(machine, args, count, 3, coords) || coords.empty())
-		return coords.empty() ? lh::raise(machine, "A chain needs at least one vertex.") : lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = coords.empty() ? lh::raise(machine, "A chain needs at least one vertex.") : lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		ChainShape *shape = nullptr;
 		Body *body = instance()->newChainBody(world, btype, loop, coords.data(), (int) coords.size(), shape);
-		return bodyAndShape(machine, body, shape);
+		bodyAndShape(machine, body, shape, answers, answerCount);
+		return;
 	});
 }
 
 // newCircleShape(body, radius) / newCircleShape(body, x, y, radius)
-static LhatValue lh_newCircleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newCircleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = 0, y = 0, radius = 0;
 	if (count >= 4)
 	{
@@ -394,19 +450,26 @@ static LhatValue lh_newCircleShape(LhatMachine *machine, void *context, const Lh
 	}
 	else
 		radius = numberAt(args, count, 1);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<CircleShape> shape(instance()->newCircleShape(body, x, y, radius), Acquire::NORETAIN);
-		return pushShape(machine, shape.get());
+		answers[0] = pushShape(machine, shape.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newRectangleShape(body, w, h) / newRectangleShape(body, x, y, w, h[, angle])
-static LhatValue lh_newRectangleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newRectangleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = 0, y = 0, w = 0, h = 0, angle = 0;
 	if (count >= 5)
 	{
@@ -421,24 +484,31 @@ static LhatValue lh_newRectangleShape(LhatMachine *machine, void *context, const
 		w = numberAt(args, count, 1);
 		h = numberAt(args, count, 2);
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<PolygonShape> shape(instance()->newRectangleShape(body, x, y, w, h, angle), Acquire::NORETAIN);
-		return pushShape(machine, shape.get());
+		answers[0] = pushShape(machine, shape.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newEdgeShape(body, x1, y1, x2, y2[, prevx, prevy, nextx, nexty])
-static LhatValue lh_newEdgeShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newEdgeShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x1 = numberAt(args, count, 1);
 	float y1 = numberAt(args, count, 2);
 	float x2 = numberAt(args, count, 3);
 	float y2 = numberAt(args, count, 4);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		EdgeShape *made = nullptr;
 		if (count >= 9)
 		{
@@ -451,42 +521,69 @@ static LhatValue lh_newEdgeShape(LhatMachine *machine, void *context, const Lhat
 		else
 			made = instance()->newEdgeShape(body, x1, y1, x2, y2);
 		StrongRef<EdgeShape> shape(made, Acquire::NORETAIN);
-		return pushShape(machine, shape.get());
+		answers[0] = pushShape(machine, shape.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newPolygonShape(body, x1, y1, x2, y2, x3, y3, ...)
-static LhatValue lh_newPolygonShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newPolygonShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::vector<Vector2> coords;
 	if (!coordsOf(machine, args, count, 1, coords))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		StrongRef<PolygonShape> shape(instance()->newPolygonShape(body, coords.data(), (int) coords.size()), Acquire::NORETAIN);
-		return pushShape(machine, shape.get());
+		answers[0] = pushShape(machine, shape.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
 // newChainShape(body, loop, x1, y1, x2, y2, ...)
-static LhatValue lh_newChainShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newChainShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	bool loop = boolAt(args, count, 1);
 	std::vector<Vector2> coords;
 	if (!coordsOf(machine, args, count, 2, coords))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	if (coords.empty())
-		return lh::raise(machine, "A chain needs at least one vertex.");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "A chain needs at least one vertex.");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		StrongRef<ChainShape> shape(instance()->newChainShape(body, loop, coords.data(), (int) coords.size()), Acquire::NORETAIN);
-		return pushShape(machine, shape.get());
+		answers[0] = pushShape(machine, shape.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -499,36 +596,44 @@ static bool twoBodies(LhatMachine *machine, const LhatValue *args, size_t count,
 }
 
 template <typename T>
-static LhatValue pushNewJoint(LhatMachine *machine, const std::function<T *()> &make)
+static void pushNewJoint(LhatMachine *machine, const std::function<T *()> &make,
+                         LhatValue *answers, int *answerCount)
 {
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<T> joint(make(), Acquire::NORETAIN);
-		return pushJoint(machine, joint.get());
+		answers[0] = pushJoint(machine, joint.get());
+		*answerCount = 1;
 	});
 }
 
 // newDistanceJoint(b1, b2, x1, y1, x2, y2[, collideConnected])
-static LhatValue lh_newDistanceJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newDistanceJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	float x1 = numberAt(args, count, 2), y1 = numberAt(args, count, 3);
 	float x2 = numberAt(args, count, 4), y2 = numberAt(args, count, 5);
 	bool collide = boolAt(args, count, 6);
-	return pushNewJoint<DistanceJoint>(machine, [&]() { return instance()->newDistanceJoint(b1, b2, x1, y1, x2, y2, collide); });
+	pushNewJoint<DistanceJoint>(machine, [&]() { return instance()->newDistanceJoint(b1, b2, x1, y1, x2, y2, collide); }, answers, answerCount);
 }
 
 // newMouseJoint(body, x, y)
-static LhatValue lh_newMouseJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newMouseJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
 	if (body == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float x = numberAt(args, count, 1), y = numberAt(args, count, 2);
-	return pushNewJoint<MouseJoint>(machine, [&]() { return instance()->newMouseJoint(body, x, y); });
+	pushNewJoint<MouseJoint>(machine, [&]() { return instance()->newMouseJoint(body, x, y); }, answers, answerCount);
 }
 
 // The anchor arguments the revolute/weld/friction joints share:
@@ -563,42 +668,45 @@ static Anchors anchorsOf(const LhatValue *args, size_t count)
 	return a;
 }
 
-static LhatValue lh_newRevoluteJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newRevoluteJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	Anchors a = anchorsOf(args, count);
-	return pushNewJoint<RevoluteJoint>(machine, [&]() {
+	pushNewJoint<RevoluteJoint>(machine, [&]() {
 		if (a.hasReferenceAngle)
 			return instance()->newRevoluteJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide, a.referenceAngle);
 		return instance()->newRevoluteJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide);
-	});
+	}, answers, answerCount);
 }
 
-static LhatValue lh_newWeldJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newWeldJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	Anchors a = anchorsOf(args, count);
-	return pushNewJoint<WeldJoint>(machine, [&]() {
+	pushNewJoint<WeldJoint>(machine, [&]() {
 		if (a.hasReferenceAngle)
 			return instance()->newWeldJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide, a.referenceAngle);
 		return instance()->newWeldJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide);
-	});
+	}, answers, answerCount);
 }
 
-static LhatValue lh_newFrictionJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newFrictionJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	Anchors a = anchorsOf(args, count);
-	return pushNewJoint<FrictionJoint>(machine, [&]() { return instance()->newFrictionJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide); });
+	pushNewJoint<FrictionJoint>(machine, [&]() { return instance()->newFrictionJoint(b1, b2, a.xA, a.yA, a.xB, a.yB, a.collide); }, answers, answerCount);
 }
 
 // (b1, b2, x, y, ax, ay[, collide]) or (b1, b2, x1, y1, x2, y2, ax, ay[, collide[, referenceAngle]])
@@ -634,120 +742,140 @@ static AxisAnchors axisAnchorsOf(const LhatValue *args, size_t count)
 	return a;
 }
 
-static LhatValue lh_newPrismaticJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newPrismaticJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	AxisAnchors a = axisAnchorsOf(args, count);
 	const Anchors &n = a.anchors;
-	return pushNewJoint<PrismaticJoint>(machine, [&]() {
+	pushNewJoint<PrismaticJoint>(machine, [&]() {
 		if (n.hasReferenceAngle)
 			return instance()->newPrismaticJoint(b1, b2, n.xA, n.yA, n.xB, n.yB, a.ax, a.ay, n.collide, n.referenceAngle);
 		return instance()->newPrismaticJoint(b1, b2, n.xA, n.yA, n.xB, n.yB, a.ax, a.ay, n.collide);
-	});
+	}, answers, answerCount);
 }
 
-static LhatValue lh_newWheelJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newWheelJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	AxisAnchors a = axisAnchorsOf(args, count);
 	const Anchors &n = a.anchors;
-	return pushNewJoint<WheelJoint>(machine, [&]() { return instance()->newWheelJoint(b1, b2, n.xA, n.yA, n.xB, n.yB, a.ax, a.ay, n.collide); });
+	pushNewJoint<WheelJoint>(machine, [&]() { return instance()->newWheelJoint(b1, b2, n.xA, n.yA, n.xB, n.yB, a.ax, a.ay, n.collide); }, answers, answerCount);
 }
 
 // newPulleyJoint(b1, b2, gx1, gy1, gx2, gy2, x1, y1, x2, y2, ratio[, collide])
-static LhatValue lh_newPulleyJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newPulleyJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	b2Vec2 g1(numberAt(args, count, 2), numberAt(args, count, 3));
 	b2Vec2 g2(numberAt(args, count, 4), numberAt(args, count, 5));
 	b2Vec2 a1(numberAt(args, count, 6), numberAt(args, count, 7));
 	b2Vec2 a2(numberAt(args, count, 8), numberAt(args, count, 9));
 	float ratio = numberAt(args, count, 10, 1.0f);
 	bool collide = boolAt(args, count, 11, true);
-	return pushNewJoint<PulleyJoint>(machine, [&]() { return instance()->newPulleyJoint(b1, b2, g1, g2, a1, a2, ratio, collide); });
+	pushNewJoint<PulleyJoint>(machine, [&]() { return instance()->newPulleyJoint(b1, b2, g1, g2, a1, a2, ratio, collide); }, answers, answerCount);
 }
 
 // newGearJoint(j1, j2[, ratio[, collide]])
-static LhatValue lh_newGearJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newGearJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joint *j1 = checkJoint(machine, args, count, 0);
 	Joint *j2 = j1 != nullptr ? checkJoint(machine, args, count, 1) : nullptr;
 	if (j2 == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	float ratio = numberAt(args, count, 2, 1.0f);
 	bool collide = boolAt(args, count, 3);
-	return pushNewJoint<GearJoint>(machine, [&]() { return instance()->newGearJoint(j1, j2, ratio, collide); });
+	pushNewJoint<GearJoint>(machine, [&]() { return instance()->newGearJoint(j1, j2, ratio, collide); }, answers, answerCount);
 }
 
 // newRopeJoint(b1, b2, x1, y1, x2, y2, maxLength[, collide])
-static LhatValue lh_newRopeJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newRopeJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
+		return;
 	float x1 = numberAt(args, count, 2), y1 = numberAt(args, count, 3);
 	float x2 = numberAt(args, count, 4), y2 = numberAt(args, count, 5);
 	float maxLength = numberAt(args, count, 6);
 	bool collide = boolAt(args, count, 7);
-	return pushNewJoint<RopeJoint>(machine, [&]() { return instance()->newRopeJoint(b1, b2, x1, y1, x2, y2, maxLength, collide); });
+	pushNewJoint<RopeJoint>(machine, [&]() { return instance()->newRopeJoint(b1, b2, x1, y1, x2, y2, maxLength, collide); }, answers, answerCount);
 }
 
 // newMotorJoint(b1, b2[, correctionFactor[, collide]])
-static LhatValue lh_newMotorJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newMotorJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
 	if (!twoBodies(machine, args, count, b1, b2))
-		return lhat_nil();
-	return pushNewJoint<MotorJoint>(machine, [&]() {
+		return;
+	pushNewJoint<MotorJoint>(machine, [&]() {
 		if (count >= 3)
 			return instance()->newMotorJoint(b1, b2, numberAt(args, count, 2), boolAt(args, count, 3));
 		return instance()->newMotorJoint(b1, b2);
-	});
+	}, answers, answerCount);
 }
 
 // getDistance(shapeA, shapeB) -> (distance, x1, y1, x2, y2)
-static LhatValue lh_getDistance(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getDistance(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Shape *a = checkShape(machine, args, count, 0);
 	Shape *b = a != nullptr ? checkShape(machine, args, count, 1) : nullptr;
 	if (b == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		float out[5];
 		out[0] = Physics::getDistance(a, b, out[1], out[2], out[3], out[4]);
-		return numbers(machine, out, 5);
+		numbers(out, 5, answers, answerCount);
+		return;
 	});
 }
 
-static LhatValue lh_getMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) args;
 	(void) count;
-	return lhat_real(Physics::getMeter());
+	answers[0] = lhat_real(Physics::getMeter());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	float meter = numberAt(args, count, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		Physics::setMeter(meter);
-		return lhat_nil();
+		return;
 	});
 }
 
@@ -755,50 +883,55 @@ static LhatValue lh_setMeter(LhatMachine *machine, void *context, const LhatValu
 // the ground body standing in when body2 is not given.
 typedef void (*Conversion)(float &, float &, float, float, b2Body *, b2Body *);
 
-static LhatValue convert(LhatMachine *machine, const LhatValue *args, size_t count, Conversion conversion)
+static void convert(LhatMachine *machine, const LhatValue *args, size_t count, Conversion conversion,
+                    LhatValue *answers, int *answerCount)
 {
 	float a = numberAt(args, count, 0);
 	float b = numberAt(args, count, 1);
 	Body *body1 = checkBody(machine, args, count, 2);
 	if (body1 == nullptr)
-		return lhat_nil();
+		return;
 	b2Body *other = nullptr;
 	if (count >= 4)
 	{
 		Body *body2 = checkBody(machine, args, count, 3);
 		if (body2 == nullptr)
-			return lhat_nil();
+			return;
 		other = body2->body;
 	}
 	else
 		other = body1->getWorld()->getGroundBody();
 	float out[2];
 	conversion(out[0], out[1], a, b, body1->body, other);
-	return numbers(machine, out, 2);
+	numbers(out, 2, answers, answerCount);
 }
 
-static LhatValue lh_computeLinearStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_computeLinearStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return convert(machine, args, count, Physics::computeLinearStiffness);
+	convert(machine, args, count, Physics::computeLinearStiffness, answers, answerCount);
 }
 
-static LhatValue lh_computeLinearFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_computeLinearFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return convert(machine, args, count, Physics::computeLinearFrequency);
+	convert(machine, args, count, Physics::computeLinearFrequency, answers, answerCount);
 }
 
-static LhatValue lh_computeAngularStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_computeAngularStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return convert(machine, args, count, Physics::computeAngularStiffness);
+	convert(machine, args, count, Physics::computeAngularStiffness, answers, answerCount);
 }
 
-static LhatValue lh_computeAngularFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_computeAngularFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return convert(machine, args, count, Physics::computeAngularFrequency);
+	convert(machine, args, count, Physics::computeAngularFrequency, answers, answerCount);
 }
 
 } // box2d

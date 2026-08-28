@@ -64,7 +64,8 @@ bool readWindowSettings(LhatMachine *machine, LhatValue table, WindowSettings &s
 	return true;
 }
 
-static LhatValue lh_setMode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setMode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	int w = (int) lh::optNumber(arguments, count, 0, 800);
@@ -72,13 +73,19 @@ static LhatValue lh_setMode(LhatMachine *machine, void *context, const LhatValue
 	WindowSettings settings;
 	std::string error;
 	if (count > 2 && !readWindowSettings(machine, arguments[2], settings, error))
-		return lh::raise(machine, error);
-	return lh::guard(machine, [&]() {
-		return lhat_bool(instance()->setWindow(w, h, &settings));
+	{
+		lh::raise(machine, error);
+		return;
+	}
+	lh::guard(machine, [&]() {
+		answers[0] = lhat_bool(instance()->setWindow(w, h, &settings));
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_getMode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getMode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -86,110 +93,137 @@ static LhatValue lh_getMode(LhatMachine *machine, void *context, const LhatValue
 	int w = 0, h = 0;
 	WindowSettings settings;
 	instance()->getWindow(w, h, settings);
-	LhatValue parts[2] = {lhat_integer(w), lhat_integer(h)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, parts, 2, &out);
-	return out;
+	answers[0] = lhat_integer(w);
+	answers[1] = lhat_integer(h);
+	*answerCount = 2;
+	return;
 }
 
-static LhatValue lh_setTitle(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setTitle(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setWindowTitle(lh::optString(arguments, count, 0, ""));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getTitle(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getTitle(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getWindowTitle(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_isOpen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isOpen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->isOpen());
+	answers[0] = lhat_bool(instance()->isOpen());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_close(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_close(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->close();
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_setFullscreen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setFullscreen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	bool fullscreen = lh::optBool(arguments, count, 0, false);
-	return lh::guard(machine, [&]() {
-		return lhat_bool(instance()->setFullscreen(fullscreen));
+	lh::guard(machine, [&]() {
+		answers[0] = lhat_bool(instance()->setFullscreen(fullscreen));
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(instance()->getDPIScale());
+	answers[0] = lhat_real(instance()->getDPIScale());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_hasFocus(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hasFocus(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->hasFocus());
+	answers[0] = lhat_bool(instance()->hasFocus());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_hasMouseFocus(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hasMouseFocus(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->hasMouseFocus());
+	answers[0] = lhat_bool(instance()->hasMouseFocus());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_isVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isVisible(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->isVisible());
+	answers[0] = lhat_bool(instance()->isVisible());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setVSync(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setVSync(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setVSync((int) lh::optNumber(arguments, count, 0, 1));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getVSync(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getVSync(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_integer(instance()->getVSync());
+	answers[0] = lhat_integer(instance()->getVSync());
+	*answerCount = 1;
+	return;
 }
 
 } // window

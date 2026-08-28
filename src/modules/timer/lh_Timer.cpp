@@ -30,57 +30,73 @@ namespace timer
 
 #define instance() (Module::getInstance<Timer>(Module::M_TIMER))
 
-static LhatValue lh_step(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_step(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(instance()->step());
+	answers[0] = lhat_real(instance()->step());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getDelta(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getDelta(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(instance()->getDelta());
+	answers[0] = lhat_real(instance()->getDelta());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getFPS(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getFPS(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_integer(instance()->getFPS());
+	answers[0] = lhat_integer(instance()->getFPS());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getAverageDelta(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getAverageDelta(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(instance()->getAverageDelta());
+	answers[0] = lhat_real(instance()->getAverageDelta());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_sleep(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_sleep(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->sleep(lh::optNumber(arguments, count, 0, 0.0));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getTime(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getTime(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_real(Timer::getTime());
+	answers[0] = lhat_real(Timer::getTime());
+	*answerCount = 1;
+	return;
 }
 
 } // timer

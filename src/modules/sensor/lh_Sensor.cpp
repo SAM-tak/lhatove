@@ -41,51 +41,68 @@ static bool sensorOf(LhatMachine *machine, const LhatValue *arguments, size_t co
 	return true;
 }
 
-static LhatValue lh_hasSensor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hasSensor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;
 	if (!sensorOf(machine, arguments, count, type))
-		return lhat_nil();
-	return lhat_bool(instance()->hasSensor(type));
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_bool(instance()->hasSensor(type));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_isEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;
 	if (!sensorOf(machine, arguments, count, type))
-		return lhat_nil();
-	return lhat_bool(instance()->isEnabled(type));
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lhat_bool(instance()->isEnabled(type));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;
 	if (!sensorOf(machine, arguments, count, type))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		instance()->setEnabled(type, lh::optBool(arguments, count, 1, false));
-		return lhat_nil();
+		return;
 	});
 }
 
 // getData(type) -> (x, y, z)
-static LhatValue lh_getData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;
 	if (!sensorOf(machine, arguments, count, type))
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::guard(machine, [&]() {
 		std::vector<float> data = instance()->getData(type);
-		LhatValue parts[3] = {lhat_real(0), lhat_real(0), lhat_real(0)};
-		for (size_t i = 0; i < data.size() && i < 3; i++)
-			parts[i] = lhat_real(data[i]);
-		LhatValue out = lhat_nil();
-		lh::makeTuple(machine, parts, 3, &out);
-		return out;
+		for (size_t i = 0; i < 3; i++)
+			answers[i] = lhat_real(i < data.size() ? data[i] : 0.0f);
+		*answerCount = 3;
 	});
 }
 

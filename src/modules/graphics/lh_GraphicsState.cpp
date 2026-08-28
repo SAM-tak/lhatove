@@ -53,7 +53,8 @@ static LhatValue stringValue(LhatMachine *machine, const char *text)
 // newCanvas([w, h[, settings]]): a 2D render-target texture at the screen's
 // pixel density. `settings` may carry msaa, format, mipmaps ("none" /
 // "auto" / "manual"), readable and dpiscale.
-static LhatValue lh_newCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture::Settings s;
@@ -68,18 +69,26 @@ static LhatValue lh_newCanvas(LhatMachine *machine, void *context, const LhatVal
 		s.msaa = (int) lh::fieldNumber(machine, settings, "msaa", 1);
 		std::string format = lh::fieldString(machine, settings, "format", "");
 		if (!format.empty() && !getConstant(format.c_str(), s.format))
-			return lh::raise(machine, "Invalid pixel format: " + format);
+		{
+			lh::raise(machine, "Invalid pixel format: " + format);
+			return;
+		}
 		std::string mipmaps = lh::fieldString(machine, settings, "mipmaps", "");
 		if (!mipmaps.empty() && !Texture::getConstant(mipmaps.c_str(), s.mipmaps))
-			return lh::raise(machine, "Invalid mipmap mode: " + mipmaps);
+		{
+			lh::raise(machine, "Invalid mipmap mode: " + mipmaps);
+			return;
+		}
 		if (lh::fieldIs(machine, settings, "readable", LHAT_VALUE_BOOL))
 			s.readable.set(lh::fieldBool(machine, settings, "readable", true));
 		s.dpiScale = (float) lh::fieldNumber(machine, settings, "dpiscale", s.dpiScale);
 	}
 
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<Texture> texture(instance()->newTexture(s), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, texture.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, texture.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -87,15 +96,17 @@ static LhatValue lh_newCanvas(LhatMachine *machine, void *context, const LhatVal
 // targets, then two optional booleans asking for temporary depth and
 // stencil buffers. One variadic arm, since a list-of-Texture arm is not
 // told apart from the Texture one at registration.
-static LhatValue lh_setCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count == 0)
 	{
-		return lh::guard(machine, [&]() {
+		lh::guard(machine, [&]() {
 			instance()->setRenderTarget();
-			return lhat_nil();
+			return;
 		});
+		return;
 	}
 
 	Graphics::RenderTargets targets;
@@ -104,57 +115,74 @@ static LhatValue lh_setCanvas(LhatMachine *machine, void *context, const LhatVal
 	{
 		Texture *texture = checkTexture(machine, args, count, at);
 		if (texture == nullptr)
-			return lhat_nil();
+			return;
 		targets.colors.emplace_back(texture, 0);
 	}
 	if (targets.colors.empty())
-		return lh::raise(machine, "setCanvas needs at least one Texture");
+	{
+		lh::raise(machine, "setCanvas needs at least one Texture");
+		return;
+	}
 	if (lh::optBool(args, count, at, false))
 		targets.temporaryRTFlags |= Graphics::TEMPORARY_RT_DEPTH;
 	if (lh::optBool(args, count, at + 1, false))
 		targets.temporaryRTFlags |= Graphics::TEMPORARY_RT_STENCIL;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->setRenderTargets(targets);
-		return lhat_nil();
+		return;
 	});
 }
 
 // getCanvas() -> the first color target, nil^ when drawing to the screen.
-static LhatValue lh_getCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	Graphics::RenderTargets targets = instance()->getRenderTargets();
 	if (targets.colors.empty() || targets.colors[0].texture == nullptr)
-		return lhat_nil();
-	return lh::pushObject(machine, *binding.registry, targets.colors[0].texture);
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = lh::pushObject(machine, *binding.registry, targets.colors[0].texture);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count == 0)
 	{
 		instance()->setShader();
-		return lhat_nil();
+		return;
 	}
 	Shader *shader = lh::checkObject<Shader>(args[0], *binding.registry);
 	if (shader == nullptr)
-		return lh::raise(machine, "Expected a Shader");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Expected a Shader");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		instance()->setShader(shader);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_getShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	Shader *shader = instance()->getShader();
-	return shader != nullptr ? lh::pushObject(machine, *binding.registry, shader) : lhat_nil();
+	answers[0] = shader != nullptr ? lh::pushObject(machine, *binding.registry, shader) : lhat_nil();
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,27 +190,35 @@ static LhatValue lh_getShader(LhatMachine *machine, void *context, const LhatVal
 // ---------------------------------------------------------------------------
 
 // setBlendMode(mode[, alphamode])
-static LhatValue lh_setBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string modestr = lh::optString(args, count, 0, "alpha");
 	BlendMode mode;
 	if (!getConstant(modestr.c_str(), mode))
-		return lh::raise(machine, "Invalid blend mode: " + modestr);
+	{
+		lh::raise(machine, "Invalid blend mode: " + modestr);
+		return;
+	}
 	BlendAlpha alpha = BLENDALPHA_MULTIPLY;
 	if (count >= 2)
 	{
 		std::string alphastr = lh::optString(args, count, 1, "alphamultiply");
 		if (!getConstant(alphastr.c_str(), alpha))
-			return lh::raise(machine, "Invalid blend alpha mode: " + alphastr);
+		{
+			lh::raise(machine, "Invalid blend alpha mode: " + alphastr);
+			return;
+		}
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->setBlendMode(mode, alpha);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_getBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -193,44 +229,53 @@ static LhatValue lh_getBlendMode(LhatMachine *machine, void *context, const Lhat
 	const char *alphastr = "alphamultiply";
 	getConstant(mode, modestr);
 	getConstant(alpha, alphastr);
-	LhatValue items[2] = {stringValue(machine, modestr), stringValue(machine, alphastr)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 2, &out);
-	return out;
+	answers[0] = stringValue(machine, modestr);
+	answers[1] = stringValue(machine, alphastr);
+	*answerCount = 2;
+	return;
 }
 
 // setScissor(x, y, w, h) / setScissor() to disable.
-static LhatValue lh_setScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (count == 0)
 			instance()->setScissor();
 		else
 		{
 			FRect rect = {(float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0), (float) lh::optNumber(args, count, 3, 0)};
 			if (rect.w < 0 || rect.h < 0)
-				return lh::raise(machine, "Can't set scissor with negative width and/or height.");
+			{
+				lh::raise(machine, "Can't set scissor with negative width and/or height.");
+				return;
+			}
 			instance()->setScissor(rect);
 		}
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_intersectScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_intersectScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	FRect rect = {(float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0), (float) lh::optNumber(args, count, 3, 0)};
 	if (rect.w < 0 || rect.h < 0)
-		return lh::raise(machine, "Can't set scissor with negative width and/or height.");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Can't set scissor with negative width and/or height.");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		instance()->intersectScissor(rect);
-		return lhat_nil();
+		return;
 	});
 }
 
 // getScissor() -> (x, y, w, h), all zero when none is set.
-static LhatValue lh_getScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -241,29 +286,35 @@ static LhatValue lh_getScissor(LhatMachine *machine, void *context, const LhatVa
 	if (!instance()->getScissor(rect))
 		rect = {0, 0, 0, 0};
 	float values[4] = {rect.x, rect.y, rect.w, rect.h};
-	return numberTuple(machine, values, 4);
+	numberTuple(values, 4, answers, answerCount);
+	return;
 }
 
 // setStencilMode(mode[, value]) / setStencilMode() to disable.
-static LhatValue lh_setStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (count == 0)
 		{
 			instance()->setStencilMode();
-			return lhat_nil();
+			return;
 		}
 		std::string modestr = lh::optString(args, count, 0, "off");
 		StencilMode mode;
 		if (!getConstant(modestr.c_str(), mode))
-			return lh::raise(machine, "Invalid stencil mode: " + modestr);
+		{
+			lh::raise(machine, "Invalid stencil mode: " + modestr);
+			return;
+		}
 		instance()->setStencilMode(mode, (int) lh::optNumber(args, count, 1, 1));
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_getStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -272,14 +323,15 @@ static LhatValue lh_getStencilMode(LhatMachine *machine, void *context, const Lh
 	StencilMode mode = instance()->getStencilMode(value);
 	const char *modestr = "off";
 	getConstant(mode, modestr);
-	LhatValue items[2] = {stringValue(machine, modestr), lhat_integer(value)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 2, &out);
-	return out;
+	answers[0] = stringValue(machine, modestr);
+	answers[1] = lhat_integer(value);
+	*answerCount = 2;
+	return;
 }
 
 // setColorMask(r, g, b, a) / setColorMask() for all.
-static LhatValue lh_setColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	ColorChannelMask mask;
@@ -290,22 +342,25 @@ static LhatValue lh_setColorMask(LhatMachine *machine, void *context, const Lhat
 		mask.b = lh::optBool(args, count, 2, true);
 		mask.a = lh::optBool(args, count, 3, true);
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->setColorMask(mask);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_getColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	ColorChannelMask mask = instance()->getColorMask();
-	LhatValue items[4] = {lhat_bool(mask.r), lhat_bool(mask.g), lhat_bool(mask.b), lhat_bool(mask.a)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 4, &out);
-	return out;
+	answers[0] = lhat_bool(mask.r);
+	answers[1] = lhat_bool(mask.g);
+	answers[2] = lhat_bool(mask.b);
+	answers[3] = lhat_bool(mask.a);
+	*answerCount = 4;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,22 +368,30 @@ static LhatValue lh_getColorMask(LhatMachine *machine, void *context, const Lhat
 // ---------------------------------------------------------------------------
 
 // setDefaultFilter(min[, mag[, anisotropy]])
-static LhatValue lh_setDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SamplerState s = instance()->getDefaultSamplerState();
 	std::string minstr = lh::optString(args, count, 0, "linear");
 	std::string magstr = lh::optString(args, count, 1, minstr);
 	if (!SamplerState::getConstant(minstr.c_str(), s.minFilter))
-		return lh::raise(machine, "Invalid filter mode: " + minstr);
+	{
+		lh::raise(machine, "Invalid filter mode: " + minstr);
+		return;
+	}
 	if (!SamplerState::getConstant(magstr.c_str(), s.magFilter))
-		return lh::raise(machine, "Invalid filter mode: " + magstr);
+	{
+		lh::raise(machine, "Invalid filter mode: " + magstr);
+		return;
+	}
 	s.maxAnisotropy = (uint8) std::min(std::max(1.0, lh::optNumber(args, count, 2, 1.0)), (double) LOVE_UINT8_MAX);
 	instance()->setDefaultSamplerState(s);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -338,88 +401,111 @@ static LhatValue lh_getDefaultFilter(LhatMachine *machine, void *context, const 
 	const char *magstr = "linear";
 	SamplerState::getConstant(s.minFilter, minstr);
 	SamplerState::getConstant(s.magFilter, magstr);
-	LhatValue items[3] = {stringValue(machine, minstr), stringValue(machine, magstr), lhat_integer(s.maxAnisotropy)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 3, &out);
-	return out;
+	answers[0] = stringValue(machine, minstr);
+	answers[1] = stringValue(machine, magstr);
+	answers[2] = lhat_integer(s.maxAnisotropy);
+	*answerCount = 3;
+	return;
 }
 
-static LhatValue lh_setLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "smooth");
 	Graphics::LineStyle style;
 	if (!Graphics::getConstant(name.c_str(), style))
-		return lh::raise(machine, "Invalid line style: " + name);
+	{
+		lh::raise(machine, "Invalid line style: " + name);
+		return;
+	}
 	instance()->setLineStyle(style);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	const char *name = "smooth";
 	Graphics::getConstant(instance()->getLineStyle(), name);
-	return stringValue(machine, name);
+	answers[0] = stringValue(machine, name);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "miter");
 	Graphics::LineJoin join;
 	if (!Graphics::getConstant(name.c_str(), join))
-		return lh::raise(machine, "Invalid line join: " + name);
+	{
+		lh::raise(machine, "Invalid line join: " + name);
+		return;
+	}
 	instance()->setLineJoin(join);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_getLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	const char *name = "miter";
 	Graphics::getConstant(instance()->getLineJoin(), name);
-	return stringValue(machine, name);
+	answers[0] = stringValue(machine, name);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_setWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	instance()->setWireframe(lh::optBool(args, count, 0, false));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_isWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_isWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	(void) args;
 	(void) count;
-	return lhat_bool(instance()->isWireframe());
+	answers[0] = lhat_bool(instance()->isWireframe());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getPointSize(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getPointSize(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	(void) args;
 	(void) count;
-	return lhat_real(instance()->getPointSize());
+	answers[0] = lhat_real(instance()->getPointSize());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_reset(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_reset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->reset();
-		return lhat_nil();
+		return;
 	});
 }
 
@@ -427,12 +513,13 @@ static LhatValue lh_reset(LhatMachine *machine, void *context, const LhatValue *
 // Transforms
 // ---------------------------------------------------------------------------
 
-static LhatValue lh_shear(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_shear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	instance()->shear((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
-	return lhat_nil();
+	return;
 }
 
 static love::math::Transform *checkTransform(LhatMachine *machine, const LhatValue *args, size_t count, size_t index)
@@ -443,55 +530,64 @@ static love::math::Transform *checkTransform(LhatMachine *machine, const LhatVal
 	return transform;
 }
 
-static LhatValue lh_applyTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_applyTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto *transform = checkTransform(machine, args, count, 0);
 	if (transform == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		instance()->applyTransform(transform->getMatrix());
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_replaceTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_replaceTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto *transform = checkTransform(machine, args, count, 0);
 	if (transform == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		instance()->replaceTransform(transform->getMatrix());
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_transformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_transformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Vector2 p((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
 	p = instance()->transformPoint(p);
 	float values[2] = {p.x, p.y};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_inverseTransformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_inverseTransformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Vector2 p((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
 	p = instance()->inverseTransformPoint(p);
 	float values[2] = {p.x, p.y};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_getStackDepth(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getStackDepth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	(void) args;
 	(void) count;
-	return lhat_integer((int64_t) instance()->getStackDepth());
+	answers[0] = lhat_integer((int64_t) instance()->getStackDepth());
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -499,48 +595,53 @@ static LhatValue lh_getStackDepth(LhatMachine *machine, void *context, const Lha
 // ---------------------------------------------------------------------------
 
 // ellipse(mode, x, y, a, b[, segments])
-static LhatValue lh_ellipse(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_ellipse(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
 	if (count < 1 || !drawModeOf(machine, args[0], mode))
-		return lhat_nil();
+		return;
 	float x = (float) lh::optNumber(args, count, 1, 0), y = (float) lh::optNumber(args, count, 2, 0);
 	float a = (float) lh::optNumber(args, count, 3, 0), b = (float) lh::optNumber(args, count, 4, a);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (count >= 6)
 			instance()->ellipse(mode, x, y, a, b, (int) lh::optNumber(args, count, 5, 10));
 		else
 			instance()->ellipse(mode, x, y, a, b);
-		return lhat_nil();
+		return;
 	});
 }
 
 // arc(mode[, arctype], x, y, r, angle1, angle2[, segments])
-static LhatValue lh_arc(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_arc(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
 	if (count < 1 || !drawModeOf(machine, args[0], mode))
-		return lhat_nil();
+		return;
 	Graphics::ArcMode arcmode = Graphics::ARC_PIE;
 	size_t at = 1;
 	if (count >= 2 && lh::stringOf(args[1]) != nullptr)
 	{
 		std::string name = lh::optString(args, count, 1, "pie");
 		if (!Graphics::getConstant(name.c_str(), arcmode))
-			return lh::raise(machine, "Invalid arc mode: " + name);
+		{
+			lh::raise(machine, "Invalid arc mode: " + name);
+			return;
+		}
 		at = 2;
 	}
 	float x = (float) lh::optNumber(args, count, at, 0), y = (float) lh::optNumber(args, count, at + 1, 0);
 	float r = (float) lh::optNumber(args, count, at + 2, 0);
 	float a1 = (float) lh::optNumber(args, count, at + 3, 0), a2 = (float) lh::optNumber(args, count, at + 4, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (count > at + 5)
 			instance()->arc(mode, arcmode, x, y, r, a1, a2, (int) lh::optNumber(args, count, at + 5, 10));
 		else
 			instance()->arc(mode, arcmode, x, y, r, a1, a2);
-		return lhat_nil();
+		return;
 	});
 }
 
@@ -548,20 +649,24 @@ static LhatValue lh_arc(LhatMachine *machine, void *context, const LhatValue *ar
 // Information
 // ---------------------------------------------------------------------------
 
-static LhatValue lh_getRendererInfo(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getRendererInfo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	Graphics::RendererInfo info = instance()->getRendererInfo();
-	LhatValue items[4] = {stringValue(machine, info.name.c_str()), stringValue(machine, info.version.c_str()), stringValue(machine, info.vendor.c_str()), stringValue(machine, info.device.c_str())};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 4, &out);
-	return out;
+	answers[0] = stringValue(machine, info.name.c_str());
+	answers[1] = stringValue(machine, info.version.c_str());
+	answers[2] = stringValue(machine, info.vendor.c_str());
+	answers[3] = stringValue(machine, info.device.c_str());
+	*answerCount = 4;
+	return;
 }
 
 // getStats() -> a table of the frame's counts.
-static LhatValue lh_getStats(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getStats(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -569,7 +674,11 @@ static LhatValue lh_getStats(LhatMachine *machine, void *context, const LhatValu
 	Graphics::Stats stats = instance()->getStats();
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	struct { const char *name; int64_t value; } fields[] = {
 		{"drawcalls", stats.drawCalls},
@@ -589,34 +698,46 @@ static LhatValue lh_getStats(LhatMachine *machine, void *context, const LhatValu
 		if (lh::makeString(machine, f.name, &key))
 			lhat_table_set(t, key, lhat_integer(f.value), &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	(void) args;
 	(void) count;
-	return lhat_real(instance()->getScreenDPIScale());
+	answers[0] = lhat_real(instance()->getScreenDPIScale());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	float values[2] = {(float) instance()->getPixelWidth(), (float) instance()->getPixelHeight()};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
 // readbackTexture(texture[, x, y, w, h]) -> ImageData with the pixels.
-static LhatValue lh_readbackTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_readbackTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, args, count, 0);
 	if (t == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	Rect rect = {0, 0, t->getPixelWidth(0), t->getPixelHeight(0)};
 	if (count >= 5)
 	{
@@ -625,9 +746,11 @@ static LhatValue lh_readbackTexture(LhatMachine *machine, void *context, const L
 		rect.w = (int) lh::optNumber(args, count, 3, rect.w);
 		rect.h = (int) lh::optNumber(args, count, 4, rect.h);
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<love::image::ImageData> data(instance()->readbackTexture(t, 0, 0, rect, nullptr, 0, 0), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, data.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, data.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -635,54 +758,72 @@ static LhatValue lh_readbackTexture(LhatMachine *machine, void *context, const L
 // Texture extras
 // ---------------------------------------------------------------------------
 
-#define TEXTURE_SELF() Texture *t = checkTexture(machine, args, count, 0); if (t == nullptr) return lhat_nil()
+#define TEXTURE_SELF() Texture *t = checkTexture(machine, args, count, 0); if (t == nullptr) return
 
-static LhatValue lh_Texture_isCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_isCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
-	return lhat_bool(t->isRenderTarget());
+	answers[0] = lhat_bool(t->isRenderTarget());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Texture_isReadable(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_isReadable(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
-	return lhat_bool(t->isReadable());
+	answers[0] = lhat_bool(t->isReadable());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Texture_getFormat(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getFormat(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	const char *name = "";
 	getConstant(t->getPixelFormat(), name);
-	return stringValue(machine, name);
+	answers[0] = stringValue(machine, name);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Texture_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
-	return lhat_real(t->getDPIScale());
+	answers[0] = lhat_real(t->getDPIScale());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Texture_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	float values[2] = {(float) t->getPixelWidth(0), (float) t->getPixelHeight(0)};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_Texture_getMipmapCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getMipmapCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
-	return lhat_integer(t->getMipmapCount());
+	answers[0] = lhat_integer(t->getMipmapCount());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_Texture_getFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -691,14 +832,16 @@ static LhatValue lh_Texture_getFilter(LhatMachine *machine, void *context, const
 	const char *magstr = "linear";
 	SamplerState::getConstant(s.minFilter, minstr);
 	SamplerState::getConstant(s.magFilter, magstr);
-	LhatValue items[3] = {stringValue(machine, minstr), stringValue(machine, magstr), lhat_integer(s.maxAnisotropy)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 3, &out);
-	return out;
+	answers[0] = stringValue(machine, minstr);
+	answers[1] = stringValue(machine, magstr);
+	answers[2] = lhat_integer(s.maxAnisotropy);
+	*answerCount = 3;
+	return;
 }
 
 // setWrap(horiz[, vert])
-static LhatValue lh_Texture_setWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_setWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -706,16 +849,23 @@ static LhatValue lh_Texture_setWrap(LhatMachine *machine, void *context, const L
 	std::string u = lh::optString(args, count, 1, "clamp");
 	std::string v = lh::optString(args, count, 2, u);
 	if (!SamplerState::getConstant(u.c_str(), s.wrapU))
-		return lh::raise(machine, "Invalid wrap mode: " + u);
+	{
+		lh::raise(machine, "Invalid wrap mode: " + u);
+		return;
+	}
 	if (!SamplerState::getConstant(v.c_str(), s.wrapV))
-		return lh::raise(machine, "Invalid wrap mode: " + v);
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Invalid wrap mode: " + v);
+		return;
+	}
+	lh::guard(machine, [&]() {
 		t->setSamplerState(s);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_Texture_getWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_getWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -724,35 +874,40 @@ static LhatValue lh_Texture_getWrap(LhatMachine *machine, void *context, const L
 	const char *v = "clamp";
 	SamplerState::getConstant(s.wrapU, u);
 	SamplerState::getConstant(s.wrapV, v);
-	LhatValue items[2] = {stringValue(machine, u), stringValue(machine, v)};
-	LhatValue out = lhat_nil();
-	lh::makeTuple(machine, items, 2, &out);
-	return out;
+	answers[0] = stringValue(machine, u);
+	answers[1] = stringValue(machine, v);
+	*answerCount = 2;
+	return;
 }
 
-static LhatValue lh_Texture_generateMipmaps(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_generateMipmaps(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		t->generateMipmaps();
-		return lhat_nil();
+		return;
 	});
 }
 
 // replacePixels(imagedata[, x, y]): writes the pixels into the texture.
-static LhatValue lh_Texture_replacePixels(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_Texture_replacePixels(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	auto *data = count > 1 ? lh::checkObject<love::image::ImageData>(args[1], *binding.registry) : nullptr;
 	if (data == nullptr)
-		return lh::raise(machine, "Expected an ImageData");
+	{
+		lh::raise(machine, "Expected an ImageData");
+		return;
+	}
 	int x = (int) lh::optNumber(args, count, 2, 0);
 	int y = (int) lh::optNumber(args, count, 3, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		t->replacePixels(data, 0, 0, x, y, true);
-		return lhat_nil();
+		return;
 	});
 }
 

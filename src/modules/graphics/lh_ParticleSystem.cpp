@@ -48,107 +48,140 @@ static ParticleSystem *checkParticles(LhatMachine *machine, const LhatValue *arg
 	return p;
 }
 
-#define PS_SELF() ParticleSystem *ps = checkParticles(machine, args, count, 0); if (ps == nullptr) return lhat_nil()
+#define PS_SELF() ParticleSystem *ps = checkParticles(machine, args, count, 0); if (ps == nullptr) return
 
 #define PS_NUMBER(name, expr) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		PS_SELF(); \
-		return lhat_real(expr); \
+		answers[0] = lhat_real(expr); \
+		*answerCount = 1; \
 	}
 
 #define PS_BOOL(name, expr) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		PS_SELF(); \
-		return lhat_bool(expr); \
+		answers[0] = lhat_bool(expr); \
+		*answerCount = 1; \
 	}
 
 #define PS_SET_NUMBER(name, call) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		PS_SELF(); \
 		float v = (float) lh::optNumber(args, count, 1, 0.0); \
 		(void) v; \
-		return lh::guard(machine, [&]() { ps->call; return lhat_nil(); }); \
+		lh::guard(machine, [&]() { ps->call; }); \
 	}
 
 // set<X>(min[, max]) pairs: the second defaults to the first.
 #define PS_SET_RANGE(name, call) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		PS_SELF(); \
 		float lo = (float) lh::optNumber(args, count, 1, 0.0); \
 		float hi = (float) lh::optNumber(args, count, 2, lo); \
-		return lh::guard(machine, [&]() { ps->call; return lhat_nil(); }); \
+		lh::guard(machine, [&]() { ps->call; }); \
 	}
 
 #define PS_GET_RANGE(name, call) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
 		PS_SELF(); \
 		float values[2] = {0, 0}; \
 		ps->call; \
-		return numberTuple(machine, values, 2); \
+		answers[0] = lhat_real(values[0]); \
+		answers[1] = lhat_real(values[1]); \
+		*answerCount = 2; \
 	}
 
 #define PS_DO(name, call) \
-	static LhatValue lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count) \
+	static void lh_PS_##name(LhatMachine *machine, void *context, const LhatValue *args, size_t count, \
+	                         LhatValue *answers, int *answerCount) \
 	{ \
 		(void) context; \
+		(void) answers; \
+		(void) answerCount; \
 		PS_SELF(); \
-		return lh::guard(machine, [&]() { ps->call; return lhat_nil(); }); \
+		lh::guard(machine, [&]() { ps->call; }); \
 	}
 
 // newParticleSystem(texture[, buffer])
-static LhatValue lh_newParticleSystem(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newParticleSystem(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *texture = checkTexture(machine, args, count, 0);
 	if (texture == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	double size = lh::optNumber(args, count, 1, 1000);
 	if (size < 1.0 || size > ParticleSystem::MAX_PARTICLES)
-		return lh::raise(machine, "Invalid ParticleSystem size");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Invalid ParticleSystem size");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		StrongRef<ParticleSystem> ps(instance()->newParticleSystem(texture, (int) size), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, ps.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, ps.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_PS_clone(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_clone(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<ParticleSystem> made(ps->clone(), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, made.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, made.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_PS_setTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Texture *texture = checkTexture(machine, args, count, 1);
 	if (texture == nullptr)
-		return lhat_nil();
-	return lh::guard(machine, [&]() {
+		return;
+	lh::guard(machine, [&]() {
 		ps->setTexture(texture);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_PS_getTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
-	return lh::pushObject(machine, *binding.registry, ps->getTexture());
+	answers[0] = lh::pushObject(machine, *binding.registry, ps->getTexture());
+	*answerCount = 1;
+	return;
 }
 
 PS_SET_NUMBER(setBufferSize, setBufferSize((uint32) v))
@@ -191,19 +224,24 @@ PS_BOOL(isPaused, ps->isPaused())
 PS_BOOL(isStopped, ps->isStopped())
 PS_BOOL(hasRelativeRotation, ps->hasRelativeRotation())
 
-static LhatValue lh_PS_setInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	std::string name = lh::optString(args, count, 1, "top");
 	ParticleSystem::InsertMode mode;
 	if (!ParticleSystem::getConstant(name.c_str(), mode))
-		return lh::raise(machine, "Invalid insert mode: " + name);
+	{
+		lh::raise(machine, "Invalid insert mode: " + name);
+		return;
+	}
 	ps->setInsertMode(mode);
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_PS_getInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -211,77 +249,91 @@ static LhatValue lh_PS_getInsertMode(LhatMachine *machine, void *context, const 
 	ParticleSystem::getConstant(ps->getInsertMode(), name);
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, name, &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_PS_setPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setPosition((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_PS_getPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Vector2 p = ps->getPosition();
 	float values[2] = {p.x, p.y};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_PS_moveTo(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_moveTo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->moveTo((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return lhat_nil();
+	return;
 }
 
 // setEmissionArea(distribution[, dx, dy[, angle[, directionRelativeToCenter]]])
-static LhatValue lh_PS_setEmissionArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setEmissionArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	std::string name = lh::optString(args, count, 1, "none");
 	ParticleSystem::AreaSpreadDistribution distribution;
 	if (!ParticleSystem::getConstant(name.c_str(), distribution))
-		return lh::raise(machine, "Invalid distribution: " + name);
+	{
+		lh::raise(machine, "Invalid distribution: " + name);
+		return;
+	}
 	float x = (float) lh::optNumber(args, count, 2, 0), y = (float) lh::optNumber(args, count, 3, 0);
 	float angle = (float) lh::optNumber(args, count, 4, 0);
 	bool relative = lh::optBool(args, count, 5, false);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		ps->setEmissionArea(distribution, x, y, angle, relative);
-		return lhat_nil();
+		return;
 	});
 }
 
 // setLinearAcceleration(xmin, ymin[, xmax, ymax])
-static LhatValue lh_PS_setLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	float xmin = (float) lh::optNumber(args, count, 1, 0), ymin = (float) lh::optNumber(args, count, 2, 0);
 	float xmax = (float) lh::optNumber(args, count, 3, xmin), ymax = (float) lh::optNumber(args, count, 4, ymin);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		ps->setLinearAcceleration(xmin, ymin, xmax, ymax);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_PS_getLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Vector2 lo, hi;
 	ps->getLinearAcceleration(lo, hi);
 	float values[4] = {lo.x, lo.y, hi.x, hi.y};
-	return numberTuple(machine, values, 4);
+	numberTuple(values, 4, answers, answerCount);
+	return;
 }
 
 // setSizes(size1, size2, ...)
-static LhatValue lh_PS_setSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -289,48 +341,63 @@ static LhatValue lh_PS_setSizes(LhatMachine *machine, void *context, const LhatV
 	for (size_t i = 1; i < count; i++)
 		sizes.push_back((float) lh::optNumber(args, count, i, 1.0));
 	if (sizes.empty() || sizes.size() > 8)
-		return lh::raise(machine, "setSizes takes between 1 and 8 sizes");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "setSizes takes between 1 and 8 sizes");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		ps->setSizes(sizes);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_PS_getSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	const std::vector<float> &sizes = ps->getSizes();
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	for (size_t i = 0; i < sizes.size(); i++)
 	{
 		bool refused = false;
 		lhat_table_set(t, lhat_integer((int64_t) i + 1), lhat_real(sizes[i]), &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
 // setColors(r1, g1, b1, a1, r2, g2, b2, a2, ...): a color per four numbers.
-static LhatValue lh_PS_setColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	size_t given = count - 1;
 	if (given == 0 || given % 4 != 0 || given / 4 > 8)
-		return lh::raise(machine, "setColors takes between 1 and 8 colors of four numbers each");
+	{
+		lh::raise(machine, "setColors takes between 1 and 8 colors of four numbers each");
+		return;
+	}
 	std::vector<Colorf> colors;
 	for (size_t i = 1; i < count; i += 4)
 		colors.push_back(colorOf(args, count, i));
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		ps->setColor(colors);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_PS_getColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -345,18 +412,25 @@ static LhatValue lh_PS_getColors(LhatMachine *machine, void *context, const Lhat
 	}
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	for (size_t i = 0; i < flat.size(); i++)
 	{
 		bool refused = false;
 		lhat_table_set(t, lhat_integer((int64_t) i + 1), lhat_real(flat[i]), &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
 // setQuads(quad1, quad2, ...) / setQuads() to clear.
-static LhatValue lh_PS_setQuads(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setQuads(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -365,41 +439,45 @@ static LhatValue lh_PS_setQuads(LhatMachine *machine, void *context, const LhatV
 	{
 		Quad *quad = checkQuad(machine, args, count, i);
 		if (quad == nullptr)
-			return lhat_nil();
+			return;
 		quads.push_back(quad);
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		if (quads.empty())
 			ps->setQuads();
 		else
 			ps->setQuads(quads);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_PS_setOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setOffset((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_PS_getOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_getOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Vector2 o = ps->getOffset();
 	float values[2] = {o.x, o.y};
-	return numberTuple(machine, values, 2);
+	numberTuple(values, 2, answers, answerCount);
+	return;
 }
 
-static LhatValue lh_PS_setRelativeRotation(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_PS_setRelativeRotation(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setRelativeRotation(lh::optBool(args, count, 1, false));
-	return lhat_nil();
+	return;
 }
 
 bool lhGraphicsParticleSystem(lh::Context &ctx)
@@ -502,7 +580,7 @@ static TextBatch *checkText(LhatMachine *machine, const LhatValue *args, size_t 
 	return text;
 }
 
-#define TEXT_SELF() TextBatch *text = checkText(machine, args, count, 0); if (text == nullptr) return lhat_nil()
+#define TEXT_SELF() TextBatch *text = checkText(machine, args, count, 0); if (text == nullptr) return
 
 static std::vector<love::font::ColoredString> coloredOf(const std::string &s)
 {
@@ -515,32 +593,40 @@ static std::vector<love::font::ColoredString> coloredOf(const std::string &s)
 }
 
 // newTextBatch(font[, text])
-static LhatValue lh_newTextBatch(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_newTextBatch(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = count > 0 ? lh::checkObject<Font>(args[0], *binding.registry) : nullptr;
 	if (font == nullptr)
-		return lh::raise(machine, "Expected a Font");
+	{
+		lh::raise(machine, "Expected a Font");
+		return;
+	}
 	std::string s = lh::optString(args, count, 1, "");
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		StrongRef<TextBatch> text(instance()->newTextBatch(font, coloredOf(s)), Acquire::NORETAIN);
-		return lh::pushObject(machine, *binding.registry, text.get());
+		answers[0] = lh::pushObject(machine, *binding.registry, text.get());
+		*answerCount = 1;
+		return;
 	});
 }
 
-static LhatValue lh_TextBatch_set(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_set(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	std::string s = lh::optString(args, count, 1, "");
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		text->set(coloredOf(s));
-		return lhat_nil();
+		return;
 	});
 }
 
 // setf(text, wraplimit, align)
-static LhatValue lh_TextBatch_setf(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_setf(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -549,25 +635,30 @@ static LhatValue lh_TextBatch_setf(LhatMachine *machine, void *context, const Lh
 	std::string alignstr = lh::optString(args, count, 3, "left");
 	Font::AlignMode align;
 	if (!Font::getConstant(alignstr.c_str(), align))
-		return lh::raise(machine, "Invalid align mode: " + alignstr);
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Invalid align mode: " + alignstr);
+		return;
+	}
+	lh::guard(machine, [&]() {
 		text->set(coloredOf(s), wrap, align);
-		return lhat_nil();
+		return;
 	});
 }
 
 // add(text, x, y, ...) -> index
-static LhatValue lh_TextBatch_add(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_add(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	std::string s = lh::optString(args, count, 1, "");
 	Matrix4 m = transformOf(args, count, 2);
-	return lh::guard(machine, [&]() { return lhat_integer(text->add(coloredOf(s), m) + 1); });
+	lh::guard(machine, [&]() { answers[0] = lhat_integer(text->add(coloredOf(s), m) + 1); *answerCount = 1; });
 }
 
 // addf(text, wraplimit, align, x, y, ...) -> index
-static LhatValue lh_TextBatch_addf(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_addf(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -576,66 +667,81 @@ static LhatValue lh_TextBatch_addf(LhatMachine *machine, void *context, const Lh
 	std::string alignstr = lh::optString(args, count, 3, "left");
 	Font::AlignMode align;
 	if (!Font::getConstant(alignstr.c_str(), align))
-		return lh::raise(machine, "Invalid align mode: " + alignstr);
+	{
+		lh::raise(machine, "Invalid align mode: " + alignstr);
+		return;
+	}
 	Matrix4 m = transformOf(args, count, 4);
-	return lh::guard(machine, [&]() { return lhat_integer(text->addf(coloredOf(s), wrap, align, m) + 1); });
+	lh::guard(machine, [&]() { answers[0] = lhat_integer(text->addf(coloredOf(s), wrap, align, m) + 1); *answerCount = 1; });
 }
 
-static LhatValue lh_TextBatch_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		text->clear();
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_TextBatch_setFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_setFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	Font *font = count > 1 ? lh::checkObject<Font>(args[1], *binding.registry) : nullptr;
 	if (font == nullptr)
-		return lh::raise(machine, "Expected a Font");
-	return lh::guard(machine, [&]() {
+	{
+		lh::raise(machine, "Expected a Font");
+		return;
+	}
+	lh::guard(machine, [&]() {
 		text->setFont(font);
-		return lhat_nil();
+		return;
 	});
 }
 
-static LhatValue lh_TextBatch_getFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_getFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
-	return lh::pushObject(machine, *binding.registry, text->getFont());
+	answers[0] = lh::pushObject(machine, *binding.registry, text->getFont());
+	*answerCount = 1;
+	return;
 }
 
 // getWidth([index]) / getHeight([index]) / getDimensions([index])
-static LhatValue lh_TextBatch_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	int index = (int) lh::optNumber(args, count, 1, 0) - 1;
-	return lh::guard(machine, [&]() { return lhat_real(text->getWidth(index)); });
+	lh::guard(machine, [&]() { answers[0] = lhat_real(text->getWidth(index)); *answerCount = 1; });
 }
 
-static LhatValue lh_TextBatch_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	int index = (int) lh::optNumber(args, count, 1, 0) - 1;
-	return lh::guard(machine, [&]() { return lhat_real(text->getHeight(index)); });
+	lh::guard(machine, [&]() { answers[0] = lhat_real(text->getHeight(index)); *answerCount = 1; });
 }
 
-static LhatValue lh_TextBatch_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count)
+static void lh_TextBatch_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	int index = (int) lh::optNumber(args, count, 1, 0) - 1;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		float values[2] = {(float) text->getWidth(index), (float) text->getHeight(index)};
-		return numberTuple(machine, values, 2);
+		numberTuple(values, 2, answers, answerCount);
+		return;
 	});
 }
 

@@ -33,7 +33,8 @@ namespace keyboard
 #define instance() (Module::getInstance<Keyboard>(Module::M_KEYBOARD))
 
 // isDown(key, ...): every argument is a key constant; true if any is down.
-static LhatValue lh_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Keyboard::Key> keys;
@@ -43,13 +44,19 @@ static LhatValue lh_isDown(LhatMachine *machine, void *context, const LhatValue 
 		const char *name = lh::stringOf(arguments[i]);
 		Keyboard::Key k;
 		if (name == nullptr || !Keyboard::getConstant(name, k))
-			return lh::raise(machine, std::string("Invalid key constant: ") + (name != nullptr ? name : "(not a string)"));
+		{
+			lh::raise(machine, std::string("Invalid key constant: ") + (name != nullptr ? name : "(not a string)"));
+			return;
+		}
 		keys.push_back(k);
 	}
-	return lhat_bool(instance()->isDown(keys));
+	answers[0] = lhat_bool(instance()->isDown(keys));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_isScancodeDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isScancodeDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Keyboard::Scancode> codes;
@@ -59,44 +66,57 @@ static LhatValue lh_isScancodeDown(LhatMachine *machine, void *context, const Lh
 		const char *name = lh::stringOf(arguments[i]);
 		Keyboard::Scancode s;
 		if (name == nullptr || !Keyboard::getConstant(name, s))
-			return lh::raise(machine, std::string("Invalid scancode: ") + (name != nullptr ? name : "(not a string)"));
+		{
+			lh::raise(machine, std::string("Invalid scancode: ") + (name != nullptr ? name : "(not a string)"));
+			return;
+		}
 		codes.push_back(s);
 	}
-	return lhat_bool(instance()->isScancodeDown(codes));
+	answers[0] = lhat_bool(instance()->isScancodeDown(codes));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setKeyRepeat(lh::optBool(arguments, count, 0, false));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_hasKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hasKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->hasKeyRepeat());
+	answers[0] = lhat_bool(instance()->hasKeyRepeat());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setTextInput(lh::optBool(arguments, count, 0, false));
-	return lhat_nil();
+	return;
 }
 
-static LhatValue lh_hasTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_hasTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->hasTextInput());
+	answers[0] = lhat_bool(instance()->hasTextInput());
+	*answerCount = 1;
+	return;
 }
 
 } // keyboard

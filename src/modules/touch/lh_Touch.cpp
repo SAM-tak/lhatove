@@ -31,7 +31,8 @@ namespace touch
 
 #define instance() (Module::getInstance<Touch>(Module::M_TOUCH))
 
-static LhatValue lh_getTouches(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getTouches(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+                          LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -39,35 +40,38 @@ static LhatValue lh_getTouches(LhatMachine *machine, void *context, const LhatVa
 	const std::vector<Touch::TouchInfo> &touches = instance()->getTouches();
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+		return;
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	for (size_t i = 0; i < touches.size(); i++)
 	{
 		bool refused = false;
 		lhat_table_set(t, lhat_integer((int64_t) i + 1), lhat_integer(touches[i].id), &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
 }
 
-static LhatValue lh_getPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+                           LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	int64 id = (int64) lh::optNumber(arguments, count, 0, 0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		const Touch::TouchInfo &info = instance()->getTouch(id);
-		LhatValue parts[2] = {lhat_real(info.x), lhat_real(info.y)};
-		LhatValue out = lhat_nil();
-		lh::makeTuple(machine, parts, 2, &out);
-		return out;
+		answers[0] = lhat_real(info.x);
+		answers[1] = lhat_real(info.y);
+		*answerCount = 2;
 	});
 }
 
-static LhatValue lh_getPressure(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getPressure(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+                           LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	int64 id = (int64) lh::optNumber(arguments, count, 0, 0);
-	return lh::guard(machine, [&]() {
-		return lhat_real(instance()->getTouch(id).pressure);
+	lh::guard(machine, [&]() {
+		answers[0] = lhat_real(instance()->getTouch(id).pressure);
+		*answerCount = 1;
 	});
 }
 

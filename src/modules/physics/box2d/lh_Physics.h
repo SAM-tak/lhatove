@@ -80,7 +80,8 @@ LhatValue pushJoint(LhatMachine *machine, Joint *joint);
 LhatValue pushContact(LhatMachine *machine, Contact *contact);
 
 // A tuple of numbers; a list (t^{...:number^}) of numbers.
-LhatValue numbers(LhatMachine *machine, const float *values, size_t count);
+// 05 の 8.7: writes `count` answers into the machine's room.
+void numbers(const float *values, size_t count, LhatValue *answers, int *answerCount);
 LhatValue numberList(LhatMachine *machine, const std::vector<float> &values);
 
 // A list of wrappers. `release` drops the reference the vector came with

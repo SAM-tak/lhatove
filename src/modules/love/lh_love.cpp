@@ -41,7 +41,8 @@ namespace lh
 
 // 05 の 8.2: print is what a script writer looks for first. Goes to stdout,
 // which lovec shows and love.exe sends to the console it attached to.
-static LhatValue lh_print(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_print(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -55,28 +56,24 @@ static LhatValue lh_print(LhatMachine *machine, void *context, const LhatValue *
 	line += '\n';
 	fputs(line.c_str(), stdout);
 	fflush(stdout);
-	return lhat_nil();
+	return;
 }
 
 // love.getVersion() -> (major, minor, revision, codename)
-static LhatValue lh_getVersion(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getVersion(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue codename = lhat_nil();
 	if (!makeString(machine, VERSION_CODENAME, &codename))
-		return lhat_nil();
-	LhatValue parts[4] = {
-		lhat_integer(VERSION_MAJOR),
-		lhat_integer(VERSION_MINOR),
-		lhat_integer(VERSION_REV),
-		codename,
-	};
-	LhatValue answer = lhat_nil();
-	if (!makeTuple(machine, parts, 4, &answer))
-		return lhat_nil();
-	return answer;
+		return;
+	answers[0] = lhat_integer(VERSION_MAJOR);
+	answers[1] = lhat_integer(VERSION_MINOR);
+	answers[2] = lhat_integer(VERSION_REV);
+	answers[3] = codename;
+	*answerCount = 4;
 }
 
 bool lhopen_love(Context &ctx)

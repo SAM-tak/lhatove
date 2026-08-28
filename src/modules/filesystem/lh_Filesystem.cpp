@@ -61,62 +61,87 @@ static LhatValue dataAsString(LhatMachine *machine, FileData *data)
 // Module functions
 // ---------------------------------------------------------------------------
 
-static LhatValue lh_read(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_read(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		if (count > 1 && lhat_is_number(arguments[1]))
-			return dataAsString(machine, instance()->read(path.c_str(), (int64) lh::optNumber(arguments, count, 1, 0)));
-		return dataAsString(machine, instance()->read(path.c_str()));
-	});
+		{
+			answers[0] = dataAsString(machine, instance()->read(path.c_str(), (int64) lh::optNumber(arguments, count, 1, 0)));
+			*answerCount = 1;
+			return;
+		}
+		answers[0] = dataAsString(machine, instance()->read(path.c_str()));
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_write(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_write(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		instance()->write(path.c_str(), data != nullptr ? data : "", (int64) length);
-		return lhat_nil();
-	});
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_append(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_append(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		instance()->append(path.c_str(), data != nullptr ? data : "", (int64) length);
-		return lhat_nil();
-	});
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_exists(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_exists(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
-	return lhat_bool(instance()->exists(lh::optString(arguments, count, 0, "").c_str()));
+	answers[0] = lhat_bool(instance()->exists(lh::optString(arguments, count, 0, "").c_str()));
+	*answerCount = 1;
+	return;
 }
 
 // getInfo(path) -> { type, size, modtime } or nil.
-static LhatValue lh_getInfo(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getInfo(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Filesystem::Info info = {};
 	if (!instance()->getInfo(lh::optString(arguments, count, 0, "").c_str(), info))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 
 	const char *typestr = "other";
 	Filesystem::getConstant(info.type, typestr);
 
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 
 	LhatValue key = lhat_nil(), value = lhat_nil();
@@ -130,10 +155,13 @@ static LhatValue lh_getInfo(LhatMachine *machine, void *context, const LhatValue
 	lhat_table_set(t, key, lhat_integer(info.modtime), &refused);
 	lh::makeString(machine, "readonly", &key);
 	lhat_table_set(t, key, lhat_bool(info.readonly), &refused);
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getDirectoryItems(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getDirectoryItems(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<std::string> items;
@@ -141,7 +169,11 @@ static LhatValue lh_getDirectoryItems(LhatMachine *machine, void *context, const
 
 	LhatValue table = lhat_nil();
 	if (!lhat_machine_make_table(machine, &table))
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatTable *t = (LhatTable *) lhat_as_object(table);
 	for (size_t i = 0; i < items.size(); i++)
 	{
@@ -150,101 +182,134 @@ static LhatValue lh_getDirectoryItems(LhatMachine *machine, void *context, const
 		lh::makeString(machine, items[i], &value);
 		lhat_table_set(t, lhat_integer((int64_t) i + 1), value, &refused);
 	}
-	return table;
+	answers[0] = table;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_createDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_createDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
-	return lhat_bool(instance()->createDirectory(lh::optString(arguments, count, 0, "").c_str()));
+	answers[0] = lhat_bool(instance()->createDirectory(lh::optString(arguments, count, 0, "").c_str()));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_remove(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_remove(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
-	return lhat_bool(instance()->remove(lh::optString(arguments, count, 0, "").c_str()));
+	answers[0] = lhat_bool(instance()->remove(lh::optString(arguments, count, 0, "").c_str()));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getSaveDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getSaveDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getSaveDirectory(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getIdentity(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getIdentity(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getIdentity(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_setIdentity(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_setIdentity(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	std::string name = lh::optString(arguments, count, 0, "");
-	return lhat_bool(instance()->setIdentity(name.c_str(), lh::optBool(arguments, count, 1, false)));
+	answers[0] = lhat_bool(instance()->setIdentity(name.c_str(), lh::optBool(arguments, count, 1, false)));
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getSource(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getSource(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getSource(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getSourceBaseDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getSourceBaseDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getSourceBaseDirectory(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_isFused(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_isFused(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lhat_bool(instance()->isFused());
+	answers[0] = lhat_bool(instance()->isFused());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getWorkingDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getWorkingDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getWorkingDirectory(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getUserDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getUserDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	LhatValue out = lhat_nil();
 	lh::makeString(machine, instance()->getUserDirectory(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_getRealDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_getRealDirectory(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string path = lh::optString(arguments, count, 0, "");
@@ -252,11 +317,15 @@ static LhatValue lh_getRealDirectory(LhatMachine *machine, void *context, const 
 	{
 		LhatValue out = lhat_nil();
 		lh::makeString(machine, instance()->getRealDirectory(path.c_str()), &out);
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	}
 	catch (const love::Exception &)
 	{
-		return lhat_nil();
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
 	}
 }
 
@@ -264,7 +333,8 @@ static LhatValue lh_getRealDirectory(LhatMachine *machine, void *context, const 
 // the loader has nothing there, Misuse when it does not check. 05 の 5.6:
 // the same mechanism as std.load, so the answer is an ordinary closure
 // the caller may run more than once.
-static LhatValue lh_load(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_load(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
@@ -279,20 +349,32 @@ static LhatValue lh_load(LhatMachine *machine, void *context, const LhatValue *a
 	case LHAT_LOAD_OK:
 		break;
 	case LHAT_LOAD_CANNOT_READ:
-		return lh::fail(machine, b->errors->io, "Could not read " + path);
+		answers[0] = lh::fail(machine, b->errors->io, "Could not read " + path);
+		*answerCount = 1;
+		return;
 	case LHAT_LOAD_REJECTED:
 	{
 		const char *why = lhat_program_load_failure(b->program);
-		return lh::fail(machine, b->errors->misuse, why != nullptr ? why : "The unit did not check");
+		answers[0] = lh::fail(machine, b->errors->misuse, why != nullptr ? why : "The unit did not check");
+		*answerCount = 1;
+		return;
 	}
 	case LHAT_LOAD_OUT_OF_MEMORY:
 	default:
-		return lh::fail(machine, b->errors->misuse, "Out of memory loading " + path);
+		answers[0] = lh::fail(machine, b->errors->misuse, "Out of memory loading " + path);
+		*answerCount = 1;
+		return;
 	}
 	LhatValue closure = lhat_nil();
 	if (!lhat_machine_adopt_script(machine, proto, &closure))
-		return lh::fail(machine, b->errors->misuse, "Could not adopt " + path);
-	return closure;
+	{
+		answers[0] = lh::fail(machine, b->errors->misuse, "Could not adopt " + path);
+		*answerCount = 1;
+		return;
+	}
+	answers[0] = closure;
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,7 +389,8 @@ static File *checkFile(LhatMachine *machine, const FilesystemBinding *b, const L
 	return file;
 }
 
-static LhatValue lh_newFile(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_newFile(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
@@ -316,88 +399,136 @@ static LhatValue lh_newFile(LhatMachine *machine, void *context, const LhatValue
 	{
 		std::string modestr = lh::optString(arguments, count, 1, "");
 		if (!File::getConstant(modestr.c_str(), mode))
-			return lh::raise(machine, "Invalid file open mode: " + modestr);
+		{
+			lh::raise(machine, "Invalid file open mode: " + modestr);
+			return;
+		}
 	}
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		File *file = instance()->openFile(path.c_str(), mode);
 		LhatValue out = lh::pushObject(machine, *b->registry, file);
 		file->release(); // pushObject retained it
-		return out;
-	});
+		answers[0] = out;
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_File_open(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_open(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	File *file = checkFile(machine, b, arguments, count);
 	if (file == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	std::string modestr = lh::optString(arguments, count, 1, "r");
 	File::Mode mode;
 	if (!File::getConstant(modestr.c_str(), mode))
-		return lh::raise(machine, "Invalid file open mode: " + modestr);
-	return lh::catchexcept(machine, b->errors->io, [&]() {
-		return lhat_bool(file->open(mode));
-	});
+	{
+		lh::raise(machine, "Invalid file open mode: " + modestr);
+		return;
+	}
+	lh::catchexcept(machine, b->errors->io, [&]() {
+		answers[0] = lhat_bool(file->open(mode));
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_File_close(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_close(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	File *file = checkFile(machine, (const FilesystemBinding *) context, arguments, count);
-	return lhat_bool(file != nullptr && file->close());
+	answers[0] = lhat_bool(file != nullptr && file->close());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_File_isOpen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_isOpen(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	File *file = checkFile(machine, (const FilesystemBinding *) context, arguments, count);
-	return lhat_bool(file != nullptr && file->isOpen());
+	answers[0] = lhat_bool(file != nullptr && file->isOpen());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_File_read(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_read(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	File *file = checkFile(machine, b, arguments, count);
 	if (file == nullptr)
-		return lhat_nil();
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		if (count > 1 && lhat_is_number(arguments[1]))
-			return dataAsString(machine, file->read((int64) lhat_number_as_real(arguments[1])));
-		return dataAsString(machine, file->read());
-	});
+		{
+			answers[0] = dataAsString(machine, file->read((int64) lhat_number_as_real(arguments[1])));
+			*answerCount = 1;
+			return;
+		}
+		answers[0] = dataAsString(machine, file->read());
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_File_write(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_write(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	File *file = checkFile(machine, b, arguments, count);
 	if (file == nullptr)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	return lh::catchexcept(machine, b->errors->io, [&]() {
-		return lhat_bool(file->write(data != nullptr ? data : "", (int64) length));
-	});
+	lh::catchexcept(machine, b->errors->io, [&]() {
+		answers[0] = lhat_bool(file->write(data != nullptr ? data : "", (int64) length));
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_File_getSize(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_getSize(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	File *file = checkFile(machine, (const FilesystemBinding *) context, arguments, count);
-	return lhat_integer(file != nullptr ? file->getSize() : 0);
+	answers[0] = lhat_integer(file != nullptr ? file->getSize() : 0);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_File_isEOF(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_isEOF(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	File *file = checkFile(machine, (const FilesystemBinding *) context, arguments, count);
-	return lhat_bool(file == nullptr || file->isEOF());
+	answers[0] = lhat_bool(file == nullptr || file->isEOF());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_File_getFilename(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_File_getFilename(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	File *file = checkFile(machine, (const FilesystemBinding *) context, arguments, count);
 	LhatValue out = lhat_nil();
 	if (file != nullptr)
 		lh::makeString(machine, file->getFilename(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +545,8 @@ static FileData *checkFileData(LhatMachine *machine, const FilesystemBinding *b,
 
 // newFileData(contents, name) -- from a string; newFileData(path) -- read
 // from the mounted filesystem (answers IO).
-static LhatValue lh_newFileData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_newFileData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	if (count >= 2)
@@ -425,48 +557,64 @@ static LhatValue lh_newFileData(LhatMachine *machine, void *context, const LhatV
 		FileData *data = instance()->newFileData(contents != nullptr ? contents : "", length, name.c_str());
 		LhatValue out = lh::pushObject(machine, *b->registry, data);
 		data->release();
-		return out;
+		answers[0] = out;
+		*answerCount = 1;
+		return;
 	}
 	std::string path = lh::optString(arguments, count, 0, "");
-	return lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->io, [&]() {
 		FileData *data = instance()->read(path.c_str());
 		LhatValue out = lh::pushObject(machine, *b->registry, data);
 		data->release();
-		return out;
-	});
+		answers[0] = out;
+		*answerCount = 1;
+		return;
+	}, answers, answerCount);
 }
 
-static LhatValue lh_FileData_getString(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_FileData_getString(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	FileData *data = checkFileData(machine, (const FilesystemBinding *) context, arguments, count);
 	LhatValue out = lhat_nil();
 	if (data != nullptr)
 		lh::makeString(machine, std::string((const char *) data->getData(), data->getSize()), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_FileData_getSize(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_FileData_getSize(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	FileData *data = checkFileData(machine, (const FilesystemBinding *) context, arguments, count);
-	return lhat_integer(data != nullptr ? (int64_t) data->getSize() : 0);
+	answers[0] = lhat_integer(data != nullptr ? (int64_t) data->getSize() : 0);
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_FileData_getFilename(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_FileData_getFilename(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	FileData *data = checkFileData(machine, (const FilesystemBinding *) context, arguments, count);
 	LhatValue out = lhat_nil();
 	if (data != nullptr)
 		lh::makeString(machine, data->getFilename(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_FileData_getExtension(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_FileData_getExtension(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	FileData *data = checkFileData(machine, (const FilesystemBinding *) context, arguments, count);
 	LhatValue out = lhat_nil();
 	if (data != nullptr)
 		lh::makeString(machine, data->getExtension(), &out);
-	return out;
+	answers[0] = out;
+	*answerCount = 1;
+	return;
 }
 
 static FilesystemBinding binding;

@@ -46,22 +46,28 @@ struct EventBinding
 	const lh::TypeRegistry *registry;
 };
 
-static LhatValue lh_pump(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_pump(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	float timeout = (float) lh::optNumber(arguments, count, 0, 0.0);
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->pump(timeout);
-		return lhat_nil();
+		return;
 	});
 }
 
 // dispatch(handlers) -> the exit code when a quit went unvetoed, else nil.
-static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_dispatch(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const EventBinding *binding = (const EventBinding *) context;
 	if (count < 1)
-		return lhat_nil();
+	{
+		answers[0] = lhat_nil();
+		*answerCount = 1;
+		return;
+	}
 	LhatValue handlers = arguments[0];
 
 	Message *m = nullptr;
@@ -84,7 +90,7 @@ static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValu
 			if (!forced && lh::callMember(machine, handlers, "quit", nullptr, 0, &asked))
 			{
 				if (asked.status != LHAT_RUN_OK)
-					return lhat_nil(); // the fault ends the run (vm.c)
+					return; // the fault ends the run (vm.c)
 				vetoed = lhat_is_bool(asked.value) && lhat_as_bool(asked.value);
 			}
 			if (!vetoed)
@@ -99,12 +105,16 @@ static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValu
 					}
 					LhatValue word = lhat_nil();
 					lh::makeString(machine, "restart", &word);
-					return word;
+					answers[0] = word;
+					*answerCount = 1;
+					return;
 				}
 				int code = 0;
 				if (!message->args.empty() && message->args[0].getType() == Variant::NUMBER)
 					code = (int) message->args[0].getData().number;
-				return lhat_integer(code);
+				answers[0] = lhat_integer(code);
+				*answerCount = 1;
+				return;
 			}
 			continue;
 		}
@@ -118,15 +128,18 @@ static LhatValue lh_dispatch(LhatMachine *machine, void *context, const LhatValu
 
 		LhatRunResult ran;
 		if (lh::callMember(machine, handlers, message->name.c_str(), args.data(), args.size(), &ran) && ran.status != LHAT_RUN_OK)
-			return lhat_nil(); // the fault ends the run (vm.c)
+			return; // the fault ends the run (vm.c)
 	}
-	return lhat_nil();
+	answers[0] = lhat_nil();
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_quit(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_quit(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		std::vector<Variant> args;
 		const char *word = count > 0 ? lh::stringOf(arguments[0]) : nullptr;
 		if (word != nullptr)
@@ -137,7 +150,9 @@ static LhatValue lh_quit(LhatMachine *machine, void *context, const LhatValue *a
 			args.emplace_back(0.0);
 		StrongRef<Message> m(new Message("quit", args), Acquire::NORETAIN);
 		instance()->push(m);
-		return lhat_bool(true);
+		answers[0] = lhat_bool(true);
+		*answerCount = 1;
+		return;
 	});
 }
 
@@ -146,7 +161,8 @@ static LhatValue lh_quit(LhatMachine *machine, void *context, const LhatValue *a
 // A LOVE object cannot cross (its module is gone by then); tables and
 // closures cross as copies, but a closure's code dies with the program, so
 // only data belongs in the payload.
-static LhatValue lh_restart(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_restart(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	const EventBinding *binding = (const EventBinding *) context;
 	Variant payload;
@@ -154,37 +170,47 @@ static LhatValue lh_restart(LhatMachine *machine, void *context, const LhatValue
 	{
 		std::string why;
 		if (!lh::variantOf(machine, *binding->registry, arguments[0], payload, why))
-			return lh::raise(machine, "The restart payload cannot cross: " + why);
+		{
+			lh::raise(machine, "The restart payload cannot cross: " + why);
+			return;
+		}
 		if (payload.getType() == Variant::LOVEOBJECT && !payload.getData().objectproxy.type->isa(lh::Carried::type))
-			return lh::raise(machine, "A LOVE object cannot be a restart payload");
+		{
+			lh::raise(machine, "A LOVE object cannot be a restart payload");
+			return;
+		}
 	}
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		std::vector<Variant> args = {Variant("restart", 7), payload};
 		StrongRef<Message> m(new Message("quit", args), Acquire::NORETAIN);
 		instance()->push(m);
-		return lhat_nil();
+		return;
 	});
 }
 
 // restartValue() -> what the run before handed restart(), nil on a first
 // run. It lives here rather than on `love` itself: a member of the `love`
 // table would need `import^ love`, which the submodule imports refuse.
-static LhatValue lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_restartValue(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) arguments;
 	(void) count;
 	const EventBinding *binding = (const EventBinding *) context;
-	return lh::pushVariant(machine, *binding->registry, lh::restartPayload());
+	answers[0] = lh::pushVariant(machine, *binding->registry, lh::restartPayload());
+	*answerCount = 1;
+	return;
 }
 
-static LhatValue lh_clear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count)
+static void lh_clear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
+						 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
-	return lh::guard(machine, [&]() {
+	lh::guard(machine, [&]() {
 		instance()->clear();
-		return lhat_nil();
+		return;
 	});
 }
 
