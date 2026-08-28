@@ -92,29 +92,27 @@ CONTACT_NUMBER(getTangentSpeed, c->getTangentSpeed())
 
 // getPositions() -> t^{...:number^}: the contact points as x, y pairs.
 static void lh_Contact_getPositions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
 	answers[0] = numberList(machine, c->getPositions());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Contact_getNormal(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
 	float out[2];
 	c->getNormal(out[0], out[1]);
 	numbers(out, 2, answers, answerCount);
-	return;
 }
 
 // getChildren() -> (childA, childB), 1-based.
 static void lh_Contact_getChildren(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
@@ -123,11 +121,10 @@ static void lh_Contact_getChildren(LhatMachine *machine, void *context, const Lh
 	answers[0] = lhat_integer(a + 1);
 	answers[1] = lhat_integer(b + 1);
 	*answerCount = 2;
-	return;
 }
 
 static void lh_Contact_getShapes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CONTACT_SELF();
@@ -137,12 +134,11 @@ static void lh_Contact_getShapes(LhatMachine *machine, void *context, const Lhat
 		answers[0] = pushShape(machine, a);
 		answers[1] = pushShape(machine, b);
 		*answerCount = 2;
-		return;
 	});
 }
 
 static void lh_Contact_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Contact *c = checkContact(machine, args, count, 0);
@@ -154,7 +150,6 @@ static void lh_Contact_isDestroyed(LhatMachine *machine, void *context, const Lh
 	}
 	answers[0] = lhat_bool(!c->isValid());
 	*answerCount = 1;
-	return;
 }
 
 bool lhPhysicsContact(lh::Context &ctx)

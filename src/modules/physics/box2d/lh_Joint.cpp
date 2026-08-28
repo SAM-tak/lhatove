@@ -136,7 +136,7 @@ static void notAMember(LhatMachine *machine, Joint *j, const char *name)
 // --- the base members ---
 
 static void lh_Joint_getType(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
@@ -146,11 +146,10 @@ static void lh_Joint_getType(LhatMachine *machine, void *context, const LhatValu
 	lh::makeString(machine, type, &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Joint_getBodies(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
@@ -158,54 +157,49 @@ static void lh_Joint_getBodies(LhatMachine *machine, void *context, const LhatVa
 		answers[0] = pushBody(machine, j->getBodyA());
 		answers[1] = pushBody(machine, j->getBodyB());
 		*answerCount = 2;
-		return;
 	});
 }
 
 static void lh_Joint_getAnchors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	float out[4];
 	j->getAnchors(out[0], out[1], out[2], out[3]);
 	numbers(out, 4, answers, answerCount);
-	return;
 }
 
 static void lh_Joint_getReactionForce(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	float out[2];
 	j->getReactionForce(numberAt(args, count, 1), out[0], out[1]);
 	numbers(out, 2, answers, answerCount);
-	return;
 }
 
 static void lh_Joint_getReactionTorque(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	answers[0] = lhat_real(j->getReactionTorque(numberAt(args, count, 1)));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Joint_getCollideConnected(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	answers[0] = lhat_bool(j->getCollideConnected());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Joint_setUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
@@ -216,33 +210,30 @@ static void lh_Joint_setUserData(LhatMachine *machine, void *context, const Lhat
 		StrongRef<lh::Parked> parked(new lh::Parked(lh::ParkingLot::lotOf(machine), args[1]), Acquire::NORETAIN);
 		j->setUserData(parked.get());
 	}
-	return;
 }
 
 static void lh_Joint_getUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	lh::Parked *parked = dynamic_cast<lh::Parked *>(j->getUserData());
 	answers[0] = parked != nullptr ? parked->get() : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Joint_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
 	lh::guard(machine, [&]() {
 		j->destroyJoint();
-		return;
 	});
 }
 
 static void lh_Joint_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joint *j = checkJoint(machine, args, count, 0);
@@ -254,7 +245,6 @@ static void lh_Joint_isDestroyed(LhatMachine *machine, void *context, const Lhat
 	}
 	answers[0] = lhat_bool(!j->isValid());
 	*answerCount = 1;
-	return;
 }
 
 // --- members several kinds share, dispatched on the kind ---
@@ -309,7 +299,7 @@ JOINT_SET(setRatio,
 	SET(GearJoint, JOINT_GEAR, setRatio(v)))
 
 static void lh_Joint_getJoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
@@ -323,7 +313,6 @@ static void lh_Joint_getJoints(LhatMachine *machine, void *context, const LhatVa
 		answers[0] = pushJoint(machine, t->getJointA());
 		answers[1] = pushJoint(machine, t->getJointB());
 		*answerCount = 2;
-		return;
 	});
 }
 
@@ -424,7 +413,7 @@ JOINT_GET_NUMBER(getReferenceAngle,
 	KIND(WeldJoint, JOINT_WELD, lhat_real(t->getReferenceAngle())))
 
 static void lh_Joint_getGroundAnchors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	JOINT_SELF();
@@ -436,7 +425,6 @@ static void lh_Joint_getGroundAnchors(LhatMachine *machine, void *context, const
 	float out[4];
 	((PulleyJoint *) j)->getGroundAnchors(out[0], out[1], out[2], out[3]);
 	numbers(out, 4, answers, answerCount);
-	return;
 }
 
 JOINT_GET_NUMBER(getLengthA,

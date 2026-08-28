@@ -32,7 +32,7 @@ namespace touch
 #define instance() (Module::getInstance<Touch>(Module::M_TOUCH))
 
 static void lh_getTouches(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-                          LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -52,7 +52,7 @@ static void lh_getTouches(LhatMachine *machine, void *context, const LhatValue *
 }
 
 static void lh_getPosition(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-                           LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	int64 id = (int64) lh::optNumber(arguments, count, 0, 0);
@@ -65,7 +65,7 @@ static void lh_getPosition(LhatMachine *machine, void *context, const LhatValue 
 }
 
 static void lh_getPressure(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-                           LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	int64 id = (int64) lh::optNumber(arguments, count, 0, 0);

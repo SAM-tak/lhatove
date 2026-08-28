@@ -78,7 +78,7 @@ static love::audio::Source *audioFor(const std::string &path)
 // newVideo(path[, settings]) where settings may say audio = false and
 // dpiscale = n.
 static void lh_newVideo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto videomodule = Module::getInstance<love::video::Video>(Module::M_VIDEO);
@@ -110,7 +110,6 @@ static void lh_newVideo(LhatMachine *machine, void *context, const LhatValue *ar
 		}
 		answers[0] = lh::pushObject(machine, *binding.registry, video.get());
 		*answerCount = 1;
-		return;
 	}, answers, answerCount);
 }
 
@@ -130,81 +129,74 @@ VIDEO_DO(pause, pause())
 VIDEO_DO(rewind, seek(0))
 
 static void lh_Video_seek(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	double offset = lh::optNumber(args, count, 1, 0);
 	lh::guard(machine, [&]() {
 		video->getStream()->seek(offset);
-		return;
 	});
 }
 
 static void lh_Video_tell(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	answers[0] = lhat_real(video->getStream()->tell());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Video_isPlaying(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	answers[0] = lhat_bool(video->getStream()->isPlaying());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Video_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	answers[0] = lhat_integer(video->getWidth());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Video_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	answers[0] = lhat_integer(video->getHeight());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Video_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	float values[2] = {(float) video->getWidth(), (float) video->getHeight()};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_Video_getSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
 	love::audio::Source *source = video->getSource();
 	answers[0] = source != nullptr ? lh::pushObject(machine, *binding.registry, source) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 // setSource(source) / setSource() to detach the audio.
 static void lh_Video_setSource(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
@@ -220,11 +212,10 @@ static void lh_Video_setSource(LhatMachine *machine, void *context, const LhatVa
 		return;
 	}
 	video->setSource(source);
-	return;
 }
 
 static void lh_Video_getFilename(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
@@ -232,12 +223,11 @@ static void lh_Video_getFilename(LhatMachine *machine, void *context, const Lhat
 	lh::makeString(machine, video->getStream()->getFilename(), &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 // setFilter(min[, mag])
 static void lh_Video_setFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	VIDEO_SELF();
@@ -256,7 +246,6 @@ static void lh_Video_setFilter(LhatMachine *machine, void *context, const LhatVa
 	}
 	lh::guard(machine, [&]() {
 		video->setSamplerState(s);
-		return;
 	});
 }
 

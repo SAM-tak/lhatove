@@ -53,7 +53,7 @@ static bool bytesOf(LhatMachine *machine, const LhatValue *arguments, size_t cou
 
 // encode(format, text) -> string; format is "base64" or "hex".
 static void lh_encode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
@@ -80,12 +80,11 @@ static void lh_encode(LhatMachine *machine, void *context, const LhatValue *argu
 		delete[] dst;
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_decode(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
@@ -111,13 +110,12 @@ static void lh_decode(LhatMachine *machine, void *context, const LhatValue *argu
 		delete[] dst;
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	});
 }
 
 // hash(function, text) -> the raw digest bytes, as a string.
 static void lh_hash(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string funcstr = lh::optString(arguments, count, 0, "");
@@ -140,13 +138,12 @@ static void lh_hash(LhatMachine *machine, void *context, const LhatValue *argume
 		lh::makeString(machine, hash(function, bytes, size), &out);
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	});
 }
 
 // compress(format, text[, level]) -> the compressed bytes, as a string.
 static void lh_compress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
@@ -171,12 +168,11 @@ static void lh_compress(LhatMachine *machine, void *context, const LhatValue *ar
 		lh::makeString(machine, std::string((const char *) data->getData(), data->getSize()), &out);
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_decompress(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string formatstr = lh::optString(arguments, count, 0, "");
@@ -202,7 +198,6 @@ static void lh_decompress(LhatMachine *machine, void *context, const LhatValue *
 		delete[] raw;
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	});
 }
 

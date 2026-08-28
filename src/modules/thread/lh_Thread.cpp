@@ -189,7 +189,6 @@ static void lh_newThread(LhatMachine *machine, void *context, const LhatValue *a
 			StrongRef<love::filesystem::FileData> data(file->read(), Acquire::NORETAIN);
 			answers[0] = threadFromText(machine, data->getFilename(), (const char *) data->getData(), data->getSize());
 			*answerCount = 1;
-			return;
 		});
 		return;
 	}
@@ -208,7 +207,7 @@ static void lh_newThread(LhatMachine *machine, void *context, const LhatValue *a
 }
 
 static void lh_newChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -216,17 +215,15 @@ static void lh_newChannel(LhatMachine *machine, void *context, const LhatValue *
 	StrongRef<Channel> channel(instance()->newChannel(), Acquire::NORETAIN);
 	answers[0] = lh::pushObject(machine, *binding.registry, channel.get());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getChannel(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "");
 	answers[0] = lh::pushObject(machine, *binding.registry, instance()->getChannel(name));
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +232,7 @@ static void lh_getChannel(LhatMachine *machine, void *context, const LhatValue *
 
 // start(...): the arguments cross as Variants; one that cannot raises.
 static void lh_Thread_start(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
@@ -254,21 +251,19 @@ static void lh_Thread_start(LhatMachine *machine, void *context, const LhatValue
 		carried.push_back(v);
 	}
 	thread->start(carried);
-	return;
 }
 
 static void lh_Thread_wait(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
 	if (thread != nullptr)
 		thread->wait();
-	return;
 }
 
 static void lh_Thread_getError(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
@@ -282,17 +277,15 @@ static void lh_Thread_getError(LhatMachine *machine, void *context, const LhatVa
 	lh::makeString(machine, thread->getError(), &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Thread_isRunning(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	LhThread *thread = checkThread(machine, args, count);
 	answers[0] = lhat_bool(thread != nullptr && thread->isRunning());
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +311,7 @@ static bool variantArg(LhatMachine *machine, const LhatValue *args, size_t count
 }
 
 static void lh_Channel_push(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -331,12 +324,11 @@ static void lh_Channel_push(LhatMachine *machine, void *context, const LhatValue
 	}
 	answers[0] = lhat_integer((int64_t) c->push(v));
 	*answerCount = 1;
-	return;
 }
 
 // supply(value[, timeout]) -> whether it was read.
 static void lh_Channel_supply(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -355,11 +347,10 @@ static void lh_Channel_supply(LhatMachine *machine, void *context, const LhatVal
 	}
 	answers[0] = lhat_bool(c->supply(v));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Channel_pop(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -372,12 +363,11 @@ static void lh_Channel_pop(LhatMachine *machine, void *context, const LhatValue 
 	}
 	answers[0] = lh::pushVariant(machine, *binding.registry, v);
 	*answerCount = 1;
-	return;
 }
 
 // demand([timeout]) -> the value, nil when the timeout passed.
 static void lh_Channel_demand(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -391,11 +381,10 @@ static void lh_Channel_demand(LhatMachine *machine, void *context, const LhatVal
 	}
 	answers[0] = lh::pushVariant(machine, *binding.registry, v);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Channel_peek(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -408,41 +397,37 @@ static void lh_Channel_peek(LhatMachine *machine, void *context, const LhatValue
 	}
 	answers[0] = lh::pushVariant(machine, *binding.registry, v);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Channel_getCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	answers[0] = lhat_integer(c->getCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Channel_hasRead(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	answers[0] = lhat_bool(c->hasRead((uint64) lh::optNumber(args, count, 1, 0)));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Channel_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
 	c->clear();
-	return;
 }
 
 // performAtomic(fn, ...): fn(channel, ...) runs with the channel locked.
 static void lh_Channel_performAtomic(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	CHANNEL_SELF();
@@ -459,7 +444,6 @@ static void lh_Channel_performAtomic(LhatMachine *machine, void *context, const 
 	LhatRunResult ran = lhat_machine_call(machine, args[1], passed.data(), passed.size());
 	c->unlockMutex();
 	(void) ran; // a fault ends the run the host function was called from
-	return;
 }
 
 } // thread

@@ -54,7 +54,6 @@ static void lh_hasSensor(LhatMachine *machine, void *context, const LhatValue *a
 	}
 	answers[0] = lhat_bool(instance()->hasSensor(type));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_isEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
@@ -70,11 +69,10 @@ static void lh_isEnabled(LhatMachine *machine, void *context, const LhatValue *a
 	}
 	answers[0] = lhat_bool(instance()->isEnabled(type));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setEnabled(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;
@@ -82,13 +80,12 @@ static void lh_setEnabled(LhatMachine *machine, void *context, const LhatValue *
 		return;
 	lh::guard(machine, [&]() {
 		instance()->setEnabled(type, lh::optBool(arguments, count, 1, false));
-		return;
 	});
 }
 
 // getData(type) -> (x, y, z)
 static void lh_getData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Sensor::SensorType type;

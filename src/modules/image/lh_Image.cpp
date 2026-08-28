@@ -53,7 +53,7 @@ static ImageData *checkImageData(LhatMachine *machine, const ImageBinding *b, co
 // newImageData(path) -- decoded from the mounted filesystem (IO on failure);
 // newImageData(width, height) -- blank RGBA8.
 static void lh_newImageData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	const ImageBinding *b = (const ImageBinding *) context;
 	if (count >= 2 && lhat_is_number(arguments[0]))
@@ -71,7 +71,6 @@ static void lh_newImageData(LhatMachine *machine, void *context, const LhatValue
 			data->release();
 			answers[0] = out;
 			*answerCount = 1;
-			return;
 		});
 		return;
 	}
@@ -90,30 +89,27 @@ static void lh_newImageData(LhatMachine *machine, void *context, const LhatValue
 		data->release();
 		answers[0] = out;
 		*answerCount = 1;
-		return;
 	}, answers, answerCount);
 }
 
 static void lh_ImageData_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	answers[0] = lhat_integer(data != nullptr ? data->getWidth() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_ImageData_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	answers[0] = lhat_integer(data != nullptr ? data->getHeight() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_ImageData_getDimensions(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	if (data == nullptr)
@@ -125,12 +121,11 @@ static void lh_ImageData_getDimensions(LhatMachine *machine, void *context, cons
 	answers[0] = lhat_integer(data->getWidth());
 	answers[1] = lhat_integer(data->getHeight());
 	*answerCount = 2;
-	return;
 }
 
 // getPixel(x, y) -> (r, g, b, a); 0-based, as the Lua API. Out of bounds panics.
 static void lh_ImageData_getPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	if (data == nullptr)
@@ -153,12 +148,11 @@ static void lh_ImageData_getPixel(LhatMachine *machine, void *context, const Lha
 	answers[2] = lhat_real(c.b);
 	answers[3] = lhat_real(c.a);
 	*answerCount = 4;
-	return;
 }
 
 // setPixel(x, y, r, g, b[, a])
 static void lh_ImageData_setPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	if (data == nullptr)
@@ -172,14 +166,13 @@ static void lh_ImageData_setPixel(LhatMachine *machine, void *context, const Lha
 	}
 	Colorf c((float) lh::optNumber(arguments, count, 3, 0.0), (float) lh::optNumber(arguments, count, 4, 0.0), (float) lh::optNumber(arguments, count, 5, 0.0), (float) lh::optNumber(arguments, count, 6, 1.0));
 	data->setPixel(x, y, c);
-	return;
 }
 
 // mapPixel(fn): fn(x, y, r, g, b, a) -> (r, g, b, a) over every pixel. One
 // nested call per pixel -- the FFI path Lua had is gone, and a bulk
 // operation in C is what a hot loop should reach for.
 static void lh_ImageData_mapPixel(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	ImageData *data = checkImageData(machine, (const ImageBinding *) context, arguments, count);
 	if (data == nullptr)
@@ -217,7 +210,6 @@ static void lh_ImageData_mapPixel(LhatMachine *machine, void *context, const Lha
 	}
 	answers[0] = lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static ImageBinding binding;

@@ -84,7 +84,6 @@ static void lh_newSource(LhatMachine *machine, void *context, const LhatValue *a
 			StrongRef<Source> source(instance()->newSource(data), Acquire::NORETAIN);
 			answers[0] = lh::pushObject(machine, *binding.registry, source.get());
 			*answerCount = 1;
-			return;
 		});
 		return;
 	}

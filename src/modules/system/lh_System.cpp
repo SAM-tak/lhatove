@@ -33,7 +33,7 @@ namespace system
 #define instance() (Module::getInstance<System>(Module::M_SYSTEM))
 
 static void lh_getOS(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -42,11 +42,10 @@ static void lh_getOS(LhatMachine *machine, void *context, const LhatValue *argum
 	lh::makeString(machine, System::getOS(), &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getProcessorCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -54,20 +53,18 @@ static void lh_getProcessorCount(LhatMachine *machine, void *context, const Lhat
 	(void) count;
 	answers[0] = lhat_integer(instance()->getProcessorCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setClipboardText(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setClipboardText(lh::optString(arguments, count, 0, ""));
-	return;
 }
 
 static void lh_getClipboardText(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -76,12 +73,11 @@ static void lh_getClipboardText(LhatMachine *machine, void *context, const LhatV
 	lh::makeString(machine, instance()->getClipboardText(), &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 // getPowerInfo() -> (state, seconds, percent); -1 where unknown.
 static void lh_getPowerInfo(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -98,26 +94,24 @@ static void lh_getPowerInfo(LhatMachine *machine, void *context, const LhatValue
 }
 
 static void lh_openURL(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	answers[0] = lhat_bool(instance()->openURL(lh::optString(arguments, count, 0, "")));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_vibrate(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->vibrate(lh::optNumber(arguments, count, 0, 0.5));
-	return;
 }
 
 static void lh_hasBackgroundMusic(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -125,11 +119,10 @@ static void lh_hasBackgroundMusic(LhatMachine *machine, void *context, const Lha
 	(void) count;
 	answers[0] = lhat_bool(instance()->hasBackgroundMusic());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getPreferredLocales(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -152,7 +145,6 @@ static void lh_getPreferredLocales(LhatMachine *machine, void *context, const Lh
 	}
 	answers[0] = table;
 	*answerCount = 1;
-	return;
 }
 
 } // system

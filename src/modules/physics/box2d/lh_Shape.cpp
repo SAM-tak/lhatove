@@ -105,7 +105,7 @@ SHAPE_BOOL(isSensor, s->isSensor())
 SHAPE_NUMBER(getGroupIndex, (float) s->getGroupIndex())
 
 static void lh_Shape_getType(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -115,48 +115,44 @@ static void lh_Shape_getType(LhatMachine *machine, void *context, const LhatValu
 	lh::makeString(machine, type, &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Shape_setSensor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	bool sensor = boolAt(args, count, 1);
 	lh::guard(machine, [&]() {
 		s->setSensor(sensor);
-		return;
 	});
 }
 
 static void lh_Shape_setGroupIndex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	int index = (int) numberAt(args, count, 1);
 	lh::guard(machine, [&]() {
 		s->setGroupIndex(index);
-		return;
 	});
 }
 
 static void lh_Shape_getBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	Body *body = s->getBody();
 	answers[0] = body != nullptr ? pushBody(machine, body) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 // testPoint(x, y) against the fixture; testPoint(x, y, r, px, py) against
 // the bare shape placed at (x, y, r).
 static void lh_Shape_testPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -169,14 +165,13 @@ static void lh_Shape_testPoint(LhatMachine *machine, void *context, const LhatVa
 		}
 		answers[0] = lhat_bool(s->testPoint(numberAt(args, count, 1), numberAt(args, count, 2)));
 		*answerCount = 1;
-		return;
 	});
 }
 
 // rayCast(x1, y1, x2, y2, maxFraction[, childIndex]) -> (hit, nx, ny, fraction)
 // rayCast(x1, y1, x2, y2, maxFraction, x, y, r[, childIndex]) -> the same, against the bare shape
 static void lh_Shape_rayCast(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -201,13 +196,12 @@ static void lh_Shape_rayCast(LhatMachine *machine, void *context, const LhatValu
 		answers[2] = lhat_real(ny);
 		answers[3] = lhat_real(fraction);
 		*answerCount = 4;
-		return;
 	});
 }
 
 // computeAABB(x, y, r[, childIndex]) -> (lx, ly, ux, uy)
 static void lh_Shape_computeAABB(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -215,13 +209,12 @@ static void lh_Shape_computeAABB(LhatMachine *machine, void *context, const Lhat
 		float out[4];
 		s->computeAABB(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), (int) numberAt(args, count, 4, 1) - 1, out[0], out[1], out[2], out[3]);
 		numbers(out, 4, answers, answerCount);
-		return;
 	});
 }
 
 // computeMass(density) -> (x, y, mass, inertia)
 static void lh_Shape_computeMass(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -229,24 +222,22 @@ static void lh_Shape_computeMass(LhatMachine *machine, void *context, const Lhat
 		float out[4];
 		s->computeMass(numberAt(args, count, 1), out[0], out[1], out[2], out[3]);
 		numbers(out, 4, answers, answerCount);
-		return;
 	});
 }
 
 static void lh_Shape_setFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	int v[3] = {(int) numberAt(args, count, 1), (int) numberAt(args, count, 2), (int) numberAt(args, count, 3)};
 	lh::guard(machine, [&]() {
 		s->setFilterData(v);
-		return;
 	});
 }
 
 static void lh_Shape_getFilterData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -257,7 +248,6 @@ static void lh_Shape_getFilterData(LhatMachine *machine, void *context, const Lh
 		answers[1] = lhat_integer(v[1]);
 		answers[2] = lhat_integer(v[2]);
 		*answerCount = 3;
-		return;
 	});
 }
 
@@ -292,7 +282,7 @@ static LhatValue bitList(LhatMachine *machine, uint16 bits)
 // setCategory() with no bits puts the shape back in category 1, and
 // setMask() with none lets it collide with everything (wrap_Shape.cpp).
 static void lh_Shape_setCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -301,12 +291,11 @@ static void lh_Shape_setCategory(LhatMachine *machine, void *context, const Lhat
 		return;
 	lh::guard(machine, [&]() {
 		s->setCategory(bits);
-		return;
 	});
 }
 
 static void lh_Shape_setMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -315,12 +304,11 @@ static void lh_Shape_setMask(LhatMachine *machine, void *context, const LhatValu
 		return;
 	lh::guard(machine, [&]() {
 		s->setMask(bits);
-		return;
 	});
 }
 
 static void lh_Shape_getCategory(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -328,7 +316,7 @@ static void lh_Shape_getCategory(LhatMachine *machine, void *context, const Lhat
 }
 
 static void lh_Shape_getMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -336,7 +324,7 @@ static void lh_Shape_getMask(LhatMachine *machine, void *context, const LhatValu
 }
 
 static void lh_Shape_setUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -347,23 +335,21 @@ static void lh_Shape_setUserData(LhatMachine *machine, void *context, const Lhat
 		StrongRef<lh::Parked> parked(new lh::Parked(lh::ParkingLot::lotOf(machine), args[1]), Acquire::NORETAIN);
 		s->setUserData(parked.get());
 	}
-	return;
 }
 
 static void lh_Shape_getUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	lh::Parked *parked = dynamic_cast<lh::Parked *>(s->getUserData());
 	answers[0] = parked != nullptr ? parked->get() : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 // getBoundingBox([childIndex]) -> (lx, ly, ux, uy)
 static void lh_Shape_getBoundingBox(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -371,12 +357,11 @@ static void lh_Shape_getBoundingBox(LhatMachine *machine, void *context, const L
 		float out[4];
 		s->getBoundingBox((int) numberAt(args, count, 1, 1) - 1, out[0], out[1], out[2], out[3]);
 		numbers(out, 4, answers, answerCount);
-		return;
 	});
 }
 
 static void lh_Shape_getMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -384,35 +369,32 @@ static void lh_Shape_getMassData(LhatMachine *machine, void *context, const Lhat
 		float out[4];
 		s->getMassData(out[0], out[1], out[2], out[3]);
 		numbers(out, 4, answers, answerCount);
-		return;
 	});
 }
 
 static void lh_Shape_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	lh::guard(machine, [&]() {
 		s->destroy();
-		return;
 	});
 }
 
 static void lh_Shape_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
 	answers[0] = lhat_bool(!s->isValid());
 	*answerCount = 1;
-	return;
 }
 
 // --- CircleShape ---
 
 static void lh_Shape_setRadius(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -422,13 +404,12 @@ static void lh_Shape_setRadius(LhatMachine *machine, void *context, const LhatVa
 	float r = numberAt(args, count, 1);
 	lh::guard(machine, [&]() {
 		c->setRadius(r);
-		return;
 	});
 }
 
 // getPoint() -> (x, y) of a circle; getPoint(index) -> (x, y) of a chain's vertex.
 static void lh_Shape_getPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -459,12 +440,11 @@ static void lh_Shape_getPoint(LhatMachine *machine, void *context, const LhatVal
 			c->getPoint(out[0], out[1]);
 		}
 		numbers(out, 2, answers, answerCount);
-		return;
 	});
 }
 
 static void lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -480,7 +460,6 @@ static void lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatVal
 		c->setPoint(x, y);
 		answers[0] = lhat_nil();
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -489,7 +468,7 @@ static void lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatVal
 // getPoints() -> t^{...:number^}: the vertices as x, y pairs, for polygon,
 // edge and chain shapes alike.
 static void lh_Shape_getPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -527,7 +506,6 @@ static void lh_Shape_getPoints(LhatMachine *machine, void *context, const LhatVa
 		}
 		answers[0] = numberList(machine, points);
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -551,7 +529,7 @@ static void setVertex(LhatMachine *machine, Shape *s, const LhatValue *args, siz
 }
 
 static void getVertex(LhatMachine *machine, Shape *s, EdgeGetter edge, ChainGetter chain, const char *name,
-                      LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	lh::guard(machine, [&]() {
 		b2Vec2 v;
@@ -570,7 +548,7 @@ static void getVertex(LhatMachine *machine, Shape *s, EdgeGetter edge, ChainGett
 }
 
 static void lh_Shape_setNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -578,7 +556,7 @@ static void lh_Shape_setNextVertex(LhatMachine *machine, void *context, const Lh
 }
 
 static void lh_Shape_setPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -586,7 +564,7 @@ static void lh_Shape_setPreviousVertex(LhatMachine *machine, void *context, cons
 }
 
 static void lh_Shape_getNextVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -594,7 +572,7 @@ static void lh_Shape_getNextVertex(LhatMachine *machine, void *context, const Lh
 }
 
 static void lh_Shape_getPreviousVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();
@@ -602,7 +580,7 @@ static void lh_Shape_getPreviousVertex(LhatMachine *machine, void *context, cons
 }
 
 static void lh_Shape_getVertexCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHAPE_SELF();

@@ -233,7 +233,7 @@ static bool bodyTypeAt(LhatMachine *machine, const LhatValue *args, size_t count
 
 // Pushes (body, shape) and drops the references the factory handed over.
 static void bodyAndShape(LhatMachine *machine, Body *body, Shape *shape,
-                         LhatValue *answers, int *answerCount)
+						 LhatValue *answers, int *answerCount)
 {
 	answers[0] = pushBody(machine, body);
 	answers[1] = pushShape(machine, shape);
@@ -244,7 +244,7 @@ static void bodyAndShape(LhatMachine *machine, Body *body, Shape *shape,
 
 // newWorld([gx, gy[, sleep]])
 static void lh_newWorld(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	float gx = numberAt(args, count, 0);
@@ -254,13 +254,12 @@ static void lh_newWorld(LhatMachine *machine, void *context, const LhatValue *ar
 		StrongRef<World> world(instance()->newWorld(gx, gy, sleep), Acquire::NORETAIN);
 		answers[0] = pushWorld(machine, world.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newBody(world[, x, y[, type]])
 static void lh_newBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -283,13 +282,12 @@ static void lh_newBody(LhatMachine *machine, void *context, const LhatValue *arg
 		StrongRef<Body> body(instance()->newBody(world, x, y, btype), Acquire::NORETAIN);
 		answers[0] = pushBody(machine, body.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newCircleBody(world, type, x, y, radius) -> (Body, Shape)
 static void lh_newCircleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -307,13 +305,12 @@ static void lh_newCircleBody(LhatMachine *machine, void *context, const LhatValu
 		CircleShape *shape = nullptr;
 		Body *body = instance()->newCircleBody(world, btype, x, y, radius, shape);
 		bodyAndShape(machine, body, shape, answers, answerCount);
-		return;
 	});
 }
 
 // newRectangleBody(world, type, x, y, w, h[, angle]) -> (Body, Shape)
 static void lh_newRectangleBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -333,13 +330,12 @@ static void lh_newRectangleBody(LhatMachine *machine, void *context, const LhatV
 		PolygonShape *shape = nullptr;
 		Body *body = instance()->newRectangleBody(world, btype, x, y, w, h, angle, shape);
 		bodyAndShape(machine, body, shape, answers, answerCount);
-		return;
 	});
 }
 
 // newPolygonBody(world, type, x1, y1, x2, y2, x3, y3, ...) -> (Body, Shape)
 static void lh_newPolygonBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -361,13 +357,12 @@ static void lh_newPolygonBody(LhatMachine *machine, void *context, const LhatVal
 		PolygonShape *shape = nullptr;
 		Body *body = instance()->newPolygonBody(world, btype, coords.data(), (int) coords.size(), shape);
 		bodyAndShape(machine, body, shape, answers, answerCount);
-		return;
 	});
 }
 
 // newEdgeBody(world, type, x1, y1, x2, y2[, prevx, prevy, nextx, nexty]) -> (Body, Shape)
 static void lh_newEdgeBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -396,13 +391,12 @@ static void lh_newEdgeBody(LhatMachine *machine, void *context, const LhatValue 
 		else
 			body = instance()->newEdgeBody(world, btype, x1, y1, x2, y2, shape);
 		bodyAndShape(machine, body, shape, answers, answerCount);
-		return;
 	});
 }
 
 // newChainBody(world, type, loop, x1, y1, x2, y2, ...) -> (Body, Shape)
 static void lh_newChainBody(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *world = checkWorld(machine, args, count, 0);
@@ -425,13 +419,12 @@ static void lh_newChainBody(LhatMachine *machine, void *context, const LhatValue
 		ChainShape *shape = nullptr;
 		Body *body = instance()->newChainBody(world, btype, loop, coords.data(), (int) coords.size(), shape);
 		bodyAndShape(machine, body, shape, answers, answerCount);
-		return;
 	});
 }
 
 // newCircleShape(body, radius) / newCircleShape(body, x, y, radius)
 static void lh_newCircleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -454,13 +447,12 @@ static void lh_newCircleShape(LhatMachine *machine, void *context, const LhatVal
 		StrongRef<CircleShape> shape(instance()->newCircleShape(body, x, y, radius), Acquire::NORETAIN);
 		answers[0] = pushShape(machine, shape.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newRectangleShape(body, w, h) / newRectangleShape(body, x, y, w, h[, angle])
 static void lh_newRectangleShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -488,13 +480,12 @@ static void lh_newRectangleShape(LhatMachine *machine, void *context, const Lhat
 		StrongRef<PolygonShape> shape(instance()->newRectangleShape(body, x, y, w, h, angle), Acquire::NORETAIN);
 		answers[0] = pushShape(machine, shape.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newEdgeShape(body, x1, y1, x2, y2[, prevx, prevy, nextx, nexty])
 static void lh_newEdgeShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -523,13 +514,12 @@ static void lh_newEdgeShape(LhatMachine *machine, void *context, const LhatValue
 		StrongRef<EdgeShape> shape(made, Acquire::NORETAIN);
 		answers[0] = pushShape(machine, shape.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newPolygonShape(body, x1, y1, x2, y2, x3, y3, ...)
 static void lh_newPolygonShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -550,13 +540,12 @@ static void lh_newPolygonShape(LhatMachine *machine, void *context, const LhatVa
 		StrongRef<PolygonShape> shape(instance()->newPolygonShape(body, coords.data(), (int) coords.size()), Acquire::NORETAIN);
 		answers[0] = pushShape(machine, shape.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // newChainShape(body, loop, x1, y1, x2, y2, ...)
 static void lh_newChainShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -583,7 +572,6 @@ static void lh_newChainShape(LhatMachine *machine, void *context, const LhatValu
 		StrongRef<ChainShape> shape(instance()->newChainShape(body, loop, coords.data(), (int) coords.size()), Acquire::NORETAIN);
 		answers[0] = pushShape(machine, shape.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -597,7 +585,7 @@ static bool twoBodies(LhatMachine *machine, const LhatValue *args, size_t count,
 
 template <typename T>
 static void pushNewJoint(LhatMachine *machine, const std::function<T *()> &make,
-                         LhatValue *answers, int *answerCount)
+						 LhatValue *answers, int *answerCount)
 {
 	lh::guard(machine, [&]() {
 		StrongRef<T> joint(make(), Acquire::NORETAIN);
@@ -608,7 +596,7 @@ static void pushNewJoint(LhatMachine *machine, const std::function<T *()> &make,
 
 // newDistanceJoint(b1, b2, x1, y1, x2, y2[, collideConnected])
 static void lh_newDistanceJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -622,7 +610,7 @@ static void lh_newDistanceJoint(LhatMachine *machine, void *context, const LhatV
 
 // newMouseJoint(body, x, y)
 static void lh_newMouseJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *body = checkBody(machine, args, count, 0);
@@ -669,7 +657,7 @@ static Anchors anchorsOf(const LhatValue *args, size_t count)
 }
 
 static void lh_newRevoluteJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -684,7 +672,7 @@ static void lh_newRevoluteJoint(LhatMachine *machine, void *context, const LhatV
 }
 
 static void lh_newWeldJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -699,7 +687,7 @@ static void lh_newWeldJoint(LhatMachine *machine, void *context, const LhatValue
 }
 
 static void lh_newFrictionJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -743,7 +731,7 @@ static AxisAnchors axisAnchorsOf(const LhatValue *args, size_t count)
 }
 
 static void lh_newPrismaticJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -759,7 +747,7 @@ static void lh_newPrismaticJoint(LhatMachine *machine, void *context, const Lhat
 }
 
 static void lh_newWheelJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -772,7 +760,7 @@ static void lh_newWheelJoint(LhatMachine *machine, void *context, const LhatValu
 
 // newPulleyJoint(b1, b2, gx1, gy1, gx2, gy2, x1, y1, x2, y2, ratio[, collide])
 static void lh_newPulleyJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -789,7 +777,7 @@ static void lh_newPulleyJoint(LhatMachine *machine, void *context, const LhatVal
 
 // newGearJoint(j1, j2[, ratio[, collide]])
 static void lh_newGearJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Joint *j1 = checkJoint(machine, args, count, 0);
@@ -807,7 +795,7 @@ static void lh_newGearJoint(LhatMachine *machine, void *context, const LhatValue
 
 // newRopeJoint(b1, b2, x1, y1, x2, y2, maxLength[, collide])
 static void lh_newRopeJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -822,7 +810,7 @@ static void lh_newRopeJoint(LhatMachine *machine, void *context, const LhatValue
 
 // newMotorJoint(b1, b2[, correctionFactor[, collide]])
 static void lh_newMotorJoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b1, *b2;
@@ -837,7 +825,7 @@ static void lh_newMotorJoint(LhatMachine *machine, void *context, const LhatValu
 
 // getDistance(shapeA, shapeB) -> (distance, x1, y1, x2, y2)
 static void lh_getDistance(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Shape *a = checkShape(machine, args, count, 0);
@@ -852,12 +840,11 @@ static void lh_getDistance(LhatMachine *machine, void *context, const LhatValue 
 		float out[5];
 		out[0] = Physics::getDistance(a, b, out[1], out[2], out[3], out[4]);
 		numbers(out, 5, answers, answerCount);
-		return;
 	});
 }
 
 static void lh_getMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -865,17 +852,15 @@ static void lh_getMeter(LhatMachine *machine, void *context, const LhatValue *ar
 	(void) count;
 	answers[0] = lhat_real(Physics::getMeter());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setMeter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	float meter = numberAt(args, count, 0);
 	lh::guard(machine, [&]() {
 		Physics::setMeter(meter);
-		return;
 	});
 }
 
@@ -884,7 +869,7 @@ static void lh_setMeter(LhatMachine *machine, void *context, const LhatValue *ar
 typedef void (*Conversion)(float &, float &, float, float, b2Body *, b2Body *);
 
 static void convert(LhatMachine *machine, const LhatValue *args, size_t count, Conversion conversion,
-                    LhatValue *answers, int *answerCount)
+					LhatValue *answers, int *answerCount)
 {
 	float a = numberAt(args, count, 0);
 	float b = numberAt(args, count, 1);
@@ -907,28 +892,28 @@ static void convert(LhatMachine *machine, const LhatValue *args, size_t count, C
 }
 
 static void lh_computeLinearStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	convert(machine, args, count, Physics::computeLinearStiffness, answers, answerCount);
 }
 
 static void lh_computeLinearFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	convert(machine, args, count, Physics::computeLinearFrequency, answers, answerCount);
 }
 
 static void lh_computeAngularStiffness(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	convert(machine, args, count, Physics::computeAngularStiffness, answers, answerCount);
 }
 
 static void lh_computeAngularFrequency(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	convert(machine, args, count, Physics::computeAngularFrequency, answers, answerCount);

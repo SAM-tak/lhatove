@@ -42,7 +42,7 @@ namespace lh
 // 05 の 8.2: print is what a script writer looks for first. Goes to stdout,
 // which lovec shows and love.exe sends to the console it attached to.
 static void lh_print(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -56,12 +56,11 @@ static void lh_print(LhatMachine *machine, void *context, const LhatValue *argum
 	line += '\n';
 	fputs(line.c_str(), stdout);
 	fflush(stdout);
-	return;
 }
 
 // love.getVersion() -> (major, minor, revision, codename)
 static void lh_getVersion(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;

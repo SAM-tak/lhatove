@@ -187,7 +187,7 @@ static World *self(LhatMachine *machine, const LhatValue *args, size_t count)
 
 // update(dt) / update(dt, velocityIterations, positionIterations)
 static void lh_World_update(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -197,14 +197,13 @@ static void lh_World_update(LhatMachine *machine, void *context, const LhatValue
 			w->update(dt, (int) numberAt(args, count, 2, 8), (int) numberAt(args, count, 3, 3));
 		else
 			w->update(dt);
-		return;
 	});
 }
 
 // setCallbacks([begin[, end[, presolve[, postsolve]]]]): what is not given
 // is cleared, so setCallbacks() alone removes them all.
 static void lh_World_setCallbacks(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -220,7 +219,6 @@ static void lh_World_setCallbacks(LhatMachine *machine, void *context, const Lha
 		else
 			w->setCallback(kinds[i], nullptr);
 	}
-	return;
 }
 
 static LhatValue callbackValue(World *w, World::CallbackKind kind)
@@ -232,7 +230,7 @@ static LhatValue callbackValue(World *w, World::CallbackKind kind)
 
 // getCallbacks() -> (begin, end, presolve, postsolve), nil^ where none is set.
 static void lh_World_getCallbacks(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -241,12 +239,11 @@ static void lh_World_getCallbacks(LhatMachine *machine, void *context, const Lha
 	answers[2] = callbackValue(w, World::CALLBACK_PRESOLVE);
 	answers[3] = callbackValue(w, World::CALLBACK_POSTSOLVE);
 	*answerCount = 4;
-	return;
 }
 
 // setContactFilter(fn) / setContactFilter() to clear.
 static void lh_World_setContactFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -257,112 +254,101 @@ static void lh_World_setContactFilter(LhatMachine *machine, void *context, const
 	}
 	else
 		w->setContactFilter(nullptr);
-	return;
 }
 
 static void lh_World_getContactFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	ContactFilter *own = dynamic_cast<ContactFilter *>(w->getContactFilter());
 	answers[0] = own != nullptr ? own->value() : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_setGravity(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	w->setGravity(numberAt(args, count, 1), numberAt(args, count, 2));
-	return;
 }
 
 static void lh_World_getGravity(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	b2Vec2 g = w->getGravity();
 	float out[2] = {g.x, g.y};
 	numbers(out, 2, answers, answerCount);
-	return;
 }
 
 static void lh_World_translateOrigin(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	lh::guard(machine, [&]() {
 		w->translateOrigin(numberAt(args, count, 1), numberAt(args, count, 2));
-		return;
 	});
 }
 
 static void lh_World_setSleepingAllowed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	w->setSleepingAllowed(boolAt(args, count, 1, true));
-	return;
 }
 
 static void lh_World_isSleepingAllowed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	answers[0] = lhat_bool(w->isSleepingAllowed());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_isLocked(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	answers[0] = lhat_bool(w->isLocked());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_getBodyCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	answers[0] = lhat_integer(w->getBodyCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_getJointCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	answers[0] = lhat_integer(w->getJointCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_getContactCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	answers[0] = lhat_integer(w->getContactCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_World_getBodies(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -370,7 +356,7 @@ static void lh_World_getBodies(LhatMachine *machine, void *context, const LhatVa
 }
 
 static void lh_World_getJoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -391,12 +377,11 @@ static void lh_World_getJoints(LhatMachine *machine, void *context, const LhatVa
 		}
 		answers[0] = table;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_World_getContacts(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -405,7 +390,7 @@ static void lh_World_getContacts(LhatMachine *machine, void *context, const Lhat
 
 // queryShapesInArea(lx, ly, ux, uy, fn) where fn(shape) -> bool^ (false stops).
 static void lh_World_queryShapesInArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -419,13 +404,12 @@ static void lh_World_queryShapesInArea(LhatMachine *machine, void *context, cons
 		w->queryShapesInArea(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4), visitor);
 		answers[0] = lhat_nil();
 		*answerCount = 1;
-		return;
 	});
 }
 
 // getShapesInArea(lx, ly, ux, uy) -> t^{...:Shape}
 static void lh_World_getShapesInArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -446,14 +430,13 @@ static void lh_World_getShapesInArea(LhatMachine *machine, void *context, const 
 		}
 		answers[0] = table;
 		*answerCount = 1;
-		return;
 	});
 }
 
 // rayCast(x1, y1, x2, y2, fn) where fn(shape, x, y, nx, ny, fraction) -> number^
 // (the fraction to clip the ray to: 0 stops, 1 continues, -1 ignores).
 static void lh_World_rayCast(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
@@ -467,7 +450,6 @@ static void lh_World_rayCast(LhatMachine *machine, void *context, const LhatValu
 		w->rayCast(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4), visitor);
 		answers[0] = lhat_nil();
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -499,42 +481,39 @@ static LhatValue hitTable(LhatMachine *machine, const World::RayHit &hit)
 }
 
 static void lh_World_rayCastAny(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	lh::guard(machine, [&]() {
 		answers[0] = hitTable(machine, w->rayCastAny(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4)));
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_World_rayCastClosest(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	lh::guard(machine, [&]() {
 		answers[0] = hitTable(machine, w->rayCastClosest(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4)));
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_World_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	WORLD_SELF();
 	lh::guard(machine, [&]() {
 		w->destroy();
-		return;
 	});
 }
 
 static void lh_World_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	World *w = checkWorld(machine, args, count, 0);
@@ -546,7 +525,6 @@ static void lh_World_isDestroyed(LhatMachine *machine, void *context, const Lhat
 	}
 	answers[0] = lhat_bool(!w->isValid());
 	*answerCount = 1;
-	return;
 }
 
 bool lhPhysicsWorld(lh::Context &ctx)

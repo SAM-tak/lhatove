@@ -172,7 +172,7 @@ static void lh_object_type(LhatMachine *machine, void *context, const LhatValue 
 
 // obj.typeOf(name) -> whether the object is (or derives from) the named type.
 static void lh_object_typeOf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	const TypeRegistry *registry = (const TypeRegistry *) context;

@@ -88,7 +88,6 @@ static void lh_newCanvas(LhatMachine *machine, void *context, const LhatValue *a
 		StrongRef<Texture> texture(instance()->newTexture(s), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, texture.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -104,7 +103,6 @@ static void lh_setCanvas(LhatMachine *machine, void *context, const LhatValue *a
 	{
 		lh::guard(machine, [&]() {
 			instance()->setRenderTarget();
-			return;
 		});
 		return;
 	}
@@ -129,7 +127,6 @@ static void lh_setCanvas(LhatMachine *machine, void *context, const LhatValue *a
 		targets.temporaryRTFlags |= Graphics::TEMPORARY_RT_STENCIL;
 	lh::guard(machine, [&]() {
 		instance()->setRenderTargets(targets);
-		return;
 	});
 }
 
@@ -149,7 +146,6 @@ static void lh_getCanvas(LhatMachine *machine, void *context, const LhatValue *a
 	}
 	answers[0] = lh::pushObject(machine, *binding.registry, targets.colors[0].texture);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
@@ -169,7 +165,6 @@ static void lh_setShader(LhatMachine *machine, void *context, const LhatValue *a
 	}
 	lh::guard(machine, [&]() {
 		instance()->setShader(shader);
-		return;
 	});
 }
 
@@ -182,7 +177,6 @@ static void lh_getShader(LhatMachine *machine, void *context, const LhatValue *a
 	Shader *shader = instance()->getShader();
 	answers[0] = shader != nullptr ? lh::pushObject(machine, *binding.registry, shader) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +185,7 @@ static void lh_getShader(LhatMachine *machine, void *context, const LhatValue *a
 
 // setBlendMode(mode[, alphamode])
 static void lh_setBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string modestr = lh::optString(args, count, 0, "alpha");
@@ -213,12 +207,11 @@ static void lh_setBlendMode(LhatMachine *machine, void *context, const LhatValue
 	}
 	lh::guard(machine, [&]() {
 		instance()->setBlendMode(mode, alpha);
-		return;
 	});
 }
 
 static void lh_getBlendMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -232,12 +225,11 @@ static void lh_getBlendMode(LhatMachine *machine, void *context, const LhatValue
 	answers[0] = stringValue(machine, modestr);
 	answers[1] = stringValue(machine, alphastr);
 	*answerCount = 2;
-	return;
 }
 
 // setScissor(x, y, w, h) / setScissor() to disable.
 static void lh_setScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	lh::guard(machine, [&]() {
@@ -253,12 +245,11 @@ static void lh_setScissor(LhatMachine *machine, void *context, const LhatValue *
 			}
 			instance()->setScissor(rect);
 		}
-		return;
 	});
 }
 
 static void lh_intersectScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	FRect rect = {(float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0), (float) lh::optNumber(args, count, 3, 0)};
@@ -269,13 +260,12 @@ static void lh_intersectScissor(LhatMachine *machine, void *context, const LhatV
 	}
 	lh::guard(machine, [&]() {
 		instance()->intersectScissor(rect);
-		return;
 	});
 }
 
 // getScissor() -> (x, y, w, h), all zero when none is set.
 static void lh_getScissor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -287,12 +277,11 @@ static void lh_getScissor(LhatMachine *machine, void *context, const LhatValue *
 		rect = {0, 0, 0, 0};
 	float values[4] = {rect.x, rect.y, rect.w, rect.h};
 	numberTuple(values, 4, answers, answerCount);
-	return;
 }
 
 // setStencilMode(mode[, value]) / setStencilMode() to disable.
 static void lh_setStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	lh::guard(machine, [&]() {
@@ -309,12 +298,11 @@ static void lh_setStencilMode(LhatMachine *machine, void *context, const LhatVal
 			return;
 		}
 		instance()->setStencilMode(mode, (int) lh::optNumber(args, count, 1, 1));
-		return;
 	});
 }
 
 static void lh_getStencilMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -326,12 +314,11 @@ static void lh_getStencilMode(LhatMachine *machine, void *context, const LhatVal
 	answers[0] = stringValue(machine, modestr);
 	answers[1] = lhat_integer(value);
 	*answerCount = 2;
-	return;
 }
 
 // setColorMask(r, g, b, a) / setColorMask() for all.
 static void lh_setColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	ColorChannelMask mask;
@@ -344,12 +331,11 @@ static void lh_setColorMask(LhatMachine *machine, void *context, const LhatValue
 	}
 	lh::guard(machine, [&]() {
 		instance()->setColorMask(mask);
-		return;
 	});
 }
 
 static void lh_getColorMask(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -360,7 +346,6 @@ static void lh_getColorMask(LhatMachine *machine, void *context, const LhatValue
 	answers[2] = lhat_bool(mask.b);
 	answers[3] = lhat_bool(mask.a);
 	*answerCount = 4;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -369,7 +354,7 @@ static void lh_getColorMask(LhatMachine *machine, void *context, const LhatValue
 
 // setDefaultFilter(min[, mag[, anisotropy]])
 static void lh_setDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SamplerState s = instance()->getDefaultSamplerState();
@@ -387,11 +372,10 @@ static void lh_setDefaultFilter(LhatMachine *machine, void *context, const LhatV
 	}
 	s.maxAnisotropy = (uint8) std::min(std::max(1.0, lh::optNumber(args, count, 2, 1.0)), (double) LOVE_UINT8_MAX);
 	instance()->setDefaultSamplerState(s);
-	return;
 }
 
 static void lh_getDefaultFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -405,11 +389,10 @@ static void lh_getDefaultFilter(LhatMachine *machine, void *context, const LhatV
 	answers[1] = stringValue(machine, magstr);
 	answers[2] = lhat_integer(s.maxAnisotropy);
 	*answerCount = 3;
-	return;
 }
 
 static void lh_setLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "smooth");
@@ -420,11 +403,10 @@ static void lh_setLineStyle(LhatMachine *machine, void *context, const LhatValue
 		return;
 	}
 	instance()->setLineStyle(style);
-	return;
 }
 
 static void lh_getLineStyle(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -433,11 +415,10 @@ static void lh_getLineStyle(LhatMachine *machine, void *context, const LhatValue
 	Graphics::getConstant(instance()->getLineStyle(), name);
 	answers[0] = stringValue(machine, name);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::string name = lh::optString(args, count, 0, "miter");
@@ -448,11 +429,10 @@ static void lh_setLineJoin(LhatMachine *machine, void *context, const LhatValue 
 		return;
 	}
 	instance()->setLineJoin(join);
-	return;
 }
 
 static void lh_getLineJoin(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -461,20 +441,18 @@ static void lh_getLineJoin(LhatMachine *machine, void *context, const LhatValue 
 	Graphics::getConstant(instance()->getLineJoin(), name);
 	answers[0] = stringValue(machine, name);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	instance()->setWireframe(lh::optBool(args, count, 0, false));
-	return;
 }
 
 static void lh_isWireframe(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
@@ -482,11 +460,10 @@ static void lh_isWireframe(LhatMachine *machine, void *context, const LhatValue 
 	(void) count;
 	answers[0] = lhat_bool(instance()->isWireframe());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getPointSize(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
@@ -494,18 +471,16 @@ static void lh_getPointSize(LhatMachine *machine, void *context, const LhatValue
 	(void) count;
 	answers[0] = lhat_real(instance()->getPointSize());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_reset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	lh::guard(machine, [&]() {
 		instance()->reset();
-		return;
 	});
 }
 
@@ -514,12 +489,11 @@ static void lh_reset(LhatMachine *machine, void *context, const LhatValue *args,
 // ---------------------------------------------------------------------------
 
 static void lh_shear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
 	instance()->shear((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
-	return;
 }
 
 static love::math::Transform *checkTransform(LhatMachine *machine, const LhatValue *args, size_t count, size_t index)
@@ -531,7 +505,7 @@ static love::math::Transform *checkTransform(LhatMachine *machine, const LhatVal
 }
 
 static void lh_applyTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto *transform = checkTransform(machine, args, count, 0);
@@ -539,12 +513,11 @@ static void lh_applyTransform(LhatMachine *machine, void *context, const LhatVal
 		return;
 	lh::guard(machine, [&]() {
 		instance()->applyTransform(transform->getMatrix());
-		return;
 	});
 }
 
 static void lh_replaceTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto *transform = checkTransform(machine, args, count, 0);
@@ -552,34 +525,31 @@ static void lh_replaceTransform(LhatMachine *machine, void *context, const LhatV
 		return;
 	lh::guard(machine, [&]() {
 		instance()->replaceTransform(transform->getMatrix());
-		return;
 	});
 }
 
 static void lh_transformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Vector2 p((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
 	p = instance()->transformPoint(p);
 	float values[2] = {p.x, p.y};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_inverseTransformPoint(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Vector2 p((float) lh::optNumber(args, count, 0, 0), (float) lh::optNumber(args, count, 1, 0));
 	p = instance()->inverseTransformPoint(p);
 	float values[2] = {p.x, p.y};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_getStackDepth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
@@ -587,7 +557,6 @@ static void lh_getStackDepth(LhatMachine *machine, void *context, const LhatValu
 	(void) count;
 	answers[0] = lhat_integer((int64_t) instance()->getStackDepth());
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -596,7 +565,7 @@ static void lh_getStackDepth(LhatMachine *machine, void *context, const LhatValu
 
 // ellipse(mode, x, y, a, b[, segments])
 static void lh_ellipse(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
@@ -609,13 +578,12 @@ static void lh_ellipse(LhatMachine *machine, void *context, const LhatValue *arg
 			instance()->ellipse(mode, x, y, a, b, (int) lh::optNumber(args, count, 5, 10));
 		else
 			instance()->ellipse(mode, x, y, a, b);
-		return;
 	});
 }
 
 // arc(mode[, arctype], x, y, r, angle1, angle2[, segments])
 static void lh_arc(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+				   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
@@ -641,7 +609,6 @@ static void lh_arc(LhatMachine *machine, void *context, const LhatValue *args, s
 			instance()->arc(mode, arcmode, x, y, r, a1, a2, (int) lh::optNumber(args, count, at + 5, 10));
 		else
 			instance()->arc(mode, arcmode, x, y, r, a1, a2);
-		return;
 	});
 }
 
@@ -650,7 +617,7 @@ static void lh_arc(LhatMachine *machine, void *context, const LhatValue *args, s
 // ---------------------------------------------------------------------------
 
 static void lh_getRendererInfo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -661,12 +628,11 @@ static void lh_getRendererInfo(LhatMachine *machine, void *context, const LhatVa
 	answers[2] = stringValue(machine, info.vendor.c_str());
 	answers[3] = stringValue(machine, info.device.c_str());
 	*answerCount = 4;
-	return;
 }
 
 // getStats() -> a table of the frame's counts.
 static void lh_getStats(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
@@ -700,11 +666,10 @@ static void lh_getStats(LhatMachine *machine, void *context, const LhatValue *ar
 	}
 	answers[0] = table;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) machine;
@@ -712,23 +677,21 @@ static void lh_getDPIScale(LhatMachine *machine, void *context, const LhatValue 
 	(void) count;
 	answers[0] = lhat_real(instance()->getScreenDPIScale());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) args;
 	(void) count;
 	float values[2] = {(float) instance()->getPixelWidth(), (float) instance()->getPixelHeight()};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 // readbackTexture(texture[, x, y, w, h]) -> ImageData with the pixels.
 static void lh_readbackTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, args, count, 0);
@@ -750,7 +713,6 @@ static void lh_readbackTexture(LhatMachine *machine, void *context, const LhatVa
 		StrongRef<love::image::ImageData> data(instance()->readbackTexture(t, 0, 0, rect, nullptr, 0, 0), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, data.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -761,27 +723,25 @@ static void lh_readbackTexture(LhatMachine *machine, void *context, const LhatVa
 #define TEXTURE_SELF() Texture *t = checkTexture(machine, args, count, 0); if (t == nullptr) return
 
 static void lh_Texture_isCanvas(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	answers[0] = lhat_bool(t->isRenderTarget());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_isReadable(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	answers[0] = lhat_bool(t->isReadable());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getFormat(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -789,41 +749,37 @@ static void lh_Texture_getFormat(LhatMachine *machine, void *context, const Lhat
 	getConstant(t->getPixelFormat(), name);
 	answers[0] = stringValue(machine, name);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getDPIScale(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	answers[0] = lhat_real(t->getDPIScale());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getPixelDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	float values[2] = {(float) t->getPixelWidth(0), (float) t->getPixelHeight(0)};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_Texture_getMipmapCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	answers[0] = lhat_integer(t->getMipmapCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getFilter(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -836,12 +792,11 @@ static void lh_Texture_getFilter(LhatMachine *machine, void *context, const Lhat
 	answers[1] = stringValue(machine, magstr);
 	answers[2] = lhat_integer(s.maxAnisotropy);
 	*answerCount = 3;
-	return;
 }
 
 // setWrap(horiz[, vert])
 static void lh_Texture_setWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -860,12 +815,11 @@ static void lh_Texture_setWrap(LhatMachine *machine, void *context, const LhatVa
 	}
 	lh::guard(machine, [&]() {
 		t->setSamplerState(s);
-		return;
 	});
 }
 
 static void lh_Texture_getWrap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -877,23 +831,21 @@ static void lh_Texture_getWrap(LhatMachine *machine, void *context, const LhatVa
 	answers[0] = stringValue(machine, u);
 	answers[1] = stringValue(machine, v);
 	*answerCount = 2;
-	return;
 }
 
 static void lh_Texture_generateMipmaps(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
 	lh::guard(machine, [&]() {
 		t->generateMipmaps();
-		return;
 	});
 }
 
 // replacePixels(imagedata[, x, y]): writes the pixels into the texture.
 static void lh_Texture_replacePixels(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXTURE_SELF();
@@ -907,7 +859,6 @@ static void lh_Texture_replacePixels(LhatMachine *machine, void *context, const 
 	int y = (int) lh::optNumber(args, count, 3, 0);
 	lh::guard(machine, [&]() {
 		t->replacePixels(data, 0, 0, x, y, true);
-		return;
 	});
 }
 

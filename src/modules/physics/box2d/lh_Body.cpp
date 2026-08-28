@@ -135,7 +135,7 @@ BODY_BOOL(isFixedRotation, b->isFixedRotation())
 BODY_SET_BOOL(setFixedRotation, setFixedRotation(v))
 
 static void lh_Body_getTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -143,23 +143,21 @@ static void lh_Body_getTransform(LhatMachine *machine, void *context, const Lhat
 	b->getPosition(out[0], out[1]);
 	out[2] = b->getAngle();
 	numbers(out, 3, answers, answerCount);
-	return;
 }
 
 static void lh_Body_setTransform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->setPosition(numberAt(args, count, 1), numberAt(args, count, 2));
 		b->setAngle(numberAt(args, count, 3));
-		return;
 	});
 }
 
 static void lh_Body_getKinematicState(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -168,56 +166,51 @@ static void lh_Body_getKinematicState(LhatMachine *machine, void *context, const
 	b->getKinematicState(pos, a, vel, da);
 	float out[6] = {pos.x, pos.y, a, vel.x, vel.y, da};
 	numbers(out, 6, answers, answerCount);
-	return;
 }
 
 static void lh_Body_setKinematicState(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->setKinematicState(b2Vec2(numberAt(args, count, 1), numberAt(args, count, 2)), numberAt(args, count, 3),
 		                     b2Vec2(numberAt(args, count, 4), numberAt(args, count, 5)), numberAt(args, count, 6));
-		return;
 	});
 }
 
 static void lh_Body_getMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	float out[4];
 	b->getMassData(out[0], out[1], out[2], out[3]);
 	numbers(out, 4, answers, answerCount);
-	return;
 }
 
 static void lh_Body_setMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->setMassData(numberAt(args, count, 1), numberAt(args, count, 2), numberAt(args, count, 3), numberAt(args, count, 4));
-		return;
 	});
 }
 
 static void lh_Body_resetMassData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->resetMassData();
-		return;
 	});
 }
 
 static void lh_Body_getType(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -227,11 +220,10 @@ static void lh_Body_getType(LhatMachine *machine, void *context, const LhatValue
 	lh::makeString(machine, type != nullptr ? type : "", &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_setType(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -244,13 +236,12 @@ static void lh_Body_setType(LhatMachine *machine, void *context, const LhatValue
 	}
 	lh::guard(machine, [&]() {
 		b->setType(type);
-		return;
 	});
 }
 
 // applyLinearImpulse(jx, jy[, wake]) / applyLinearImpulse(jx, jy, rx, ry[, wake])
 static void lh_Body_applyLinearImpulse(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -259,30 +250,27 @@ static void lh_Body_applyLinearImpulse(LhatMachine *machine, void *context, cons
 		b->applyLinearImpulse(jx, jy, numberAt(args, count, 3), numberAt(args, count, 4), boolAt(args, count, 5, true));
 	else
 		b->applyLinearImpulse(jx, jy, boolAt(args, count, 3, true));
-	return;
 }
 
 static void lh_Body_applyAngularImpulse(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	b->applyAngularImpulse(numberAt(args, count, 1), boolAt(args, count, 2, true));
-	return;
 }
 
 static void lh_Body_applyTorque(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	b->applyTorque(numberAt(args, count, 1), boolAt(args, count, 2, true));
-	return;
 }
 
 // applyForce(fx, fy[, wake]) / applyForce(fx, fy, rx, ry[, wake])
 static void lh_Body_applyForce(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -291,26 +279,23 @@ static void lh_Body_applyForce(LhatMachine *machine, void *context, const LhatVa
 		b->applyForce(fx, fy, numberAt(args, count, 3), numberAt(args, count, 4), boolAt(args, count, 5, true));
 	else
 		b->applyForce(fx, fy, boolAt(args, count, 3, true));
-	return;
 }
 
 static void lh_Body_setLinearVelocity(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	b->setLinearVelocity(numberAt(args, count, 1), numberAt(args, count, 2));
-	return;
 }
 
 static void lh_Body_setPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->setPosition(numberAt(args, count, 1), numberAt(args, count, 2));
-		return;
 	});
 }
 
@@ -338,7 +323,7 @@ BODY_XY(getLinearVelocityFromLocalPoint, getLinearVelocityFromLocalPoint(x, y, o
 
 // getWorldPoints(x1, y1, x2, y2, ...) -> t^{...:number^}: the same pairs transformed.
 static void lh_Body_getWorldPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -358,11 +343,10 @@ static void lh_Body_getWorldPoints(LhatMachine *machine, void *context, const Lh
 	b->getWorldPoints(points);
 	answers[0] = numberList(machine, points);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_getLocalPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -382,11 +366,10 @@ static void lh_Body_getLocalPoints(LhatMachine *machine, void *context, const Lh
 	b->getLocalPoints(points);
 	answers[0] = numberList(machine, points);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_isTouching(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -399,32 +382,29 @@ static void lh_Body_isTouching(LhatMachine *machine, void *context, const LhatVa
 	}
 	answers[0] = lhat_bool(b->isTouching(other));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_getWorld(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	answers[0] = pushWorld(machine, b->getWorld());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_getShape(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	Shape *shape = b->getShape();
 	answers[0] = shape != nullptr ? pushShape(machine, shape) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_getShapes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -445,12 +425,11 @@ static void lh_Body_getShapes(LhatMachine *machine, void *context, const LhatVal
 		}
 		answers[0] = table;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Body_getJoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -471,12 +450,11 @@ static void lh_Body_getJoints(LhatMachine *machine, void *context, const LhatVal
 		}
 		answers[0] = table;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Body_getContacts(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -484,18 +462,17 @@ static void lh_Body_getContacts(LhatMachine *machine, void *context, const LhatV
 }
 
 static void lh_Body_destroy(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::guard(machine, [&]() {
 		b->destroy();
-		return;
 	});
 }
 
 static void lh_Body_isDestroyed(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Body *b = checkBody(machine, args, count, 0);
@@ -507,11 +484,10 @@ static void lh_Body_isDestroyed(LhatMachine *machine, void *context, const LhatV
 	}
 	answers[0] = lhat_bool(b->body == nullptr);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Body_setUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
@@ -522,18 +498,16 @@ static void lh_Body_setUserData(LhatMachine *machine, void *context, const LhatV
 		StrongRef<lh::Parked> parked(new lh::Parked(lh::ParkingLot::lotOf(machine), args[1]), Acquire::NORETAIN);
 		b->setUserData(parked.get());
 	}
-	return;
 }
 
 static void lh_Body_getUserData(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BODY_SELF();
 	lh::Parked *parked = dynamic_cast<lh::Parked *>(b->getUserData());
 	answers[0] = parked != nullptr ? parked->get() : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 bool lhPhysicsBody(lh::Context &ctx)

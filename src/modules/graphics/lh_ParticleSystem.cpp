@@ -123,7 +123,7 @@ static ParticleSystem *checkParticles(LhatMachine *machine, const LhatValue *arg
 
 // newParticleSystem(texture[, buffer])
 static void lh_newParticleSystem(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *texture = checkTexture(machine, args, count, 0);
@@ -143,12 +143,11 @@ static void lh_newParticleSystem(LhatMachine *machine, void *context, const Lhat
 		StrongRef<ParticleSystem> ps(instance()->newParticleSystem(texture, (int) size), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, ps.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_PS_clone(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -156,12 +155,11 @@ static void lh_PS_clone(LhatMachine *machine, void *context, const LhatValue *ar
 		StrongRef<ParticleSystem> made(ps->clone(), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, made.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_PS_setTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -170,18 +168,16 @@ static void lh_PS_setTexture(LhatMachine *machine, void *context, const LhatValu
 		return;
 	lh::guard(machine, [&]() {
 		ps->setTexture(texture);
-		return;
 	});
 }
 
 static void lh_PS_getTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	answers[0] = lh::pushObject(machine, *binding.registry, ps->getTexture());
 	*answerCount = 1;
-	return;
 }
 
 PS_SET_NUMBER(setBufferSize, setBufferSize((uint32) v))
@@ -225,7 +221,7 @@ PS_BOOL(isStopped, ps->isStopped())
 PS_BOOL(hasRelativeRotation, ps->hasRelativeRotation())
 
 static void lh_PS_setInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -237,11 +233,10 @@ static void lh_PS_setInsertMode(LhatMachine *machine, void *context, const LhatV
 		return;
 	}
 	ps->setInsertMode(mode);
-	return;
 }
 
 static void lh_PS_getInsertMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -251,27 +246,24 @@ static void lh_PS_getInsertMode(LhatMachine *machine, void *context, const LhatV
 	lh::makeString(machine, name, &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 static void lh_PS_setPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setPosition((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return;
 }
 
 static void lh_PS_getPosition(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Vector2 p = ps->getPosition();
 	float values[2] = {p.x, p.y};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_PS_moveTo(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
@@ -280,12 +272,11 @@ static void lh_PS_moveTo(LhatMachine *machine, void *context, const LhatValue *a
 	(void) context;
 	PS_SELF();
 	ps->moveTo((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return;
 }
 
 // setEmissionArea(distribution[, dx, dy[, angle[, directionRelativeToCenter]]])
 static void lh_PS_setEmissionArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -301,13 +292,12 @@ static void lh_PS_setEmissionArea(LhatMachine *machine, void *context, const Lha
 	bool relative = lh::optBool(args, count, 5, false);
 	lh::guard(machine, [&]() {
 		ps->setEmissionArea(distribution, x, y, angle, relative);
-		return;
 	});
 }
 
 // setLinearAcceleration(xmin, ymin[, xmax, ymax])
 static void lh_PS_setLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -315,12 +305,11 @@ static void lh_PS_setLinearAcceleration(LhatMachine *machine, void *context, con
 	float xmax = (float) lh::optNumber(args, count, 3, xmin), ymax = (float) lh::optNumber(args, count, 4, ymin);
 	lh::guard(machine, [&]() {
 		ps->setLinearAcceleration(xmin, ymin, xmax, ymax);
-		return;
 	});
 }
 
 static void lh_PS_getLinearAcceleration(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -328,12 +317,11 @@ static void lh_PS_getLinearAcceleration(LhatMachine *machine, void *context, con
 	ps->getLinearAcceleration(lo, hi);
 	float values[4] = {lo.x, lo.y, hi.x, hi.y};
 	numberTuple(values, 4, answers, answerCount);
-	return;
 }
 
 // setSizes(size1, size2, ...)
 static void lh_PS_setSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -347,12 +335,11 @@ static void lh_PS_setSizes(LhatMachine *machine, void *context, const LhatValue 
 	}
 	lh::guard(machine, [&]() {
 		ps->setSizes(sizes);
-		return;
 	});
 }
 
 static void lh_PS_getSizes(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -372,12 +359,11 @@ static void lh_PS_getSizes(LhatMachine *machine, void *context, const LhatValue 
 	}
 	answers[0] = table;
 	*answerCount = 1;
-	return;
 }
 
 // setColors(r1, g1, b1, a1, r2, g2, b2, a2, ...): a color per four numbers.
 static void lh_PS_setColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -392,12 +378,11 @@ static void lh_PS_setColors(LhatMachine *machine, void *context, const LhatValue
 		colors.push_back(colorOf(args, count, i));
 	lh::guard(machine, [&]() {
 		ps->setColor(colors);
-		return;
 	});
 }
 
 static void lh_PS_getColors(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -425,12 +410,11 @@ static void lh_PS_getColors(LhatMachine *machine, void *context, const LhatValue
 	}
 	answers[0] = table;
 	*answerCount = 1;
-	return;
 }
 
 // setQuads(quad1, quad2, ...) / setQuads() to clear.
 static void lh_PS_setQuads(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
@@ -447,37 +431,33 @@ static void lh_PS_setQuads(LhatMachine *machine, void *context, const LhatValue 
 			ps->setQuads();
 		else
 			ps->setQuads(quads);
-		return;
 	});
 }
 
 static void lh_PS_setOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setOffset((float) lh::optNumber(args, count, 1, 0), (float) lh::optNumber(args, count, 2, 0));
-	return;
 }
 
 static void lh_PS_getOffset(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	Vector2 o = ps->getOffset();
 	float values[2] = {o.x, o.y};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_PS_setRelativeRotation(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PS_SELF();
 	ps->setRelativeRotation(lh::optBool(args, count, 1, false));
-	return;
 }
 
 bool lhGraphicsParticleSystem(lh::Context &ctx)
@@ -594,7 +574,7 @@ static std::vector<love::font::ColoredString> coloredOf(const std::string &s)
 
 // newTextBatch(font[, text])
 static void lh_newTextBatch(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = count > 0 ? lh::checkObject<Font>(args[0], *binding.registry) : nullptr;
@@ -608,25 +588,23 @@ static void lh_newTextBatch(LhatMachine *machine, void *context, const LhatValue
 		StrongRef<TextBatch> text(instance()->newTextBatch(font, coloredOf(s)), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, text.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_TextBatch_set(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	std::string s = lh::optString(args, count, 1, "");
 	lh::guard(machine, [&]() {
 		text->set(coloredOf(s));
-		return;
 	});
 }
 
 // setf(text, wraplimit, align)
 static void lh_TextBatch_setf(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -641,13 +619,12 @@ static void lh_TextBatch_setf(LhatMachine *machine, void *context, const LhatVal
 	}
 	lh::guard(machine, [&]() {
 		text->set(coloredOf(s), wrap, align);
-		return;
 	});
 }
 
 // add(text, x, y, ...) -> index
 static void lh_TextBatch_add(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -658,7 +635,7 @@ static void lh_TextBatch_add(LhatMachine *machine, void *context, const LhatValu
 
 // addf(text, wraplimit, align, x, y, ...) -> index
 static void lh_TextBatch_addf(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -676,18 +653,17 @@ static void lh_TextBatch_addf(LhatMachine *machine, void *context, const LhatVal
 }
 
 static void lh_TextBatch_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	lh::guard(machine, [&]() {
 		text->clear();
-		return;
 	});
 }
 
 static void lh_TextBatch_setFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -699,23 +675,21 @@ static void lh_TextBatch_setFont(LhatMachine *machine, void *context, const Lhat
 	}
 	lh::guard(machine, [&]() {
 		text->setFont(font);
-		return;
 	});
 }
 
 static void lh_TextBatch_getFont(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
 	answers[0] = lh::pushObject(machine, *binding.registry, text->getFont());
 	*answerCount = 1;
-	return;
 }
 
 // getWidth([index]) / getHeight([index]) / getDimensions([index])
 static void lh_TextBatch_getWidth(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -724,7 +698,7 @@ static void lh_TextBatch_getWidth(LhatMachine *machine, void *context, const Lha
 }
 
 static void lh_TextBatch_getHeight(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -733,7 +707,7 @@ static void lh_TextBatch_getHeight(LhatMachine *machine, void *context, const Lh
 }
 
 static void lh_TextBatch_getDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	TEXT_SELF();
@@ -741,7 +715,6 @@ static void lh_TextBatch_getDimensions(LhatMachine *machine, void *context, cons
 	lh::guard(machine, [&]() {
 		float values[2] = {(float) text->getWidth(index), (float) text->getHeight(index)};
 		numberTuple(values, 2, answers, answerCount);
-		return;
 	});
 }
 

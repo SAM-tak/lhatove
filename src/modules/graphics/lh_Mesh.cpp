@@ -106,7 +106,7 @@ static bool usageAt(LhatMachine *machine, const LhatValue *args, size_t count, s
 
 // newMesh(vertices[, mode[, usage]]) / newMesh(count[, mode[, usage]])
 static void lh_newMesh(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	PrimitiveType mode = PRIMITIVE_TRIANGLE_FAN;
@@ -140,7 +140,6 @@ static void lh_newMesh(LhatMachine *machine, void *context, const LhatValue *arg
 			StrongRef<Mesh> mesh(instance()->newMesh(format, vertices.data(), vertices.size() * sizeof(Vertex), mode, usage), Acquire::NORETAIN);
 			answers[0] = lh::pushObject(machine, *binding.registry, mesh.get());
 			*answerCount = 1;
-			return;
 		});
 		return;
 	}
@@ -149,13 +148,12 @@ static void lh_newMesh(LhatMachine *machine, void *context, const LhatValue *arg
 		StrongRef<Mesh> mesh(instance()->newMesh(format, n, mode, usage), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, mesh.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // setVertex(index, x, y[, u, v[, r, g, b, a]]) / setVertex(index, table)
 static void lh_Mesh_setVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -178,13 +176,12 @@ static void lh_Mesh_setVertex(LhatMachine *machine, void *context, const LhatVal
 		char *data = (char *) mesh->checkVertexDataOffset(index, &offset);
 		memcpy(data, &v, sizeof(Vertex));
 		mesh->setVertexDataModified(offset, mesh->getVertexStride());
-		return;
 	});
 }
 
 // getVertex(index) -> (x, y, u, v, r, g, b, a)
 static void lh_Mesh_getVertex(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -193,13 +190,12 @@ static void lh_Mesh_getVertex(LhatMachine *machine, void *context, const LhatVal
 		const Vertex *v = (const Vertex *) mesh->checkVertexDataOffset(index, nullptr);
 		float values[8] = {v->x, v->y, v->s, v->t, v->color.r / 255.0f, v->color.g / 255.0f, v->color.b / 255.0f, v->color.a / 255.0f};
 		numberTuple(values, 8, answers, answerCount);
-		return;
 	});
 }
 
 // setVertices(vertices[, start])
 static void lh_Mesh_setVertices(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -227,23 +223,21 @@ static void lh_Mesh_setVertices(LhatMachine *machine, void *context, const LhatV
 		char *data = (char *) mesh->checkVertexDataOffset(start, &offset);
 		memcpy(data, vertices.data(), vertices.size() * sizeof(Vertex));
 		mesh->setVertexDataModified(offset, vertices.size() * sizeof(Vertex));
-		return;
 	});
 }
 
 static void lh_Mesh_getVertexCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
 	answers[0] = lhat_integer((int64_t) mesh->getVertexCount());
 	*answerCount = 1;
-	return;
 }
 
 // setVertexMap(indices...) / setVertexMap(table) / setVertexMap() to clear.
 static void lh_Mesh_setVertexMap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -265,12 +259,11 @@ static void lh_Mesh_setVertexMap(LhatMachine *machine, void *context, const Lhat
 			mesh->setVertexMap();
 		else
 			mesh->setVertexMap(map);
-		return;
 	});
 }
 
 static void lh_Mesh_getVertexMap(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -294,12 +287,11 @@ static void lh_Mesh_getVertexMap(LhatMachine *machine, void *context, const Lhat
 		}
 		answers[0] = table;
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Mesh_setTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -313,23 +305,21 @@ static void lh_Mesh_setTexture(LhatMachine *machine, void *context, const LhatVa
 		return;
 	lh::guard(machine, [&]() {
 		mesh->setTexture(texture);
-		return;
 	});
 }
 
 static void lh_Mesh_getTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
 	Texture *texture = mesh->getTexture();
 	answers[0] = texture != nullptr ? lh::pushObject(machine, *binding.registry, texture) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Mesh_setDrawMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -337,11 +327,10 @@ static void lh_Mesh_setDrawMode(LhatMachine *machine, void *context, const LhatV
 	if (!drawModeAt(machine, args, count, 1, mode))
 		return;
 	mesh->setDrawMode(mode);
-	return;
 }
 
 static void lh_Mesh_getDrawMode(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -351,12 +340,11 @@ static void lh_Mesh_getDrawMode(LhatMachine *machine, void *context, const LhatV
 	lh::makeString(machine, name, &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 // setDrawRange(start, count) / setDrawRange() for all.
 static void lh_Mesh_setDrawRange(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -365,13 +353,12 @@ static void lh_Mesh_setDrawRange(LhatMachine *machine, void *context, const Lhat
 			mesh->setDrawRange((int) lh::optNumber(args, count, 1, 1) - 1, (int) lh::optNumber(args, count, 2, 0));
 		else
 			mesh->setDrawRange();
-		return;
 	});
 }
 
 // getDrawRange() -> (start, count), (0, 0) when drawing everything.
 static void lh_Mesh_getDrawRange(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -384,11 +371,10 @@ static void lh_Mesh_getDrawRange(LhatMachine *machine, void *context, const Lhat
 	answers[0] = lhat_integer(start + 1);
 	answers[1] = lhat_integer(n);
 	*answerCount = 2;
-	return;
 }
 
 static void lh_Mesh_setAttributeEnabled(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
@@ -396,17 +382,19 @@ static void lh_Mesh_setAttributeEnabled(LhatMachine *machine, void *context, con
 	bool enable = lh::optBool(args, count, 2, true);
 	lh::guard(machine, [&]() {
 		mesh->setAttributeEnabled(name, enable);
-		return;
 	});
 }
 
 static void lh_Mesh_isAttributeEnabled(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	MESH_SELF();
 	std::string name = lh::optString(args, count, 1, "");
-	lh::guard(machine, [&]() { answers[0] = lhat_bool(mesh->isAttributeEnabled(name)); *answerCount = 1; });
+	lh::guard(machine, [&]() {
+		answers[0] = lhat_bool(mesh->isAttributeEnabled(name));
+		*answerCount = 1;
+	});
 }
 
 bool lhGraphicsMesh(lh::Context &ctx)
@@ -461,7 +449,7 @@ static SpriteBatch *checkBatch(LhatMachine *machine, const LhatValue *args, size
 
 // newSpriteBatch(texture[, size[, usage]])
 static void lh_newSpriteBatch(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *texture = checkTexture(machine, args, count, 0);
@@ -483,13 +471,12 @@ static void lh_newSpriteBatch(LhatMachine *machine, void *context, const LhatVal
 		StrongRef<SpriteBatch> batch(instance()->newSpriteBatch(texture, size, usage), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, batch.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 // add(x, y, ...) / add(quad, x, y, ...) -> the sprite's id
 static void lh_SpriteBatch_add(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -509,13 +496,12 @@ static void lh_SpriteBatch_add(LhatMachine *machine, void *context, const LhatVa
 		}
 		answers[0] = lhat_integer(batch->add(transformOf(args, count, 1)) + 1);
 		*answerCount = 1;
-		return;
 	});
 }
 
 // set(id, x, y, ...) / set(id, quad, x, y, ...)
 static void lh_SpriteBatch_set(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -530,32 +516,29 @@ static void lh_SpriteBatch_set(LhatMachine *machine, void *context, const LhatVa
 		}
 		else
 			batch->add(transformOf(args, count, 2), id);
-		return;
 	});
 }
 
 static void lh_SpriteBatch_clear(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	batch->clear();
-	return;
 }
 
 static void lh_SpriteBatch_flush(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	lh::guard(machine, [&]() {
 		batch->flush();
-		return;
 	});
 }
 
 static void lh_SpriteBatch_setTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -564,23 +547,21 @@ static void lh_SpriteBatch_setTexture(LhatMachine *machine, void *context, const
 		return;
 	lh::guard(machine, [&]() {
 		batch->setTexture(texture);
-		return;
 	});
 }
 
 static void lh_SpriteBatch_getTexture(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	answers[0] = lh::pushObject(machine, *binding.registry, batch->getTexture());
 	*answerCount = 1;
-	return;
 }
 
 // setColor(r, g, b[, a]) / setColor() to reset to white.
 static void lh_SpriteBatch_setColor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -588,40 +569,36 @@ static void lh_SpriteBatch_setColor(LhatMachine *machine, void *context, const L
 		batch->setColor(colorOf(args, count, 1));
 	else
 		batch->setColor(Colorf(1, 1, 1, 1));
-	return;
 }
 
 static void lh_SpriteBatch_getColor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	colorTuple(batch->getColor(), answers, answerCount);
-	return;
 }
 
 static void lh_SpriteBatch_getCount(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+									LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	answers[0] = lhat_integer(batch->getCount());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SpriteBatch_getBufferSize(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
 	answers[0] = lhat_integer(batch->getBufferSize());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SpriteBatch_setDrawRange(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -630,12 +607,11 @@ static void lh_SpriteBatch_setDrawRange(LhatMachine *machine, void *context, con
 			batch->setDrawRange((int) lh::optNumber(args, count, 1, 1) - 1, (int) lh::optNumber(args, count, 2, 0));
 		else
 			batch->setDrawRange();
-		return;
 	});
 }
 
 static void lh_SpriteBatch_getDrawRange(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	BATCH_SELF();
@@ -648,7 +624,6 @@ static void lh_SpriteBatch_getDrawRange(LhatMachine *machine, void *context, con
 	answers[0] = lhat_integer(start + 1);
 	answers[1] = lhat_integer(n);
 	*answerCount = 2;
-	return;
 }
 
 bool lhGraphicsSpriteBatch(lh::Context &ctx)

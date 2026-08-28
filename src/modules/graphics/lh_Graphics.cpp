@@ -112,7 +112,7 @@ void colorTuple(Colorf c, LhatValue *answers, int *answerCount)
 
 // clear() clears to the background color; clear(r, g, b[, a]) to that.
 static void lh_clear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	OptionalColorD color;
@@ -128,24 +128,22 @@ static void lh_clear(LhatMachine *machine, void *context, const LhatValue *argum
 	}
 	lh::guard(machine, [&]() {
 		instance()->clear(color, OptionalInt(0), OptionalDouble(1.0));
-		return;
 	});
 }
 
 static void lh_present(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	lh::guard(machine, [&]() {
 		instance()->present(nullptr);
-		return;
 	});
 }
 
 static void lh_isActive(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -153,11 +151,10 @@ static void lh_isActive(LhatMachine *machine, void *context, const LhatValue *ar
 	(void) count;
 	answers[0] = lhat_bool(instance()->isActive());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -165,7 +162,6 @@ static void lh_getWidth(LhatMachine *machine, void *context, const LhatValue *ar
 	(void) count;
 	answers[0] = lhat_integer(instance()->getWidth());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
@@ -177,11 +173,10 @@ static void lh_getHeight(LhatMachine *machine, void *context, const LhatValue *a
 	(void) count;
 	answers[0] = lhat_integer(instance()->getHeight());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_getDimensions(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -189,7 +184,6 @@ static void lh_getDimensions(LhatMachine *machine, void *context, const LhatValu
 	answers[0] = lhat_integer(instance()->getWidth());
 	answers[1] = lhat_integer(instance()->getHeight());
 	*answerCount = 2;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,54 +191,49 @@ static void lh_getDimensions(LhatMachine *machine, void *context, const LhatValu
 // ---------------------------------------------------------------------------
 
 static void lh_setColor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setColor(colorOf(arguments, count, 0));
-	return;
 }
 
 static void lh_getColor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	colorTuple(instance()->getColor(), answers, answerCount);
-	return;
 }
 
 static void lh_setBackgroundColor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setBackgroundColor(colorOf(arguments, count, 0));
-	return;
 }
 
 static void lh_getBackgroundColor(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	colorTuple(instance()->getBackgroundColor(), answers, answerCount);
-	return;
 }
 
 static void lh_setLineWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setLineWidth((float) lh::optNumber(arguments, count, 0, 1.0));
-	return;
 }
 
 static void lh_getLineWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -252,7 +241,6 @@ static void lh_getLineWidth(LhatMachine *machine, void *context, const LhatValue
 	(void) count;
 	answers[0] = lhat_real(instance()->getLineWidth());
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,14 +254,18 @@ static void lh_rectangle(LhatMachine *machine, void *context, const LhatValue *a
 	(void) context;
 	Graphics::DrawMode mode;
 	if (count < 1 || !drawModeOf(machine, arguments[0], mode))
+	{
 		return;
-	float x = (float) lh::optNumber(arguments, count, 1, 0.0);
+	}
+	float x = (float)lh::optNumber(arguments, count, 1, 0.0);
 	float y = (float) lh::optNumber(arguments, count, 2, 0.0);
 	float w = (float) lh::optNumber(arguments, count, 3, 0.0);
 	float h = (float) lh::optNumber(arguments, count, 4, 0.0);
 	lh::guard(machine, [&]() {
 		if (count <= 5)
+		{
 			instance()->rectangle(mode, x, y, w, h);
+		}
 		else
 		{
 			float rx = (float) lh::optNumber(arguments, count, 5, 0.0);
@@ -283,19 +275,20 @@ static void lh_rectangle(LhatMachine *machine, void *context, const LhatValue *a
 			else
 				instance()->rectangle(mode, x, y, w, h, rx, ry, (int) lh::optNumber(arguments, count, 7, 10));
 		}
-		return;
 	});
 }
 
 // circle(mode, x, y, radius[, segments])
 static void lh_circle(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
 	if (count < 1 || !drawModeOf(machine, arguments[0], mode))
+	{
 		return;
-	float x = (float) lh::optNumber(arguments, count, 1, 0.0);
+	}
+	float x = (float)lh::optNumber(arguments, count, 1, 0.0);
 	float y = (float) lh::optNumber(arguments, count, 2, 0.0);
 	float radius = (float) lh::optNumber(arguments, count, 3, 0.0);
 	lh::guard(machine, [&]() {
@@ -303,7 +296,6 @@ static void lh_circle(LhatMachine *machine, void *context, const LhatValue *argu
 			instance()->circle(mode, x, y, radius);
 		else
 			instance()->circle(mode, x, y, radius, (int) lh::optNumber(arguments, count, 4, 10));
-		return;
 	});
 }
 
@@ -318,7 +310,7 @@ std::vector<Vector2> verticesOf(const LhatValue *args, size_t count, size_t firs
 
 // line(x1, y1, x2, y2, ...)
 static void lh_line(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Vector2> vertices = verticesOf(arguments, count, 0);
@@ -329,13 +321,12 @@ static void lh_line(LhatMachine *machine, void *context, const LhatValue *argume
 	}
 	lh::guard(machine, [&]() {
 		instance()->polyline(vertices.data(), vertices.size());
-		return;
 	});
 }
 
 // polygon(mode, x1, y1, x2, y2, ...)
 static void lh_polygon(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Graphics::DrawMode mode;
@@ -351,31 +342,30 @@ static void lh_polygon(LhatMachine *machine, void *context, const LhatValue *arg
 	vertices.push_back(vertices[0]);
 	lh::guard(machine, [&]() {
 		instance()->polygon(mode, vertices.data(), vertices.size());
-		return;
 	});
 }
 
 // points(x1, y1, x2, y2, ...)
 static void lh_points(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Vector2> vertices = verticesOf(arguments, count, 0);
 	if (vertices.empty())
+	{
 		return;
+	}
 	lh::guard(machine, [&]() {
 		instance()->points(vertices.data(), nullptr, vertices.size());
-		return;
 	});
 }
 
 static void lh_setPointSize(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setPointSize((float) lh::optNumber(arguments, count, 0, 1.0));
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +384,7 @@ static Font *fontInTail(const LhatValue *arguments, size_t count, size_t index)
 
 // print(text[, font], x, y, r, sx, sy, ox, oy, kx, ky) -- all but text optional.
 static void lh_print(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<love::font::ColoredString> text;
@@ -406,13 +396,12 @@ static void lh_print(LhatMachine *machine, void *context, const LhatValue *argum
 			instance()->print(text, font, m);
 		else
 			instance()->print(text, m);
-		return;
 	});
 }
 
 // printf(text[, font], x, y, limit[, align, r, sx, sy, ox, oy, kx, ky])
 static void lh_printf(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<love::font::ColoredString> text;
@@ -448,7 +437,6 @@ static void lh_printf(LhatMachine *machine, void *context, const LhatValue *argu
 			instance()->printf(text, font, wrap, align, m);
 		else
 			instance()->printf(text, wrap, align, m);
-		return;
 	});
 }
 
@@ -457,26 +445,24 @@ static void lh_printf(LhatMachine *machine, void *context, const LhatValue *argu
 // ---------------------------------------------------------------------------
 
 static void lh_push(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	lh::guard(machine, [&]() {
 		instance()->push();
-		return;
 	});
 }
 
 static void lh_pop(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+				   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	lh::guard(machine, [&]() {
 		instance()->pop();
-		return;
 	});
 }
 
@@ -486,37 +472,33 @@ static void lh_translate(LhatMachine *machine, void *context, const LhatValue *a
 	(void) machine;
 	(void) context;
 	instance()->translate((float) lh::optNumber(arguments, count, 0, 0.0), (float) lh::optNumber(arguments, count, 1, 0.0));
-	return;
 }
 
 static void lh_rotate(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->rotate((float) lh::optNumber(arguments, count, 0, 0.0));
-	return;
 }
 
 static void lh_scale(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	float sx = (float) lh::optNumber(arguments, count, 0, 1.0);
 	instance()->scale(sx, (float) lh::optNumber(arguments, count, 1, sx));
-	return;
 }
 
 static void lh_origin(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	(void) arguments;
 	(void) count;
 	instance()->origin();
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -567,7 +549,7 @@ static Font *checkFont(LhatMachine *machine, const LhatValue *arguments, size_t 
 // wrap_Graphics.cpp takes layers, mipmap tables, compressed data and
 // settings as well -- those arrive with the later milestones.
 static void lh_newImage(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto imagemodule = Module::getInstance<love::image::Image>(Module::M_IMAGE);
@@ -617,32 +599,29 @@ static void lh_newImage(LhatMachine *machine, void *context, const LhatValue *ar
 		StrongRef<Texture> texture(instance()->newTexture(settings, &slices), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, texture.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Texture_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, arguments, count, 0);
 	answers[0] = lhat_integer(t != nullptr ? t->getWidth() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, arguments, count, 0);
 	answers[0] = lhat_integer(t != nullptr ? t->getHeight() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Texture_getDimensions(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, arguments, count, 0);
@@ -655,12 +634,11 @@ static void lh_Texture_getDimensions(LhatMachine *machine, void *context, const 
 	answers[0] = lhat_integer(t->getWidth());
 	answers[1] = lhat_integer(t->getHeight());
 	*answerCount = 2;
-	return;
 }
 
 // texture.setFilter(min[, mag])
 static void lh_Texture_setFilter(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Texture *t = checkTexture(machine, arguments, count, 0);
@@ -681,13 +659,12 @@ static void lh_Texture_setFilter(LhatMachine *machine, void *context, const Lhat
 	}
 	lh::guard(machine, [&]() {
 		t->setSamplerState(s);
-		return;
 	});
 }
 
 // draw(drawable, x, y, r, sx, sy, ox, oy, kx, ky) / draw(texture, quad, x, y, ...)
 static void lh_draw(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Drawable *drawable = count > 0 ? lh::checkObject<Drawable>(arguments[0], *binding.registry) : nullptr;
@@ -710,20 +687,18 @@ static void lh_draw(LhatMachine *machine, void *context, const LhatValue *argume
 		Matrix4 m = transformOf(arguments, count, 2);
 		lh::guard(machine, [&]() {
 			instance()->draw(texture, quad, m);
-			return;
 		});
 		return;
 	}
 	Matrix4 m = transformOf(arguments, count, 1);
 	lh::guard(machine, [&]() {
 		instance()->draw(drawable, m);
-		return;
 	});
 }
 
 // newFont(size) -- the default face; newFont(path, size) -- a TrueType file.
 static void lh_newFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	auto fontmodule = Module::getInstance<love::font::Font>(Module::M_FONT);
@@ -744,10 +719,8 @@ static void lh_newFont(LhatMachine *machine, void *context, const LhatValue *arg
 		}
 		catch (const love::Exception &e)
 		{
-			{
-				lh::raise(machine, e.what());
-				return;
-			}
+			lh::raise(machine, e.what());
+			return;
 		}
 	}
 	else
@@ -777,12 +750,11 @@ static void lh_newFont(LhatMachine *machine, void *context, const LhatValue *arg
 		StrongRef<Font> font(instance()->newFont(rasterizer.get()), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, font.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_setFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = checkFont(machine, arguments, count, 0);
@@ -790,12 +762,11 @@ static void lh_setFont(LhatMachine *machine, void *context, const LhatValue *arg
 		return;
 	lh::guard(machine, [&]() {
 		instance()->setFont(font);
-		return;
 	});
 }
 
 static void lh_getFont(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
@@ -803,12 +774,11 @@ static void lh_getFont(LhatMachine *machine, void *context, const LhatValue *arg
 	lh::guard(machine, [&]() {
 		answers[0] = lh::pushObject(machine, *binding.registry, instance()->getFont());
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Font_getWidth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = checkFont(machine, arguments, count, 0);
@@ -822,28 +792,25 @@ static void lh_Font_getWidth(LhatMachine *machine, void *context, const LhatValu
 	lh::guard(machine, [&]() {
 		answers[0] = lhat_real(font->getWidth(text));
 		*answerCount = 1;
-		return;
 	});
 }
 
 static void lh_Font_getHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = checkFont(machine, arguments, count, 0);
 	answers[0] = lhat_real(font != nullptr ? font->getHeight() : 0.0f);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Font_getLineHeight(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Font *font = checkFont(machine, arguments, count, 0);
 	answers[0] = lhat_real(font != nullptr ? font->getLineHeight() : 0.0f);
 	*answerCount = 1;
-	return;
 }
 
 

@@ -51,7 +51,7 @@ namespace graphics
 
 // newQuad(x, y, w, h, sw, sh) / newQuad(x, y, w, h, texture)
 static void lh_newQuad(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+					   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Quad::Viewport v;
@@ -81,14 +81,13 @@ static void lh_newQuad(LhatMachine *machine, void *context, const LhatValue *arg
 		StrongRef<Quad> quad(instance()->newQuad(v, sw, sh), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, quad.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
 #define QUAD_SELF() Quad *q = checkQuad(machine, args, count, 0); if (q == nullptr) return
 
 static void lh_Quad_setViewport(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	QUAD_SELF();
@@ -101,47 +100,42 @@ static void lh_Quad_setViewport(LhatMachine *machine, void *context, const LhatV
 		q->refresh(v, lh::optNumber(args, count, 5, 0), lh::optNumber(args, count, 6, 0));
 	else
 		q->setViewport(v);
-	return;
 }
 
 static void lh_Quad_getViewport(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	QUAD_SELF();
 	Quad::Viewport v = q->getViewport();
 	float values[4] = {(float) v.x, (float) v.y, (float) v.w, (float) v.h};
 	numberTuple(values, 4, answers, answerCount);
-	return;
 }
 
 static void lh_Quad_getTextureDimensions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+										 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	QUAD_SELF();
 	float values[2] = {(float) q->getTextureWidth(), (float) q->getTextureHeight()};
 	numberTuple(values, 2, answers, answerCount);
-	return;
 }
 
 static void lh_Quad_setLayer(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	QUAD_SELF();
 	q->setLayer((int) lh::optNumber(args, count, 1, 1) - 1);
-	return;
 }
 
 static void lh_Quad_getLayer(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	QUAD_SELF();
 	answers[0] = lhat_integer(q->getLayer() + 1);
 	*answerCount = 1;
-	return;
 }
 
 bool lhGraphicsQuad(lh::Context &ctx)
@@ -243,7 +237,7 @@ static void lh_newShader(LhatMachine *machine, void *context, const LhatValue *a
 
 // validateShader(gles, code[, code]) -> (ok, message)
 static void lh_validateShader(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	bool gles = lh::optBool(args, count, 0, false);
@@ -278,7 +272,6 @@ static void lh_validateShader(LhatMachine *machine, void *context, const LhatVal
 	answers[0] = lhat_bool(ok);
 	answers[1] = message;
 	*answerCount = 2;
-	return;
 }
 
 #define SHADER_SELF() Shader *s = count > 0 ? lh::checkObject<Shader>(args[0], *binding.registry) : nullptr; if (s == nullptr) { lh::raise(machine, "Expected a Shader"); return; }
@@ -336,7 +329,6 @@ static void sendFloats(LhatMachine *machine, Shader *s, const Shader::UniformInf
 	}
 	lh::guard(machine, [&]() {
 		s->updateUniform(info, n);
-		return;
 	});
 }
 
@@ -389,7 +381,6 @@ static void sendInts(LhatMachine *machine, Shader *s, const Shader::UniformInfo 
 	}
 	lh::guard(machine, [&]() {
 		s->updateUniform(info, n);
-		return;
 	});
 }
 
@@ -421,7 +412,6 @@ static void sendBooleans(LhatMachine *machine, Shader *s, const Shader::UniformI
 	}
 	lh::guard(machine, [&]() {
 		s->updateUniform(info, n);
-		return;
 	});
 }
 
@@ -470,7 +460,6 @@ static void sendMatrices(LhatMachine *machine, Shader *s, const Shader::UniformI
 	}
 	lh::guard(machine, [&]() {
 		s->updateUniform(info, n);
-		return;
 	});
 }
 
@@ -487,7 +476,6 @@ static void sendTextures(LhatMachine *machine, Shader *s, const Shader::UniformI
 	}
 	lh::guard(machine, [&]() {
 		s->sendTextures(info, textures.data(), n);
-		return;
 	});
 }
 
@@ -537,33 +525,30 @@ static void sendTo(LhatMachine *machine, const LhatValue *args, size_t count, bo
 }
 
 static void lh_Shader_send(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+						   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	sendTo(machine, args, count, false);
-	return;
 }
 
 static void lh_Shader_sendColor(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	sendTo(machine, args, count, true);
-	return;
 }
 
 static void lh_Shader_hasUniform(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHADER_SELF();
 	answers[0] = lhat_bool(s->hasUniform(lh::optString(args, count, 1, "")));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Shader_getWarnings(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SHADER_SELF();
@@ -571,7 +556,6 @@ static void lh_Shader_getWarnings(LhatMachine *machine, void *context, const Lha
 	lh::makeString(machine, s->getWarnings(), &out);
 	answers[0] = out;
 	*answerCount = 1;
-	return;
 }
 
 bool lhGraphicsShader(lh::Context &ctx)

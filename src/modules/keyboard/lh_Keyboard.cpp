@@ -34,7 +34,7 @@ namespace keyboard
 
 // isDown(key, ...): every argument is a key constant; true if any is down.
 static void lh_isDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Keyboard::Key> keys;
@@ -52,11 +52,10 @@ static void lh_isDown(LhatMachine *machine, void *context, const LhatValue *argu
 	}
 	answers[0] = lhat_bool(instance()->isDown(keys));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_isScancodeDown(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	std::vector<Keyboard::Scancode> codes;
@@ -74,20 +73,18 @@ static void lh_isScancodeDown(LhatMachine *machine, void *context, const LhatVal
 	}
 	answers[0] = lhat_bool(instance()->isScancodeDown(codes));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setKeyRepeat(lh::optBool(arguments, count, 0, false));
-	return;
 }
 
 static void lh_hasKeyRepeat(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -95,20 +92,18 @@ static void lh_hasKeyRepeat(LhatMachine *machine, void *context, const LhatValue
 	(void) count;
 	answers[0] = lhat_bool(instance()->hasKeyRepeat());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	instance()->setTextInput(lh::optBool(arguments, count, 0, false));
-	return;
 }
 
 static void lh_hasTextInput(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -116,7 +111,6 @@ static void lh_hasTextInput(LhatMachine *machine, void *context, const LhatValue
 	(void) count;
 	answers[0] = lhat_bool(instance()->hasTextInput());
 	*answerCount = 1;
-	return;
 }
 
 } // keyboard

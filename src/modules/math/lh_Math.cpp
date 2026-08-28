@@ -89,17 +89,16 @@ static void seedTuple(RandomGenerator::Seed s, LhatValue *answers, int *answerCo
 }
 
 static void lh_random(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					  LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	answers[0] = randomWith(instance()->getRandomGenerator(), arguments, count, 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_randomNormal(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -107,32 +106,29 @@ static void lh_randomNormal(LhatMachine *machine, void *context, const LhatValue
 	double mean = lh::optNumber(arguments, count, 1, 0.0);
 	answers[0] = lhat_real(instance()->getRandomGenerator()->randomNormal(stddev) + mean);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_setRandomSeed(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	RandomGenerator::Seed s = seedOf(arguments, count, 0);
 	lh::guard(machine, [&]() {
 		instance()->getRandomGenerator()->setSeed(s);
-		return;
 	});
 }
 
 static void lh_getRandomSeed(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	(void) arguments;
 	(void) count;
 	seedTuple(instance()->getRandomGenerator()->getSeed(), answers, answerCount);
-	return;
 }
 
 static void lh_newRandomGenerator(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	lh::guard(machine, [&]() {
@@ -141,7 +137,6 @@ static void lh_newRandomGenerator(LhatMachine *machine, void *context, const Lha
 			rng->setSeed(seedOf(arguments, count, 0));
 		answers[0] = lh::pushObject(machine, *binding.registry, rng.get());
 		*answerCount = 1;
-		return;
 	});
 }
 
@@ -154,17 +149,16 @@ static RandomGenerator *checkRng(LhatMachine *machine, const LhatValue *argument
 }
 
 static void lh_RandomGenerator_random(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	RandomGenerator *rng = checkRng(machine, arguments, count);
 	answers[0] = rng != nullptr ? randomWith(rng, arguments, count, 1) : lhat_nil();
 	*answerCount = 1;
-	return;
 }
 
 static void lh_RandomGenerator_randomNormal(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+											LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	RandomGenerator *rng = checkRng(machine, arguments, count);
@@ -176,11 +170,10 @@ static void lh_RandomGenerator_randomNormal(LhatMachine *machine, void *context,
 	}
 	answers[0] = lhat_real(rng->randomNormal(lh::optNumber(arguments, count, 1, 1.0)) + lh::optNumber(arguments, count, 2, 0.0));
 	*answerCount = 1;
-	return;
 }
 
 static void lh_RandomGenerator_setSeed(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	RandomGenerator *rng = checkRng(machine, arguments, count);
@@ -189,12 +182,11 @@ static void lh_RandomGenerator_setSeed(LhatMachine *machine, void *context, cons
 	RandomGenerator::Seed s = seedOf(arguments, count, 1);
 	lh::guard(machine, [&]() {
 		rng->setSeed(s);
-		return;
 	});
 }
 
 static void lh_RandomGenerator_getSeed(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	RandomGenerator *rng = checkRng(machine, arguments, count);
@@ -209,7 +201,7 @@ static void lh_RandomGenerator_getSeed(LhatMachine *machine, void *context, cons
 
 // noise(x[, y[, z[, w]]]) -> [0, 1]
 static void lh_noise(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+					 LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
@@ -228,11 +220,10 @@ static void lh_noise(LhatMachine *machine, void *context, const LhatValue *argum
 	}
 	answers[0] = lhat_real(value);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_gammaToLinear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count < 3)
@@ -248,11 +239,10 @@ static void lh_gammaToLinear(LhatMachine *machine, void *context, const LhatValu
 	for (size_t i = 0; i < n; i++)
 		answers[i] = parts[i];
 	*answerCount = (int) n;
-	return;
 }
 
 static void lh_linearToGamma(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count < 3)
@@ -268,12 +258,11 @@ static void lh_linearToGamma(LhatMachine *machine, void *context, const LhatValu
 	for (size_t i = 0; i < n; i++)
 		answers[i] = parts[i];
 	*answerCount = (int) n;
-	return;
 }
 
 // colorToBytes(r, g, b[, a]) -> 0-255 integers; colorFromBytes the reverse.
 static void lh_colorToBytes(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	size_t n = count < 4 ? count : 4;
@@ -287,11 +276,10 @@ static void lh_colorToBytes(LhatMachine *machine, void *context, const LhatValue
 	for (size_t i = 0; i < n; i++)
 		answers[i] = parts[i];
 	*answerCount = (int) n;
-	return;
 }
 
 static void lh_colorFromBytes(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							  LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	size_t n = count < 4 ? count : 4;
@@ -301,7 +289,6 @@ static void lh_colorFromBytes(LhatMachine *machine, void *context, const LhatVal
 	for (size_t i = 0; i < n; i++)
 		answers[i] = parts[i];
 	*answerCount = (int) n;
-	return;
 }
 
 static std::vector<Vector2> verticesOf(const LhatValue *args, size_t count)
@@ -313,13 +300,12 @@ static std::vector<Vector2> verticesOf(const LhatValue *args, size_t count)
 }
 
 static void lh_isConvex(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+						LhatValue *answers, int *answerCount)
 {
 	(void) machine;
 	(void) context;
 	answers[0] = lhat_bool(isConvex(verticesOf(arguments, count)));
 	*answerCount = 1;
-	return;
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +321,7 @@ static Transform *checkTransform(LhatMachine *machine, const LhatValue *argument
 }
 
 static void lh_newTransform(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	StrongRef<Transform> t(new Transform(), Acquire::NORETAIN);
@@ -354,12 +340,11 @@ static void lh_newTransform(LhatMachine *machine, void *context, const LhatValue
 	}
 	answers[0] = lh::pushObject(machine, *binding.registry, t.get());
 	*answerCount = 1;
-	return;
 }
 
 // Each mutator answers the transform itself, so calls chain.
 static void lh_Transform_translate(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -372,11 +357,10 @@ static void lh_Transform_translate(LhatMachine *machine, void *context, const Lh
 	t->translate((float) lh::optNumber(arguments, count, 1, 0.0), (float) lh::optNumber(arguments, count, 2, 0.0));
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_rotate(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -389,11 +373,10 @@ static void lh_Transform_rotate(LhatMachine *machine, void *context, const LhatV
 	t->rotate((float) lh::optNumber(arguments, count, 1, 0.0));
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_scale(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -407,11 +390,10 @@ static void lh_Transform_scale(LhatMachine *machine, void *context, const LhatVa
 	t->scale(sx, (float) lh::optNumber(arguments, count, 2, sx));
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_shear(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -424,11 +406,10 @@ static void lh_Transform_shear(LhatMachine *machine, void *context, const LhatVa
 	t->shear((float) lh::optNumber(arguments, count, 1, 0.0), (float) lh::optNumber(arguments, count, 2, 0.0));
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_reset(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -441,11 +422,10 @@ static void lh_Transform_reset(LhatMachine *machine, void *context, const LhatVa
 	t->reset();
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_setTransformation(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+										   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -467,11 +447,10 @@ static void lh_Transform_setTransformation(LhatMachine *machine, void *context, 
 	t->setTransformation(x, y, a, sx, sy, ox, oy, kx, ky);
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_apply(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -485,11 +464,10 @@ static void lh_Transform_apply(LhatMachine *machine, void *context, const LhatVa
 	t->apply(other);
 	answers[0] = arguments[0];
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_inverse(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+								 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -502,11 +480,10 @@ static void lh_Transform_inverse(LhatMachine *machine, void *context, const Lhat
 	StrongRef<Transform> inverse(t->inverse(), Acquire::NORETAIN);
 	answers[0] = lh::pushObject(machine, *binding.registry, inverse.get());
 	*answerCount = 1;
-	return;
 }
 
 static void lh_Transform_transformPoint(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -520,11 +497,10 @@ static void lh_Transform_transformPoint(LhatMachine *machine, void *context, con
 	answers[0] = lhat_real(p.x);
 	answers[1] = lhat_real(p.y);
 	*answerCount = 2;
-	return;
 }
 
 static void lh_Transform_inverseTransformPoint(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+											   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	Transform *t = checkTransform(machine, arguments, count);
@@ -538,7 +514,6 @@ static void lh_Transform_inverseTransformPoint(LhatMachine *machine, void *conte
 	answers[0] = lhat_real(p.x);
 	answers[1] = lhat_real(p.y);
 	*answerCount = 2;
-	return;
 }
 
 } // math

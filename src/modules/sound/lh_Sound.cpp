@@ -56,7 +56,7 @@ static SoundData *checkSoundData(LhatMachine *machine, const LhatValue *argument
 // newSoundData(path) -- decoded whole; newSoundData(samples, rate, bits,
 // channels) -- silence of that shape.
 static void lh_newSoundData(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+							LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	if (count >= 1 && lhat_is_number(arguments[0]))
@@ -69,7 +69,6 @@ static void lh_newSoundData(LhatMachine *machine, void *context, const LhatValue
 			StrongRef<SoundData> data(instance()->newSoundData(samples, rate, bits, channels), Acquire::NORETAIN);
 			answers[0] = lh::pushObject(machine, *binding.registry, data.get());
 			*answerCount = 1;
-			return;
 		});
 		return;
 	}
@@ -87,58 +86,52 @@ static void lh_newSoundData(LhatMachine *machine, void *context, const LhatValue
 		StrongRef<SoundData> data(instance()->newSoundData(decoder.get()), Acquire::NORETAIN);
 		answers[0] = lh::pushObject(machine, *binding.registry, data.get());
 		*answerCount = 1;
-		return;
 	}, answers, answerCount);
 }
 
 static void lh_SoundData_getDuration(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SoundData *d = checkSoundData(machine, arguments, count);
 	answers[0] = lhat_real(d != nullptr ? d->getDuration() : 0.0f);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SoundData_getSampleCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+										LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SoundData *d = checkSoundData(machine, arguments, count);
 	answers[0] = lhat_integer(d != nullptr ? d->getSampleCount() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SoundData_getSampleRate(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									   LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SoundData *d = checkSoundData(machine, arguments, count);
 	answers[0] = lhat_integer(d != nullptr ? d->getSampleRate() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SoundData_getChannelCount(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+										 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SoundData *d = checkSoundData(machine, arguments, count);
 	answers[0] = lhat_integer(d != nullptr ? d->getChannelCount() : 0);
 	*answerCount = 1;
-	return;
 }
 
 static void lh_SoundData_getBitDepth(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
-						 LhatValue *answers, int *answerCount)
+									 LhatValue *answers, int *answerCount)
 {
 	(void) context;
 	SoundData *d = checkSoundData(machine, arguments, count);
 	answers[0] = lhat_integer(d != nullptr ? d->getBitDepth() : 0);
 	*answerCount = 1;
-	return;
 }
 
 } // sound
