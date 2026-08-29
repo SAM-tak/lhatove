@@ -42,7 +42,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - 登録の identity（hostdata タグ・host value タグ・エラー種）は **program ではなくプロセスのもの**。「登録呼び出し＝宣言」として lhat が intern するので、program をいくつ作っても同じタグが返り、食い違う宣言（別サイズの host value 型、別の variant 並び）は拒否される。restart で program を作り直しても型 identity は変わらない。返すのは `lhat_registry_dispose()`（LhatProgram が 1 つも無い時のみ）
 - GC ルートは `L^` と実行フレームのみ。C 保持値は非ルート → `lhat_machine_register` で係留。到達済みテーブルへは `lhat_machine_table_set`（write barrier）
 - 「全引数変換 → 呼ぶ → 答え変換」規律（変換と実行を交錯させない）
-- Boot.lh は「あれば呼ぶ」を静的に書けない（`t.foo` は型に無ければ静的エラー、`t[k]` は合併|nil^ で絞れない）→ optional コールバックは C++ 境界（handlers 構築）で解決
+- Boot.lh は「あれば呼ぶ」を静的に書けない（`t.foo` は型に無ければ静的エラー、`t[k]` は合併|nil^ で絞れない）→ optional コールバックは C++ 境界（handlers 構築、欠けた分は no-op ホスト関数）で解決。**`?.` `?[` `?(`（02 の 11.7改）では解けない** — あれが外すのは対象の側の `nil^` であって、型に無いメンバには届かない（`t?.missing` は今も `no such member`）。handlers の型を `update : p^number^;|nil^` の形にして `h.update?(dt)` と書く道はあるが、「update が無いかもしれない」がゲーム作者に嬉しい状況は無く、no-op を挟む今の形と実質同じ。与え忘れは検出しない（draw だけで回すのも正当な使い方）が、**与えたものの型違いは起動前に落ちる**（`lhat_unit_export_conforms`、`testing/lh/badcallback`）
 - 言語に弱参照は無い。だが**ホストが持つ参照は GC ルートではない**（8.8 のコレクタが辿るのは `L^` と実行フレームだけ）ので、ラッパのキャッシュは弱値テーブル無しで組める — `lh::WrapperCache`。バイト配列型無し
 - エラー値は traceback を自己記録しない（fault/panic のみ）。末尾呼び出しは痕跡なし、fault 時 `finally^` 不実行
 - `std.load` は同時 1 machine（スレッドからの load 禁止）。carry 産閉包は proto を借用 → program 破棄をまたぐ restart ペイロードに閉包不可
