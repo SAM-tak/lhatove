@@ -7,7 +7,7 @@
 | # | 内容 | 受け入れ条件 | 状態 |
 | --- | --- | --- | --- |
 | M0 | ビルド統合（CMake 手術、最小 Boot、CLAUDE.md 等整備） | hold した main.lh が `print` で lovec に出力。診断表示。U1/U4 検証 | **完了**（2026-08-22）。U1 OK。U4 は機構 OK だが lhat 側 UAF あり → [lhat-issues.md](lhat-issues.md) |
-| M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微） |
+| M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微）。M6 後にラッパをキャッシュし、physics で 120 フレーム 15,018 → 7,162 回収 |
 | M2 | 実ゲーム対応（PhysfsLoader 完全化・conf・filesystem/image/font・エラー画面・fused） | ディスク上の実ゲームディレクトリ + zip 読込 | **完了**（2026-08-23）。`testing/lh/realgame` をディレクトリ・.love・fused exe の3形態で確認。blue screen・nogame 動作 |
 | M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
 | M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | **完了**（2026-08-23）。`testing/lh/physics` が begin/end/presolve/postsolve・contact filter・area query・ray cast・joint・userData を通す（exit=7、約 5 秒）。途中見つけた lhat の install 型爆発は `fea90e4` で解消（[lhat-issues.md](lhat-issues.md)） |

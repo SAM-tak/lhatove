@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unordered_map>
 
 namespace love
 {
@@ -140,13 +141,16 @@ bool Context::bind(const char *name, const char *member) const
 static void lh_object_dispose(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
 							  LhatValue *answers, int *answerCount)
 {
-	(void) machine;
 	(void) context;
 	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
 		return;
 	LhatHostData *data = (LhatHostData *) lhat_as_object(arguments[0]);
 	if (data->pointer != nullptr)
 	{
+		// Whether this ran by hand or from the sweep (gc.c), the wrapper is
+		// spent and the cache must stop answering with it. Nothing here
+		// reaches back into lhat, which 8.8 forbids at this moment.
+		WrapperCache::forget(machine, (love::Object *) data->pointer);
 		((love::Object *) data->pointer)->release();
 		data->pointer = nullptr;
 	}
@@ -288,7 +292,12 @@ Runtime::~Runtime()
 	// The machine next: its heap holds values whose release callbacks reach
 	// into the engine, and the program's registrations must still exist then.
 	if (machine_ != nullptr)
+	{
+		// Disposing runs every wrapper's dispose, which is what empties the
+		// cache; this takes the machine's own entry away after.
 		lhat_machine_dispose(machine_);
+		WrapperCache::forgetMachine(machine_);
+	}
 	if (program_ != nullptr)
 		lhat_program_free(program_);
 }
@@ -423,6 +432,55 @@ love::Type Parked::type("lh.Parked", &Object::type);
 // Which lot is attached to which machine. A lot is retained here from
 // attach to detach, so a machine spawned for a love.thread worker keeps its
 // lot alive for as long as it runs.
+// ---------------------------------------------------------------------------
+// One wrapper per object per machine
+// ---------------------------------------------------------------------------
+
+// Held the way the lots are, and for the same reason: a machine apiece.
+// Neither this map nor the values in it are a GC root -- 8.8 walks L^ and
+// the frames and nothing else -- so a wrapper stays collectable while it
+// sits here, which is what Lua needed a weak table for.
+static std::mutex &wrappersMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+
+static std::map<LhatMachine *, std::unordered_map<love::Object *, LhatValue>> &wrappers()
+{
+	static std::map<LhatMachine *, std::unordered_map<love::Object *, LhatValue>> held;
+	return held;
+}
+
+LhatValue WrapperCache::find(LhatMachine *machine, love::Object *object)
+{
+	std::lock_guard<std::mutex> hold(wrappersMutex());
+	auto machineIt = wrappers().find(machine);
+	if (machineIt == wrappers().end())
+		return lhat_nil();
+	auto it = machineIt->second.find(object);
+	return it != machineIt->second.end() ? it->second : lhat_nil();
+}
+
+void WrapperCache::add(LhatMachine *machine, love::Object *object, LhatValue wrapper)
+{
+	std::lock_guard<std::mutex> hold(wrappersMutex());
+	wrappers()[machine][object] = wrapper;
+}
+
+void WrapperCache::forget(LhatMachine *machine, love::Object *object)
+{
+	std::lock_guard<std::mutex> hold(wrappersMutex());
+	auto machineIt = wrappers().find(machine);
+	if (machineIt != wrappers().end())
+		machineIt->second.erase(object);
+}
+
+void WrapperCache::forgetMachine(LhatMachine *machine)
+{
+	std::lock_guard<std::mutex> hold(wrappersMutex());
+	wrappers().erase(machine);
+}
 static std::mutex &lotsMutex()
 {
 	static std::mutex mutex;
@@ -610,6 +668,7 @@ void Runtime::disposeMachine(LhatMachine *machine)
 	if (lot != nullptr)
 		lot->detach();
 	lhat_machine_dispose(machine);
+	WrapperCache::forgetMachine(machine);
 }
 
 // ---------------------------------------------------------------------------
@@ -754,6 +813,12 @@ LhatValue pushObject(LhatMachine *machine, const TypeRegistry &registry, love::T
 {
 	if (object == nullptr)
 		return lhat_nil();
+	// The one this machine already has, if it has one. Equality would hold
+	// either way (a hostdata is its tag and its pointer), but a getter called
+	// every frame should not build a wrapper every frame.
+	LhatValue known = WrapperCache::find(machine, object);
+	if (!lhat_is_nil(known))
+		return known;
 	const LhatHostDataTag *tag = registry.tagFor(type);
 	if (tag == nullptr)
 		return lhat_nil();
@@ -761,6 +826,7 @@ LhatValue pushObject(LhatMachine *machine, const TypeRegistry &registry, love::T
 	if (!lhat_machine_make_hostdata(machine, tag, object, &out))
 		return lhat_nil();
 	object->retain();
+	WrapperCache::add(machine, object, out);
 	return out;
 }
 

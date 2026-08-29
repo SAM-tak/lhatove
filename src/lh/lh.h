@@ -209,6 +209,43 @@ private:
 // in a table at L^.modules.love.registry under an integer slot. The lot owns
 // the slots; a Parked object is one slot, given back when it dies. This is
 // what common/Reference.h was for Lua.
+
+// 05 の 8.8: one wrapper per object per machine.
+//
+// Pushing a love::Object made a fresh hostdata every time. That was correct
+// -- lhat compares a hostdata by tag and pointer, so two wrappers of one
+// object are equal and hash alike -- but a getter called every frame
+// (world.getBodies, shape.getBody) built and dropped one on each call.
+//
+// Lua kept the same table and needed it weak (__mode = "v" on
+// registry._loveobjects), or the cache would have held every Proxy alive
+// and nothing would ever have reached __gc. Here the map is C++'s own and
+// **is not a root**: 8.8's collector walks L^ and the frames, and what the
+// host holds is not among them. So a wrapper nothing else names is
+// collected exactly as before, and the collector hands it to the type's
+// dispose on the way out (gc.c's sweep) -- which is where the entry goes.
+//
+// A machine apiece, like the ParkingLot: love.thread gives every worker its
+// own, and a wrapper belongs to the heap it was made on.
+class WrapperCache
+{
+public:
+
+	// The wrapper for `object`, or nil^ when there is none yet.
+	static LhatValue find(LhatMachine *machine, love::Object *object);
+
+	// Remembers `wrapper` as the one for `object`.
+	static void add(LhatMachine *machine, love::Object *object, LhatValue wrapper);
+
+	// Forgets it -- called from the type's dispose, whether that ran by hand
+	// or from the collector. Nothing here reaches back into lhat, which 8.8
+	// forbids at that moment.
+	static void forget(LhatMachine *machine, love::Object *object);
+
+	// Drops everything a machine remembered. The machine's heap is going, so
+	// the wrappers in it are gone whatever this says.
+	static void forgetMachine(LhatMachine *machine);
+};
 class ParkingLot : public love::Object
 {
 public:
