@@ -57,6 +57,13 @@ public^let^run = p^{
     let^missing = love.filesystem.read("no-such-file.txt") catch^"(caught)"
     test.text("a missing file answers an error", "(caught)", missing)
 
+    # 04 の 2.4: the failures belong to the module, so a game may ask for the
+    # declaration rather than naming the variant it happens to be.
+    let^byGroup = love.filesystem.read("no-such-file.txt") catch^ if^ it^ fits^ love.filesystem.Error: "(by declaration)" el^: "(other)";
+    test.text("the module's declaration catches it", "(by declaration)", byGroup)
+    let^byLeaf = love.filesystem.read("no-such-file.txt") catch^ if^ it^ fits^ love.filesystem.Error.IO: "(by leaf)" el^: "(other)";
+    test.text("and so does the variant", "(by leaf)", byLeaf)
+
     # tidy up
     test.isTrue("remove a file", love.filesystem.remove("suitedir/inner.txt"))
     test.isTrue("remove a directory", love.filesystem.remove("suitedir"))

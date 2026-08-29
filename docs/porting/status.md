@@ -18,7 +18,7 @@
 
 | モジュール | wrap ファイル数（参考） | バインディング | 状態 |
 | --- | --- | --- | --- |
-| love (core) | - | src/modules/love/lh_love.cpp | M0 分のみ（print・getVersion・love.Error・probe） |
+| love (core) | - | src/modules/love/lh_love.cpp | M0 分のみ（print・getVersion・probe）。エラー宣言はモジュールごとに移した |
 | timer | 1 | lh_Timer.cpp | M1: step/getDelta/getFPS/getAverageDelta/sleep/getTime |
 | event | 1 | lh_Event.cpp | M1: pump/dispatch/quit/clear。M6: restart/restartValue（poll/wait/push は未） |
 | window | 1 | lh_Window.cpp | M1-2: setMode(w,h[,settings])/getMode/title/isOpen/close/fullscreen/DPI/focus/vsync |

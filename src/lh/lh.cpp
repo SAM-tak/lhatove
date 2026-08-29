@@ -131,6 +131,14 @@ bool Context::bind(const char *name, const char *member) const
 	return lhat_bind_initial(program, name, member);
 }
 
+bool Context::errorKind(const char *module, const char *const *variants, size_t count,
+                        const LhatErrorKind **out) const
+{
+	// One declaration named "Error" per module, so a signature may write the
+	// module's name and take whichever variant it has.
+	return lhat_register_error_kind(program, module, "Error", variants, count, nullptr, out);
+}
+
 // What every object answers. The context handed to these is the TypeRegistry,
 // since the wrapper's own tag is what says which love::Type it is.
 
@@ -307,15 +315,9 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	if (program_ == nullptr)
 		return false;
 
-	// love.Error first of all, so any signature may name its variants.
-	static const char *const variants[] = {"Misuse", "IO", "NotSupported"};
-	const LhatErrorKind *kinds[3] = {nullptr, nullptr, nullptr};
-	if (!lhat_register_error_kind(program_, "love", "Error", variants, 3, nullptr, kinds))
-		return false;
+	// 04 の 2.4: each module declares the failures of its own, in its own
+	// registrar. Nothing central is left to declare here.
 	Errors &shared = errors();
-	shared.misuse = kinds[0];
-	shared.io = kinds[1];
-	shared.notSupported = kinds[2];
 
 	Context ctx;
 	ctx.program = program_;

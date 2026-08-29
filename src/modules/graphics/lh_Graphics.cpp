@@ -585,7 +585,7 @@ static void lh_newImage(LhatMachine *machine, void *context, const LhatValue *ar
 		}
 		catch (const love::Exception &e)
 		{
-			answers[0] = lh::fail(machine, binding.errors->io, e.what());
+			answers[0] = lh::fail(machine, binding.errors->graphicsCouldNotLoad, e.what());
 			*answerCount = 1;
 			return;
 		}
@@ -740,7 +740,7 @@ static void lh_newFont(LhatMachine *machine, void *context, const LhatValue *arg
 		}
 		catch (const love::Exception &e)
 		{
-			answers[0] = lh::fail(machine, binding.errors->io, e.what());
+			answers[0] = lh::fail(machine, binding.errors->graphicsCouldNotLoad, e.what());
 			*answerCount = 1;
 			return;
 		}
@@ -824,6 +824,16 @@ bool lhopen_love_graphics(Context &ctx)
 	using namespace love::graphics;
 	const char *m = "love.graphics";
 
+	// 04 の 2.4: what love.graphics can fail at, declared where it fails.
+	if (ctx.types())
+	{
+		static const char *const variants[] = {"CouldNotLoad", "ShaderFailed"};
+		const LhatErrorKind *kinds[2] = {nullptr, nullptr};
+		if (!ctx.errorKind(m, variants, 2, kinds))
+			return false;
+		ctx.errors->graphicsCouldNotLoad = kinds[0];
+		ctx.errors->graphicsShaderFailed = kinds[1];
+	}
 	if (!ctx.objectType(m, "Drawable", Drawable::type) || !ctx.objectType(m, "Texture", Texture::type, m, "Drawable") || !ctx.objectType(m, "Font", Font::type))
 		return false;
 	// The other types first, in both phases: the draw arms below name them.
@@ -870,7 +880,7 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.func(m, "scale", "p^number^;", lh_scale, nullptr)
 		&& ctx.func(m, "scale", "p^number^, number^;", lh_scale, nullptr)
 		&& ctx.func(m, "origin", "p^;", lh_origin, nullptr)
-		&& ctx.func(m, "newImage", "p^string^ -> love.graphics.Texture|love.Error.IO;", lh_newImage, nullptr)
+		&& ctx.func(m, "newImage", "p^string^ -> love.graphics.Texture|love.graphics.Error.CouldNotLoad;", lh_newImage, nullptr)
 		&& ctx.func(m, "newImage", "p^love.image.ImageData -> love.graphics.Texture;", lh_newImage, nullptr)
 		&& ctx.member(m, "Texture", "getWidth", "f^self^ -> number^;", lh_Texture_getWidth, nullptr)
 		&& ctx.member(m, "Texture", "getHeight", "f^self^ -> number^;", lh_Texture_getHeight, nullptr)
@@ -880,7 +890,7 @@ bool lhopen_love_graphics(Context &ctx)
 		&& ctx.func(m, "draw", "p^love.graphics.Drawable, number^, ...;", lh_draw, nullptr)
 		&& ctx.func(m, "draw", "p^love.graphics.Texture, love.graphics.Quad, ...;", lh_draw, nullptr)
 		&& ctx.func(m, "newFont", "p^number^ -> love.graphics.Font;", lh_newFont, nullptr)
-		&& ctx.func(m, "newFont", "p^string^, number^ -> love.graphics.Font|love.Error.IO;", lh_newFont, nullptr)
+		&& ctx.func(m, "newFont", "p^string^, number^ -> love.graphics.Font|love.graphics.Error.CouldNotLoad;", lh_newFont, nullptr)
 		&& ctx.func(m, "setFont", "p^love.graphics.Font;", lh_setFont, nullptr)
 		&& ctx.func(m, "getFont", "p^ -> love.graphics.Font;", lh_getFont, nullptr)
 		&& ctx.member(m, "Font", "getWidth", "f^self^, string^ -> number^;", lh_Font_getWidth, nullptr)

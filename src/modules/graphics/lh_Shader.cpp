@@ -229,7 +229,7 @@ static void lh_newShader(LhatMachine *machine, void *context, const LhatValue *a
 	}
 	catch (const love::Exception &e)
 	{
-		answers[0] = lh::fail(machine, binding.errors->misuse, e.what());
+		answers[0] = lh::fail(machine, binding.errors->graphicsShaderFailed, e.what());
 		*answerCount = 1;
 		return;
 	}
@@ -567,8 +567,8 @@ bool lhGraphicsShader(lh::Context &ctx)
 		return true;
 	const char *S = "Shader";
 	const char *src = "string^|love.filesystem.FileData";
-	return ctx.func(m, "newShader", (std::string("p^") + src + " -> love.graphics.Shader|love.Error.Misuse;").c_str(), lh_newShader, nullptr)
-		&& ctx.func(m, "newShader", (std::string("p^") + src + ", " + src + " -> love.graphics.Shader|love.Error.Misuse;").c_str(), lh_newShader, nullptr)
+	return ctx.func(m, "newShader", (std::string("p^") + src + " -> love.graphics.Shader|love.graphics.Error.ShaderFailed;").c_str(), lh_newShader, nullptr)
+		&& ctx.func(m, "newShader", (std::string("p^") + src + ", " + src + " -> love.graphics.Shader|love.graphics.Error.ShaderFailed;").c_str(), lh_newShader, nullptr)
 		&& ctx.func(m, "validateShader", (std::string("p^bool^, ") + src + " -> (bool^, string^);").c_str(), lh_validateShader, nullptr)
 		&& ctx.func(m, "validateShader", (std::string("p^bool^, ") + src + ", " + src + " -> (bool^, string^);").c_str(), lh_validateShader, nullptr)
 		&& ctx.member(m, S, "send", "p^self^, string^, ...;", lh_Shader_send, nullptr)

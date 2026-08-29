@@ -26,7 +26,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 | `love.handlers` + `love.run` 内のイベント分岐 | C++ が handlers テーブルを構築（ゲーム公開メンバ or Boot.lh の no-op 既定）、`love.event.dispatch(handlers)` ホスト関数がネスト `lhat_machine_call` で型付き配送 |
 | conf.lua | conf.lton（LTON = テーブルリテラルの中身。love.conf スキーマを 1:1 写像）。データなので check も compile もされず、`lhatstdlib_lton_load` が読む。本文は `f^` として読まれ `p^` を呼べず、`love.*` はスコープにも入らない |
 | `lua_newstate` per love.thread | 1 Program 共有 + OS スレッド毎 machine（`std.thread` 方式）。thread ユニットの check/compile はメインスレッド |
-| pcall / error / errorhandler | エラーは値（`love.Error{Misuse,IO,NotSupported}`）。C++ 例外は `lh::catchexcept` でエラー値化。fault/panic は `lhat_machine_traceback` → ネイティブエラー画面 |
+| pcall / error / errorhandler | エラーは値。宣言はモジュールごと（`love.audio.Error` 等。04 の 2.4）。C++ 例外は `lh::catchexcept` でエラー値化。fault/panic は `lhat_machine_traceback` → ネイティブエラー画面 |
 | package.loaders + PhysFS | `LhatProgramLoader` 実装（src/lh/PhysfsLoader.cpp）。PhysFS は 1 名前空間なので 1 program = 1 loader 制約と適合 |
 | `love.filesystem.load` / loadstring | `lhat_program_load_text` + `lhat_machine_adopt_script`。スクリプトからは `std.load.file/text` も可 |
 | 多値戻り (`getPosition() -> x, y`) | 型付きタプル `-> (number^, number^)`。ホスト側は machine が渡す room に `answers[0..n]` と書き `*answerCount` を立てる（8.7、lhat `16caa92`） |
@@ -52,7 +52,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 ## 未解決事項（M0/M1 で検証）
 
-- **U1**（M0 で確認）: シグネチャに宣言したエラー種（`f^ -> number^|love.probe.Error.Failed;`）をホストが `lhat_machine_make_error` で返し、L^ 側 `catch^` で受けられる。未宣言のエラー値を返す経路は試していない → 各バインディングは**返しうるエラー種をシグネチャに書く**（書き忘れないこと。葉を列挙する義務ではない）。宣言名だけでも書ける — `-> string^|love.Error` は `love.Error.IO` を返す実装をそのまま受け、`fits^ love.Error` で受け側も絞れる（`import^ love` が要る）。lhatove が葉（`love.Error.IO` 等）で書いているのは、22 本中 21 本が 1 種類しか返さず、葉の方が「この API は IO でしか失敗しない」と正確に言えるため。2 種を返すのは `love.filesystem.load`（読めない = IO、L^ として通らない = Misuse）だけ。2 つ並ぶ程度なら葉のままでよい — `love.Error` に縮めると返らない `NotSupported` まで含意する。列挙が長くなって初めて宣言名に寄せる
+- **U1 解決**: シグネチャに宣言したエラー種をホストが `lhat_machine_make_error` で返し、L^ 側 `catch^` で受けられる。**エラー宣言はモジュールごと**（04 の 2.4「宣言が種別を決める」）— 失敗しうる 5 モジュールが `love.audio.Error{CouldNotLoad}` / `love.sound.Error{CouldNotLoad}` / `love.image.Error{CouldNotLoad}` / `love.graphics.Error{CouldNotLoad, ShaderFailed}` / `love.filesystem.Error{IO, Rejected}` を自分の registrar で宣言する。variant は**何が起きたか**で命名する（どの層が気づいたかではない）。1 variant のモジュールはシグネチャに宣言名だけ書けば済む（`-> love.audio.Source|love.audio.Error`）。受け側も宣言名で絞れる（`fits^ love.filesystem.Error`）し、葉でも絞れる（`fits^ love.filesystem.Error.IO`）— `testing/lh/suite/tests/filesystem.lh` が両方を確認。未宣言のエラー値を返す経路は試していないので、各バインディングは返しうる種をシグネチャに必ず書く
 - **U2 解決**: `testing/lh/physics` で 120 フレーム 15,018 回収（live 2,316）。ラッパを machine ごとにキャッシュして 7,162（live 2,248）へ半減。同一性も `is^` まで一致するようになった（`=` は元から真）
 - **U3**: `require^` のパス正規化と PhysFS 区切り・`..` の整合
 - **U4**（M0 で確認）: `f^ -> t^{ update : p^number^ -> nil^;, draw : p^ -> nil^; };` は登録・検査・呼び出しとも動く（`lovec --probe`）。lhat 側の構造型メンバ名 use-after-free は `10e810e` で修正済み
@@ -60,7 +60,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 ## M0 で確定した実装事項
 
 - lhatstdlib ヘッダは lhat 側で `extern "C"` ガード済み（そのまま include）
-- `love.Error{Misuse,IO,NotSupported}` を TYPES 相の最初に登録（`love` モジュール表を最初に作る）
+- 当時は `love.Error{Misuse,IO,NotSupported}` を 1 つだけ TYPES 相の最初に登録していた。M6 後にモジュールごとの宣言へ分割（04 の 2.4）
 - `lovec` は `LOVE_LH_CONSOLE_EXE` 定義付きでビルドし、`love_lh_boot(argc, argv, console)` にフラグを渡す。console=true では診断・エラーは stderr のみ、false（love.exe）ではメッセージボックスも出す
 - 末尾呼び出しは traceback に残らない（`outer = p^ { inner() }` は表示されない）— 仕様
 
@@ -87,7 +87,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - nogame: 引数なし or 無効パスは埋め込み `nogame_lh`（簡素版。アニメ版は M6）
 - エラー画面: `src/lh/ErrorScreen.cpp`。実行時 fault/panic は `reportRuntime` → 青画面（Escape/閉じるで終了）。check 失敗は `report`（コンソール + love.exe はメッセージボックス）— window 生成前のため
 - オブジェクト: File / FileData / ImageData / Drawable / Texture / Font を `ctx.objectType` で登録（dispose/type/typeOf 自動）。`draw` は当時 `love.graphics.Texture` 引数（M5 で 6 型の union、M6 後に `love.graphics.Drawable` の親子宣言へ）
-- 失敗しうる API（read/write/newImage/newFont(path)/newFile/newFileData(path)）は `|love.Error.IO` を宣言し `catchexcept`。それ以外のプログラマエラーは `raise` = panic
+- 失敗しうる API（read/write/newImage/newFont(path)/newFile/newFileData(path)）は自分のモジュールのエラー種を宣言し `catchexcept`（当時は共通の `love.Error.IO`）。それ以外のプログラマエラーは `raise` = panic
 - **可変長オーバーロードの制約**: `print(text, ...)` と `print(text, Font, ...)` は重複とみなされ登録拒否 → 1 本にして可変長尾の先頭が Font かを実行時判別（`fontInTail`）。同様の「任意位置のオブジェクト引数」は同方式
 - `Runtime::failedRegistrar()` でどのレジストラが拒否されたか分かる
 - 未対応: window の `getMode` settings 返却、`love.filesystem.mount/lines/enumerate`、restart、`--game` 等 arg.lua のオプション群、URI 引数

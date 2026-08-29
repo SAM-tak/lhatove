@@ -60,13 +60,34 @@ enum class Phase
 	MEMBERS,
 };
 
-// The error kinds every binding answers with. Registered first of all, under
-// "love", so a signature anywhere may name them.
+// 04 の 2.4: an error kind is its declaration, and a declaration belongs
+// where the failures it names come from. So each module that can fail
+// declares its own -- love.audio.Error, love.graphics.Error -- rather than
+// every one of them answering with variants of a single love.Error.
+//
+// What a variant is named for is what happened, not which layer noticed:
+// love.audio.Error.CouldNotLoad rather than an IO shared by everyone. A
+// module with one variant needs no leaf in a signature at all, since
+// `-> love.audio.Source|love.audio.Error` takes the one it has.
+//
+// Registered by the module's own registrar, in the TYPES phase, before any
+// signature names it.
 struct Errors
 {
-	const LhatErrorKind *misuse = nullptr;       // bad argument, wrong state
-	const LhatErrorKind *io = nullptr;           // a file or device said no
-	const LhatErrorKind *notSupported = nullptr; // the platform cannot
+	// love.audio.Error{CouldNotLoad} -- the file is not a sound.
+	const LhatErrorKind *audioCouldNotLoad = nullptr;
+	// love.sound.Error{CouldNotLoad} -- nothing here decodes it.
+	const LhatErrorKind *soundCouldNotLoad = nullptr;
+	// love.image.Error{CouldNotLoad} -- the bytes are not an image.
+	const LhatErrorKind *imageCouldNotLoad = nullptr;
+	// love.graphics.Error{CouldNotLoad, ShaderFailed} -- a texture, font or
+	// video that would not load, and a shader the driver refused.
+	const LhatErrorKind *graphicsCouldNotLoad = nullptr;
+	const LhatErrorKind *graphicsShaderFailed = nullptr;
+	// love.filesystem.Error{IO, Rejected} -- the device said no, and a unit
+	// that would not check or compile.
+	const LhatErrorKind *filesystemIO = nullptr;
+	const LhatErrorKind *filesystemRejected = nullptr;
 };
 
 // 05 の 8.8: one hostdata tag per LOVE object type. The tag is what a later
@@ -109,6 +130,12 @@ struct Context
 	bool member(const char *module, const char *type, const char *name, const char *signature, LhatHostFn fn, void *ctx) const;
 	bool global(const char *name, const char *signature, LhatHostFn fn, void *ctx) const;
 	bool bind(const char *name, const char *member) const;
+
+	// 04 の 2.4: the module's own error declaration. Call in the TYPES phase,
+	// before any signature names it. `variants` is the list in order and
+	// `out` takes one kind per name. False if the registration refused.
+	bool errorKind(const char *module, const char *const *variants, size_t count,
+	               const LhatErrorKind **out) const;
 
 	// A LOVE object type as a hostdata type. Call in both phases: the TYPES
 	// phase declares the tag, the MEMBERS phase adds what every object

@@ -22,7 +22,7 @@
 // file. File and FileData are the first LOVE objects handed to L^ as
 // hostdata (05 の 8.8): a fresh wrapper per push, released by dispose.
 //
-// What can fail on the disk's say-so answers love.Error.IO and the caller
+// What can fail on the disk's say-so answers love.filesystem.Error.IO and the caller
 // writes catch^ / try^; what can only fail by the caller's mistake panics.
 
 #include "Filesystem.h"
@@ -66,7 +66,7 @@ static void lh_read(LhatMachine *machine, void *context, const LhatValue *argume
 {
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		if (count > 1 && lhat_is_number(arguments[1]))
 		{
 			answers[0] = dataAsString(machine, instance()->read(path.c_str(), (int64) lh::optNumber(arguments, count, 1, 0)));
@@ -85,7 +85,7 @@ static void lh_write(LhatMachine *machine, void *context, const LhatValue *argum
 	std::string path = lh::optString(arguments, count, 0, "");
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		instance()->write(path.c_str(), data != nullptr ? data : "", (int64) length);
 		answers[0] = lhat_nil();
 		*answerCount = 1;
@@ -99,7 +99,7 @@ static void lh_append(LhatMachine *machine, void *context, const LhatValue *argu
 	std::string path = lh::optString(arguments, count, 0, "");
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		instance()->append(path.c_str(), data != nullptr ? data : "", (int64) length);
 		answers[0] = lhat_nil();
 		*answerCount = 1;
@@ -333,26 +333,26 @@ static void lh_load(LhatMachine *machine, void *context, const LhatValue *argume
 	case LHAT_LOAD_OK:
 		break;
 	case LHAT_LOAD_CANNOT_READ:
-		answers[0] = lh::fail(machine, b->errors->io, "Could not read " + path);
+		answers[0] = lh::fail(machine, b->errors->filesystemIO, "Could not read " + path);
 		*answerCount = 1;
 		return;
 	case LHAT_LOAD_REJECTED:
 	{
 		const char *why = lhat_program_load_failure(b->program);
-		answers[0] = lh::fail(machine, b->errors->misuse, why != nullptr ? why : "The unit did not check");
+		answers[0] = lh::fail(machine, b->errors->filesystemRejected, why != nullptr ? why : "The unit did not check");
 		*answerCount = 1;
 		return;
 	}
 	case LHAT_LOAD_OUT_OF_MEMORY:
 	default:
-		answers[0] = lh::fail(machine, b->errors->misuse, "Out of memory loading " + path);
+		answers[0] = lh::fail(machine, b->errors->filesystemRejected, "Out of memory loading " + path);
 		*answerCount = 1;
 		return;
 	}
 	LhatValue closure = lhat_nil();
 	if (!lhat_machine_adopt_script(machine, proto, &closure))
 	{
-		answers[0] = lh::fail(machine, b->errors->misuse, "Could not adopt " + path);
+		answers[0] = lh::fail(machine, b->errors->filesystemRejected, "Could not adopt " + path);
 		*answerCount = 1;
 		return;
 	}
@@ -387,7 +387,7 @@ static void lh_newFile(LhatMachine *machine, void *context, const LhatValue *arg
 			return;
 		}
 	}
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		File *file = instance()->openFile(path.c_str(), mode);
 		LhatValue out = lh::pushObject(machine, *b->registry, file);
 		file->release(); // pushObject retained it
@@ -414,7 +414,7 @@ static void lh_File_open(LhatMachine *machine, void *context, const LhatValue *a
 		lh::raise(machine, "Invalid file open mode: " + modestr);
 		return;
 	}
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		answers[0] = lhat_bool(file->open(mode));
 		*answerCount = 1;
 	}, answers, answerCount);
@@ -447,7 +447,7 @@ static void lh_File_read(LhatMachine *machine, void *context, const LhatValue *a
 		*answerCount = 1;
 		return;
 	}
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		if (count > 1 && lhat_is_number(arguments[1]))
 		{
 			answers[0] = dataAsString(machine, file->read((int64) lhat_number_as_real(arguments[1])));
@@ -472,7 +472,7 @@ static void lh_File_write(LhatMachine *machine, void *context, const LhatValue *
 	}
 	size_t length = 0;
 	const char *data = count > 1 ? lh::stringOf(arguments[1], &length) : nullptr;
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		answers[0] = lhat_bool(file->write(data != nullptr ? data : "", (int64) length));
 		*answerCount = 1;
 	}, answers, answerCount);
@@ -536,7 +536,7 @@ static void lh_newFileData(LhatMachine *machine, void *context, const LhatValue 
 		return;
 	}
 	std::string path = lh::optString(arguments, count, 0, "");
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->filesystemIO, [&]() {
 		FileData *data = instance()->read(path.c_str());
 		LhatValue out = lh::pushObject(machine, *b->registry, data);
 		data->release();
@@ -598,6 +598,16 @@ bool lhopen_love_filesystem(Context &ctx)
 	using namespace love::filesystem;
 	const char *m = "love.filesystem";
 
+	// 04 の 2.4: what love.filesystem can fail at, declared where it fails.
+	if (ctx.types())
+	{
+		static const char *const variants[] = {"IO", "Rejected"};
+		const LhatErrorKind *kinds[2] = {nullptr, nullptr};
+		if (!ctx.errorKind(m, variants, 2, kinds))
+			return false;
+		ctx.errors->filesystemIO = kinds[0];
+		ctx.errors->filesystemRejected = kinds[1];
+	}
 	if (!ctx.objectType(m, "File", File::type) || !ctx.objectType(m, "FileData", FileData::type))
 		return false;
 	if (ctx.types())
@@ -608,10 +618,10 @@ bool lhopen_love_filesystem(Context &ctx)
 	binding.program = ctx.program;
 	void *b = &binding;
 
-	return ctx.func(m, "read", "p^string^ -> string^|love.Error.IO;", lh_read, b)
-		&& ctx.func(m, "read", "p^string^, number^ -> string^|love.Error.IO;", lh_read, b)
-		&& ctx.func(m, "write", "p^string^, string^ -> nil^|love.Error.IO;", lh_write, b)
-		&& ctx.func(m, "append", "p^string^, string^ -> nil^|love.Error.IO;", lh_append, b)
+	return ctx.func(m, "read", "p^string^ -> string^|love.filesystem.Error.IO;", lh_read, b)
+		&& ctx.func(m, "read", "p^string^, number^ -> string^|love.filesystem.Error.IO;", lh_read, b)
+		&& ctx.func(m, "write", "p^string^, string^ -> nil^|love.filesystem.Error.IO;", lh_write, b)
+		&& ctx.func(m, "append", "p^string^, string^ -> nil^|love.filesystem.Error.IO;", lh_append, b)
 		&& ctx.func(m, "exists", "f^string^ -> bool^;", lh_exists, b)
 		&& ctx.func(m, "getInfo", "f^string^ -> t^{ type : string^, size : number^, modtime : number^, readonly : bool^ }|nil^;", lh_getInfo, b)
 		&& ctx.func(m, "getDirectoryItems", "f^string^ -> t^{...:string^};", lh_getDirectoryItems, b)
@@ -627,19 +637,19 @@ bool lhopen_love_filesystem(Context &ctx)
 		&& ctx.func(m, "getWorkingDirectory", "f^ -> string^;", lh_getWorkingDirectory, b)
 		&& ctx.func(m, "getUserDirectory", "f^ -> string^;", lh_getUserDirectory, b)
 		&& ctx.func(m, "getRealDirectory", "f^string^ -> string^|nil^;", lh_getRealDirectory, b)
-		&& ctx.func(m, "load", "p^string^ -> p^... -> any^; | love.Error.IO|love.Error.Misuse;", lh_load, b)
-		&& ctx.func(m, "newFile", "p^string^ -> love.filesystem.File|love.Error.IO;", lh_newFile, b)
-		&& ctx.func(m, "newFile", "p^string^, string^ -> love.filesystem.File|love.Error.IO;", lh_newFile, b)
-		&& ctx.member(m, "File", "open", "p^self^, string^ -> bool^|love.Error.IO;", lh_File_open, b)
+		&& ctx.func(m, "load", "p^string^ -> p^... -> any^; | love.filesystem.Error;", lh_load, b)
+		&& ctx.func(m, "newFile", "p^string^ -> love.filesystem.File|love.filesystem.Error.IO;", lh_newFile, b)
+		&& ctx.func(m, "newFile", "p^string^, string^ -> love.filesystem.File|love.filesystem.Error.IO;", lh_newFile, b)
+		&& ctx.member(m, "File", "open", "p^self^, string^ -> bool^|love.filesystem.Error.IO;", lh_File_open, b)
 		&& ctx.member(m, "File", "close", "p^self^ -> bool^;", lh_File_close, b)
 		&& ctx.member(m, "File", "isOpen", "f^self^ -> bool^;", lh_File_isOpen, b)
-		&& ctx.member(m, "File", "read", "p^self^ -> string^|love.Error.IO;", lh_File_read, b)
-		&& ctx.member(m, "File", "read", "p^self^, number^ -> string^|love.Error.IO;", lh_File_read, b)
-		&& ctx.member(m, "File", "write", "p^self^, string^ -> bool^|love.Error.IO;", lh_File_write, b)
+		&& ctx.member(m, "File", "read", "p^self^ -> string^|love.filesystem.Error.IO;", lh_File_read, b)
+		&& ctx.member(m, "File", "read", "p^self^, number^ -> string^|love.filesystem.Error.IO;", lh_File_read, b)
+		&& ctx.member(m, "File", "write", "p^self^, string^ -> bool^|love.filesystem.Error.IO;", lh_File_write, b)
 		&& ctx.member(m, "File", "getSize", "f^self^ -> number^;", lh_File_getSize, b)
 		&& ctx.member(m, "File", "isEOF", "f^self^ -> bool^;", lh_File_isEOF, b)
 		&& ctx.member(m, "File", "getFilename", "f^self^ -> string^;", lh_File_getFilename, b)
-		&& ctx.func(m, "newFileData", "p^string^ -> love.filesystem.FileData|love.Error.IO;", lh_newFileData, b)
+		&& ctx.func(m, "newFileData", "p^string^ -> love.filesystem.FileData|love.filesystem.Error.IO;", lh_newFileData, b)
 		&& ctx.func(m, "newFileData", "f^string^, string^ -> love.filesystem.FileData;", lh_newFileData, b)
 		&& ctx.member(m, "FileData", "getString", "f^self^ -> string^;", lh_FileData_getString, b)
 		&& ctx.member(m, "FileData", "getSize", "f^self^ -> number^;", lh_FileData_getSize, b)

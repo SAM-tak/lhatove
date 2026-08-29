@@ -102,7 +102,7 @@ static void lh_newSource(LhatMachine *machine, void *context, const LhatValue *a
 		return;
 	}
 
-	lh::catchexcept(machine, binding.errors->io, [&]() {
+	lh::catchexcept(machine, binding.errors->audioCouldNotLoad, [&]() {
 		StrongRef<love::filesystem::File> file(fs->openFile(path.c_str(), love::filesystem::File::MODE_READ), Acquire::NORETAIN);
 		StrongRef<love::sound::Decoder> decoder(sound->newDecoder(file.get(), love::sound::Decoder::DEFAULT_BUFFER_SIZE), Acquire::NORETAIN);
 		StrongRef<Source> source;
@@ -417,6 +417,15 @@ bool lhopen_love_audio(Context &ctx)
 	using namespace love::audio;
 	const char *m = "love.audio";
 
+	// 04 の 2.4: what love.audio can fail at, declared where it fails.
+	if (ctx.types())
+	{
+		static const char *const variants[] = {"CouldNotLoad"};
+		const LhatErrorKind *kinds[1] = {nullptr};
+		if (!ctx.errorKind(m, variants, 1, kinds))
+			return false;
+		ctx.errors->audioCouldNotLoad = kinds[0];
+	}
 	if (!ctx.objectType(m, "Source", Source::type))
 		return false;
 	if (ctx.types())
@@ -425,8 +434,8 @@ bool lhopen_love_audio(Context &ctx)
 	binding.errors = ctx.errors;
 	binding.registry = ctx.registry;
 
-	return ctx.func(m, "newSource", "p^string^ -> love.audio.Source|love.Error.IO;", lh_newSource, nullptr)
-		&& ctx.func(m, "newSource", "p^string^, string^ -> love.audio.Source|love.Error.IO;", lh_newSource, nullptr)
+	return ctx.func(m, "newSource", "p^string^ -> love.audio.Source|love.audio.Error;", lh_newSource, nullptr)
+		&& ctx.func(m, "newSource", "p^string^, string^ -> love.audio.Source|love.audio.Error;", lh_newSource, nullptr)
 		&& ctx.func(m, "newSource", "p^love.sound.SoundData -> love.audio.Source;", lh_newSource, nullptr)
 		&& ctx.func(m, "play", "p^love.audio.Source, ... -> bool^;", lh_play, nullptr)
 		&& ctx.func(m, "stop", "p^...;", lh_stop, nullptr)

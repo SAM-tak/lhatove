@@ -82,7 +82,7 @@ static void lh_newImageData(LhatMachine *machine, void *context, const LhatValue
 		lh::raise(machine, "love.filesystem is not loaded.");
 		return;
 	}
-	lh::catchexcept(machine, b->errors->io, [&]() {
+	lh::catchexcept(machine, b->errors->imageCouldNotLoad, [&]() {
 		StrongRef<love::filesystem::FileData> file(fs->read(path.c_str()), Acquire::NORETAIN);
 		ImageData *data = instance()->newImageData(file.get());
 		LhatValue out = lh::pushObject(machine, *b->registry, data);
@@ -224,6 +224,15 @@ bool lhopen_love_image(Context &ctx)
 	using namespace love::image;
 	const char *m = "love.image";
 
+	// 04 の 2.4: what love.image can fail at, declared where it fails.
+	if (ctx.types())
+	{
+		static const char *const variants[] = {"CouldNotLoad"};
+		const LhatErrorKind *kinds[1] = {nullptr};
+		if (!ctx.errorKind(m, variants, 1, kinds))
+			return false;
+		ctx.errors->imageCouldNotLoad = kinds[0];
+	}
 	if (!ctx.objectType(m, "ImageData", ImageData::type))
 		return false;
 	if (ctx.types())
@@ -233,7 +242,7 @@ bool lhopen_love_image(Context &ctx)
 	binding.registry = ctx.registry;
 	void *b = &binding;
 
-	return ctx.func(m, "newImageData", "p^string^ -> love.image.ImageData|love.Error.IO;", lh_newImageData, b)
+	return ctx.func(m, "newImageData", "p^string^ -> love.image.ImageData|love.image.Error;", lh_newImageData, b)
 		&& ctx.func(m, "newImageData", "p^number^, number^ -> love.image.ImageData;", lh_newImageData, b)
 		&& ctx.member(m, "ImageData", "getWidth", "f^self^ -> number^;", lh_ImageData_getWidth, b)
 		&& ctx.member(m, "ImageData", "getHeight", "f^self^ -> number^;", lh_ImageData_getHeight, b)

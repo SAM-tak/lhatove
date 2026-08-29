@@ -96,7 +96,7 @@ static void lh_newVideo(LhatMachine *machine, void *context, const LhatValue *ar
 		wantAudio = lh::fieldBool(machine, args[1], "audio", true);
 		dpiscale = (float) lh::fieldNumber(machine, args[1], "dpiscale", 1.0);
 	}
-	lh::catchexcept(machine, binding.errors->io, [&]() {
+	lh::catchexcept(machine, binding.errors->graphicsCouldNotLoad, [&]() {
 		StrongRef<love::filesystem::File> file(fs->openFile(path.c_str(), love::filesystem::File::MODE_READ), Acquire::NORETAIN);
 		StrongRef<love::video::VideoStream> stream(videomodule->newVideoStream(file.get()), Acquire::NORETAIN);
 		StrongRef<Video> video(instance()->newVideo(stream.get(), dpiscale), Acquire::NORETAIN);
@@ -257,8 +257,8 @@ bool lhGraphicsVideo(lh::Context &ctx)
 	if (ctx.types())
 		return true;
 	const char *V = "Video";
-	return ctx.func(m, "newVideo", "p^string^ -> love.graphics.Video|love.Error.IO;", lh_newVideo, nullptr)
-		&& ctx.func(m, "newVideo", "p^string^, t^{} -> love.graphics.Video|love.Error.IO;", lh_newVideo, nullptr)
+	return ctx.func(m, "newVideo", "p^string^ -> love.graphics.Video|love.graphics.Error.CouldNotLoad;", lh_newVideo, nullptr)
+		&& ctx.func(m, "newVideo", "p^string^, t^{} -> love.graphics.Video|love.graphics.Error.CouldNotLoad;", lh_newVideo, nullptr)
 		&& ctx.member(m, V, "play", "p^self^;", lh_Video_play, nullptr)
 		&& ctx.member(m, V, "pause", "p^self^;", lh_Video_pause, nullptr)
 		&& ctx.member(m, V, "rewind", "p^self^;", lh_Video_rewind, nullptr)

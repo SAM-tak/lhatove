@@ -44,6 +44,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - プロセス共有 registry は `lhat_registry_dispose()` で返す。**LhatProgram が 1 つも無い時のみ**呼べるので、呼ぶのは restart ループを抜けた後（`love_lh_shutdown()` ← `src/love.cpp`）
 - C 側で保持する L^ 値は GC ルートにならない。永続値は `lhat_machine_register` で `L^.modules.love.*` に係留する
 - lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math` / `lton`。conf は **conf.lton**（LTON = テーブルリテラルの中身）で、check も compile もされず `lhatstdlib_lton_load` が program の loader 経由で読む — 本文は `f^` として読まれるので `p^` を呼べず、`love.*` はスコープにも入らない。ゲームも `std.lton.load` で同じ綴りのデータファイルを読める。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は登録しない（スレッドは love.thread。M5 で決定）
+- エラー宣言はモジュールごと（04 の 2.4）。失敗しうるモジュールが TYPES 相で `ctx.errorKind(m, variants, n, out)` を呼び、`love.<module>.Error` を宣言する。variant は**何が起きたか**で命名する（`CouldNotLoad` / `ShaderFailed` / `Rejected`。「どの層が気づいたか」を表す `IO` / `Misuse` を全モジュールで共有しない）。1 variant なら葉を書かず宣言名だけでシグネチャに載る（`-> love.audio.Source|love.audio.Error`）。受け側は宣言名でも葉でも `fits^` で絞れる
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - ホスト関数は `void`（`16caa92`）。答えは machine が渡す room に書く — `answers[0] = v; *answerCount = 1;`、タプルなら `answers[0..n]` と `*answerCount = n`。`*answerCount` は 0 で届くので `p^` と `dispose` は何もせず返る。`LHAT_MAX_TUPLE` より広い戻り値は登録が拒否されるので、room があふれることはない
 - `lh::guard` / `lh::catchexcept` は void 本体を取る（答えは本体が room に書き終えている）。`catchexcept` だけ room を受け取る — 例外が起きたら書かれたものをエラー値 1 個に差し替えるため。`lh::raise` は panic なので、呼んで `return;` するだけ
