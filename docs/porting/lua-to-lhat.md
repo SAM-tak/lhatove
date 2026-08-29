@@ -52,7 +52,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 ## 未解決事項（M0/M1 で検証）
 
-- **U1**（M0 で確認）: シグネチャに宣言したエラー種（`f^ -> number^|love.probe.Error.Failed;`）をホストが `lhat_machine_make_error` で返し、L^ 側 `catch^` で受けられる。未宣言のエラー値を返す経路は試していない → 各バインディングは返しうるエラー種をシグネチャに必ず書く
+- **U1**（M0 で確認）: シグネチャに宣言したエラー種（`f^ -> number^|love.probe.Error.Failed;`）をホストが `lhat_machine_make_error` で返し、L^ 側 `catch^` で受けられる。未宣言のエラー値を返す経路は試していない → 各バインディングは**返しうるエラー種をシグネチャに書く**（書き忘れないこと。葉を列挙する義務ではない）。宣言名だけでも書ける — `-> string^|love.Error` は `love.Error.IO` を返す実装をそのまま受け、`fits^ love.Error` で受け側も絞れる（`import^ love` が要る）。lhatove が葉（`love.Error.IO` 等）で書いているのは、22 本中 21 本が 1 種類しか返さず、葉の方が「この API は IO でしか失敗しない」と正確に言えるため。2 種を返すのは `love.filesystem.load`（読めない = IO、L^ として通らない = Misuse）だけ。2 つ並ぶ程度なら葉のままでよい — `love.Error` に縮めると返らない `NotSupported` まで含意する。列挙が長くなって初めて宣言名に寄せる
 - **U2 解決**: `testing/lh/physics` で 120 フレーム 15,018 回収（live 2,316）。ラッパを machine ごとにキャッシュして 7,162（live 2,248）へ半減。同一性も `is^` まで一致するようになった（`=` は元から真）
 - **U3**: `require^` のパス正規化と PhysFS 区切り・`..` の整合
 - **U4**（M0 で確認）: `f^ -> t^{ update : p^number^ -> nil^;, draw : p^ -> nil^; };` は登録・検査・呼び出しとも動く（`lovec --probe`）。lhat 側の構造型メンバ名 use-after-free は `10e810e` で修正済み
