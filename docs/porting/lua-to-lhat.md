@@ -2,7 +2,7 @@
 
 lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定事項と対応表。
 進捗は [status.md](status.md)、ゲーム作者向けの書き方は [main-lh.md](main-lh.md)。
-前提 lhat: HEAD `16caa92` 以降（列挙は AGENT.md の「登録」節）。
+前提 lhat: HEAD `9a5d49a` 以降（列挙は AGENT.md の「登録」節）。
 
 ## 確定した方針
 
@@ -144,3 +144,8 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - `testing/lh/suite` は M6 で全モジュールに広げた（451 チェック）。移植中に見つけて直したもの: `love.graphics.validateShader` が壊れたコードで投げる例外を捕まえていなかった（プロセスが fastfail）→ `(false, message)` を答える、`getScissor` が scissor を切った後も最後の矩形を答えていた → 0 を答える、`Shape.setCategory` / `setMask` に引数なしアームが無かった（LÖVE の「全部と衝突」）
 - L^ の制約が 1 つ見つかった: 親モジュールと子モジュールを同じスコープに import できない（`love` と `love.graphics`）。もう 1 件は綴りの誤りだった — **ブロックは `do^{ ... }`**（02 の 8.7）。裸の `{ ... }` はテーブル literal なので文にならない
 - lhat `995d0e8` で解消: 親と子の同時 import（`import^ love` と `import^ love.graphics`）、登録型どうしの重なり判定（`newThread` は `p^File;` / `p^FileData;` の 2 アームへ戻した）。`testing/lh/suite` は 451 チェック
+- **ホットリロードは入れない**（`lhat_reload` を見て再検討する前に読むこと）。LÖVE 本体にもホットリロードは無く、あるのは `love.event.restart` = 全部捨てて `boot()` からやり直す形だけ。Lua 版のゲーム作者がやっていたのは `love.filesystem.load` で書き直したファイルを読み直して手で差し替える自前の仕組みで、lhat `9a5d49a` の `lhat_reload(program, path, machines, n)` を使っても届く範囲は**同じ**:
+  - **状態は残らない**。入れ替わるのはユニットで、`var^` の現在値は新しい body の初期化で上書きされる。「敵の位置を保ったまま挙動だけ差し替える」は結局ゲーム側が状態を外へ逃がして書くことになる
+  - **`main.lh` は差し替えても効かない**。handlers は起動時に C++ が組んで `love.boot.handlers` に park したテーブルで、ユニットを入れ替えても指す先は古い閉包のまま。効かせるには handlers を組み直す経路が要る（held とは別の話 — `lhat_reload` は旧 body を掴まれていても成功し、解放を次回まで延ばすだけ）
+  - 差が出るのは「壊れたコードを読み込んでも旧世界が走り続ける」点だけで、それは `lhat_reload` の手柄というより検査器の手柄
+  やるとしたら決めることは 3 つ: 引き金（`love.event.reload(path)` か、エンジンがファイル監視を持つか）、handlers の組み直し、`machines` の集め方（program を install した全 machine。love.thread のワーカー分は `ParkingLot` の machine 索引から取れる）
