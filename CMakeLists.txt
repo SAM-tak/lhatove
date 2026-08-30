@@ -99,6 +99,21 @@ set(LHAT_BUILD_LSP OFF CACHE BOOL "" FORCE)
 set(LHAT_BUILD_STDLIB ON CACHE BOOL "" FORCE)
 set(LHAT_WITH_COMMENTS OFF CACHE BOOL "" FORCE)
 set(LHAT_WITH_RESOLUTIONS OFF CACHE BOOL "" FORCE)
+
+# 09 章: the debug adapter, so `lovec --dap=PORT game/` runs under a
+# debugger. It is a library of its own over the public headers -- lhat's
+# CMake links it against lhat, cjson and the two ports and nothing in src/
+# -- so taking it is a link, not a fork of the runtime.
+#
+# A game shipped as a fused executable never opens the port: the option is
+# what a build says, and Boot.cpp refuses --dap when the game is fused
+# whatever this was set to.
+option(LHATOVE_WITH_DAP "Build the L^ debug adapter into lovec" ON)
+if(LHATOVE_WITH_DAP)
+	set(LHAT_BUILD_DAP ON CACHE BOOL "" FORCE)
+else()
+	set(LHAT_BUILD_DAP OFF CACHE BOOL "" FORCE)
+endif()
 add_subdirectory("${LHATOVE_LHAT_DIR}" lhat)
 
 
@@ -119,6 +134,10 @@ add_library(lovedep::Zlib INTERFACE IMPORTED)
 # "stdlib/regex.h", the spelling lhat itself uses.
 add_library(lovedep::Lhat INTERFACE IMPORTED)
 target_link_libraries(lovedep::Lhat INTERFACE lhat lhatport lhatstdlib)
+if(LHATOVE_WITH_DAP)
+	target_link_libraries(lovedep::Lhat INTERFACE lhatdap)
+	target_compile_definitions(lovedep::Lhat INTERFACE LHATOVE_WITH_DAP)
+endif()
 target_include_directories(lovedep::Lhat INTERFACE "${LHATOVE_LHAT_DIR}")
 
 if(MEGA)

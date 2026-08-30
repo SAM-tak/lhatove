@@ -66,6 +66,14 @@
 #include "stdlib/math.h"
 #include "stdlib/regex.h"
 
+// 09 章: the debug adapter, when this build carries it. dap/adapter.h has
+// no extern "C" of its own yet (lhat-issues.md), so it is wrapped here.
+#ifdef LHATOVE_WITH_DAP
+extern "C" {
+#include "adapter.h"
+}
+#endif
+
 #include <SDL3/SDL.h>
 
 #include <cstdint>
@@ -468,6 +476,78 @@ static std::string describeLton(LhatMachine *machine, LhatProgram *program, Lhat
 }
 
 // ---------------------------------------------------------------------------
+// The debugger
+// ---------------------------------------------------------------------------
+
+// 09 章: `lovec --dap=PORT game/` waits for a debugger on that port and runs
+// under it. The adapter is lhat's, over the public headers alone, so what is
+// here is when to begin and when to end.
+//
+// Every machine is followed, not only this one: lhat_debug_watch_machines is
+// installed by the session and called from lhat_machine_new, so a
+// love.thread worker is a thread in the debugger from the moment it starts.
+// love.thread's binding does nothing for this.
+//
+// A fused game never opens the port -- see where boot() clears the option.
+class DebugSession
+{
+public:
+
+	DebugSession() = default;
+	DebugSession(const DebugSession &) = delete;
+	DebugSession &operator=(const DebugSession &) = delete;
+
+	// Waits for a debugger and installs the hook. False when none arrived,
+	// which the caller treats as "run without one".
+	bool begin(LhatMachine *machine, int port, const std::string &mainUnit)
+	{
+#ifdef LHATOVE_WITH_DAP
+		if (port <= 0)
+			return false;
+		return dap_session_begin(&session_, machine, (uint16_t) port, mainUnit.c_str());
+#else
+		(void) machine;
+		(void) port;
+		(void) mainUnit;
+		return false;
+#endif
+	}
+
+	// Says the program is over and takes the hook off. Runs on every way out
+	// of boot(), which is why the destructor calls it too.
+	void end(int code)
+	{
+#ifdef LHATOVE_WITH_DAP
+		if (session_ != nullptr)
+		{
+			dap_session_end(session_, code);
+			session_ = nullptr;
+		}
+#else
+		(void) code;
+#endif
+	}
+
+	// Whether the debugger stopped the run itself, so no error screen is
+	// shown for the panic that ended it.
+	bool endedRun() const
+	{
+#ifdef LHATOVE_WITH_DAP
+		return session_ != nullptr && dap_session_ended_run(session_);
+#else
+		return false;
+#endif
+	}
+
+	~DebugSession() { end(1); }
+
+private:
+
+#ifdef LHATOVE_WITH_DAP
+	DapSession *session_ = nullptr;
+#endif
+};
+// ---------------------------------------------------------------------------
 // The boot sequence
 // ---------------------------------------------------------------------------
 
@@ -587,6 +667,7 @@ struct Arguments
 	bool console = false; // --console
 	bool dumpHostApi = false; // --dump-host-api [file]
 	std::string dumpPath = "lhat-host.json";
+	int dapPort = 0;      // --dap=PORT, 0 for no debugger
 };
 
 static Arguments parseArguments(int argc, char **argv)
@@ -604,6 +685,11 @@ static Arguments parseArguments(int argc, char **argv)
 			args.dumpHostApi = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-')
 				args.dumpPath = argv[++i];
+		}
+		else if (a.rfind("--dap=", 0) == 0)
+		{
+			long port = strtol(a.c_str() + 6, nullptr, 10);
+			args.dapPort = (port > 0 && port < 65536) ? (int) port : 0;
 		}
 		else if (a == "--")
 			break;
@@ -684,6 +770,14 @@ static int boot(int argc, char **argv, bool console)
 	}
 	bool fused = canHasGame || args.fused;
 	fs->setFused(fused);
+
+	// 09 章: a shipped game does not open a debug port. The option says what
+	// the build carries; this says what the game is.
+	if (fused && args.dapPort != 0)
+	{
+		fprintf(stderr, "lhatove: --dap is ignored for a fused game.\n");
+		args.dapPort = 0;
+	}
 
 	std::string mainUnit = "main.lh";
 	std::string identity;
@@ -809,6 +903,17 @@ static int boot(int argc, char **argv, bool console)
 	}
 
 	LhatMachine *machine = runtime.machine();
+
+	// 09 章: with a debugger asked for, wait for it here -- the hook is on
+	// before anything of the game runs, and every machine made after this
+	// (a love.thread worker) is followed without the binding doing a thing.
+	DebugSession debugger;
+	if (args.dapPort != 0)
+	{
+		trace("waiting for a debugger");
+		if (!debugger.begin(machine, args.dapPort, mainUnit))
+			fprintf(stderr, "lhatove: no debugger connected on port %d; running without one.\n", args.dapPort);
+	}
 
 	trace("reading conf.lton");
 	// conf.lton: data read through the program's loader, so the same file is
@@ -975,11 +1080,17 @@ static int boot(int argc, char **argv, bool console)
 	LhatRunResult started = lhat_machine_call(machine, run, nullptr, 0);
 	if (started.status != LHAT_RUN_OK)
 	{
-		reportRuntime(runtime.describe(started));
+		if (!debugger.endedRun())
+			reportRuntime(runtime.describe(started));
+		debugger.end(1);
 		return 1;
 	}
 	if (!lhat_is_object_kind(started.value, LHAT_OBJECT_COROUTINE))
-		return exitCodeOf(started.value);
+	{
+		int code = exitCodeOf(started.value);
+		debugger.end(code);
+		return code;
+	}
 
 	LhatValue coroutine = started.value;
 	if (!park(machine, "love.boot", "coroutine", coroutine))
@@ -999,13 +1110,22 @@ static int boot(int argc, char **argv, bool console)
 		LhatRunResult step = lhat_machine_resume(machine, coroutine, nullptr, 0);
 		if (step.status != LHAT_RUN_OK)
 		{
-			reportRuntime(runtime.describe(step));
+			// 09 章: a debugger that disconnects or terminates ends the run
+			// with a panic of its own. That is not the game failing, so no
+			// error screen goes up for it.
+			if (!debugger.endedRun())
+				reportRuntime(runtime.describe(step));
+			debugger.end(1);
 			return 1;
 		}
 		if (gcstats != nullptr && (++frame % every) == 0)
 			fprintf(stderr, "[gc] frame %u: collected %zu, live %zu\n", frame, step.collected, step.live);
 		if (lhat_machine_coroutine_done(coroutine))
-			return exitCodeOf(step.value);
+		{
+			int code = exitCodeOf(step.value);
+			debugger.end(code);
+			return code;
+		}
 	}
 }
 

@@ -1,11 +1,12 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `16caa92`（2026-08-29）。
+基準: lhat HEAD `ccf0353`（2026-08-30）。
 
 ## 未解決
 
-（なし）
+- `dap/adapter.h` と `dap/protocol.h` に `extern "C"` ガードが無い。`include/lhat/*.h` と `stdlib/*.h` は持っているので、DAP のヘッダだけ漏れている。lhatove 側は `Boot.cpp` で `extern "C" { #include "adapter.h" }` と包んで回避中
+- **DAP のパス照合がディスク上の実パスを前提にしている。** `dap/adapter.c` の `normalize()` が `_fullpath` / `realpath` を通すので、ホストの単位名がファイルシステムに無い綴りだと `setBreakpoints` の `source.path` と機械が報告する `LhatFrameInfo.source` が一致しない。lhatove の単位は PhysFS の仮想パス（`main.lh`、`lib/vec.lh`）で、`.love` zip や fused exe の中では実体が無い。今は DAP クライアント側が仮想パスをそのまま送れば通る（`main.lh` で確認、ワーカーの `worker.lh` でも）が、VS Code 拡張は絶対パスを送るのが普通なので、そのままでは繋がらない。ホストが「単位名 ↔ 編集中のファイル」の対応を持つのが筋なので、`dap_session_begin` に解決コールバック（`const char *(*resolve)(void *ctx, const char *editor_path)` の類）を渡せると、PhysFS を知っているのはホストだけ、という切り分けが保てる
 
 ## 提案
 
