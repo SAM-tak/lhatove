@@ -66,12 +66,9 @@
 #include "stdlib/math.h"
 #include "stdlib/regex.h"
 
-// 09 章: the debug adapter, when this build carries it. dap/adapter.h has
-// no extern "C" of its own yet (lhat-issues.md), so it is wrapped here.
+// 09 章: the debug adapter, when this build carries it.
 #ifdef LHATOVE_WITH_DAP
-extern "C" {
 #include "adapter.h"
-}
 #endif
 
 #include <SDL3/SDL.h>
@@ -478,6 +475,128 @@ static std::string describeLton(LhatMachine *machine, LhatProgram *program, Lhat
 // ---------------------------------------------------------------------------
 // The debugger
 // ---------------------------------------------------------------------------
+#ifdef LHATOVE_WITH_DAP
+
+// 09 の 5.2: the debugger names a file the way the editor does -- an
+// absolute path on disk -- and the program names a unit the way require^
+// does, which is a PhysFS path under whatever was mounted. Inside a .love
+// or a fused executable there is no file for the editor's path to be, so
+// only this side knows how the two meet.
+//
+// Both directions run on the session's threads under its lock, so they do
+// no more than PhysFS's own lookup and a walk of the units the program
+// reached.
+
+// Where PhysFS found a unit: the game directory when the game is one, the
+// archive's own path when it is a .love or a fused executable. Empty when
+// PhysFS has never heard of it (the embedded Boot.lh and nogame.lh).
+static std::string mountOf(const std::string &unit)
+{
+	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+	if (fs == nullptr)
+		return std::string();
+	try
+	{
+		return fs->getRealDirectory(unit.c_str());
+	}
+	catch (const love::Exception &)
+	{
+		return std::string();
+	}
+}
+
+static bool copyOut(const std::string &text, char *out, size_t capacity)
+{
+	if (text.empty() || text.size() + 1 > capacity)
+		return false;
+	memcpy(out, text.data(), text.size());
+	out[text.size()] = '\0';
+	return true;
+}
+
+// The separator the editor gave us back, so a reported path has the shape
+// it handed over. PhysFS answers a mount with the platform's own; the unit
+// joins on with a forward slash whatever the platform.
+static std::string nativeSeparators(std::string path)
+{
+#ifdef LOVE_WINDOWS
+	for (char &c : path)
+		if (c == '/')
+			c = '\\';
+#endif
+	return path;
+}
+
+// What an editor on Windows may send, in the one spelling PhysFS uses.
+static std::string withSlashes(std::string path)
+{
+	for (char &c : path)
+		if (c == '\\')
+			c = '/';
+	return path;
+}
+
+// Whether the mount joined with the unit names a file the editor could
+// open. It does for a directory mount; for a .love or a fused executable
+// PhysFS answers the archive itself, and nothing on disk is the unit.
+static bool unitIsOnDisk(const std::string &mount, const std::string &unit)
+{
+	if (mount.empty())
+		return false;
+	FILE *probe = fopen((mount + "/" + unit).c_str(), "rb");
+	if (probe == nullptr)
+		return false;
+	fclose(probe);
+	return true;
+}
+
+// editor path -> unit. The editor's path is the mount joined with the unit,
+// so every unit the program reached is tried; only those can carry a
+// breakpoint anyway.
+static bool toUnit(void *context, const char *editorPath, char *out, size_t capacity)
+{
+	const LhatProgram *program = (const LhatProgram *) context;
+	if (program == nullptr || editorPath == nullptr)
+		return false;
+	std::string wanted = withSlashes(editorPath);
+	for (const LhatUnit *u = lhat_program_units(program); u != nullptr; u = lhat_unit_next(u))
+	{
+		const char *path = lhat_unit_path(u);
+		if (path == nullptr)
+			continue;
+		std::string unit = path;
+		// The editor may hand over the unit spelling itself, which is what a
+		// bare "main.lh" in a launch configuration means.
+		if (unit == wanted)
+			return copyOut(unit, out, capacity);
+		std::string mount = withSlashes(mountOf(unit));
+		if (getenv("LHATOVE_TRACE") != nullptr)
+			fprintf(stderr, "[dap] unit=%s mount=%s want=%s\n", unit.c_str(), mount.c_str(), wanted.c_str());
+		if (!mount.empty() && mount + "/" + unit == wanted)
+			return copyOut(unit, out, capacity);
+	}
+	return false;
+}
+
+// unit -> editor path, so a stack frame opens where the writer edits it.
+// False for a unit with no file behind it -- the embedded Boot.lh, and
+// everything inside a .love -- and the adapter then reports the unit
+// spelling as it stands.
+static bool toEditor(void *context, const char *unit, char *out, size_t capacity)
+{
+	(void) context;
+	if (unit == nullptr)
+		return false;
+	std::string name = unit;
+	std::string mount = mountOf(name);
+	if (!unitIsOnDisk(mount, name))
+		return false;
+	// One spelling of the separator, so the editor sees a path of the shape
+	// it handed over.
+	return copyOut(nativeSeparators(mount + "/" + name), out, capacity);
+}
+
+#endif // LHATOVE_WITH_DAP
 
 // 09 章: `lovec --dap=PORT game/` waits for a debugger on that port and runs
 // under it. The adapter is lhat's, over the public headers alone, so what is
@@ -499,16 +618,21 @@ public:
 
 	// Waits for a debugger and installs the hook. False when none arrived,
 	// which the caller treats as "run without one".
-	bool begin(LhatMachine *machine, int port, const std::string &mainUnit)
+	bool begin(LhatMachine *machine, int port, const LhatProgram *program)
 	{
 #ifdef LHATOVE_WITH_DAP
 		if (port <= 0)
 			return false;
-		return dap_session_begin(&session_, machine, (uint16_t) port, mainUnit.c_str());
+		// 09 の 5.2: PhysFS paths on one side, the editor's own on the other.
+		DapPathMap paths;
+		paths.context = (void *) program;
+		paths.to_unit = toUnit;
+		paths.to_editor = toEditor;
+		return dap_session_begin(&session_, machine, (uint16_t) port, &paths);
 #else
 		(void) machine;
 		(void) port;
-		(void) mainUnit;
+		(void) program;
 		return false;
 #endif
 	}
@@ -911,7 +1035,7 @@ static int boot(int argc, char **argv, bool console)
 	if (args.dapPort != 0)
 	{
 		trace("waiting for a debugger");
-		if (!debugger.begin(machine, args.dapPort, mainUnit))
+		if (!debugger.begin(machine, args.dapPort, runtime.program()))
 			fprintf(stderr, "lhatove: no debugger connected on port %d; running without one.\n", args.dapPort);
 	}
 

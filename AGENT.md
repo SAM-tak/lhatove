@@ -53,7 +53,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
 - デバッガは lhat の DAP アダプタ（09 章）。`lovec --dap=PORT game/` でポートを開いて待ち、繋がってから起動列を進める。`LHATOVE_WITH_DAP`（既定 ON）で `lhatdap` をリンク。**fused では無効**（配布物がポートを開かない。`Boot.cpp` が `--dap` を捨てる）
 - **love.thread のワーカーも対象**。バインディングは何もしない — `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、`Runtime::spawnMachine` が作った machine がそのまま DAP のスレッドになる（確認: `worker.lh` にブレークポイントが効き、スレッド 2/3/4 が現れる）
-- ブレークポイントのパスは **PhysFS の仮想パス**（`main.lh`、`lib/vec.lh`）。lhat 側の `normalize()` が実パスを前提にしているので、絶対パスを送るクライアントとは一致しない（[lhat-issues.md](docs/porting/lhat-issues.md)）
+- ブレークポイントのパスは `DapPathMap`（09 の 5.2）で写す。`Boot.cpp` の `toUnit` / `toEditor` が PhysFS のマウント（`getRealDirectory`）を使い、エディタの絶対パス ↔ 単位の綴りを両方向に翻訳する。だから VS Code が送る絶対パスのままブレークポイントが結ばれ、スタックの `source.path` も同じ綴りで返る。`.love` や fused の中の単位はディスクに無いので `to_editor` が false を答え、単位名のまま報告される（埋め込みの `Boot.lh` も同じ）
 - 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
 - 止まる・遅い時: `LHATOVE_WATCHDOG=<秒>` でフレームが止まった主スレッドのスタックを base+offset で stderr へ出力 → `scripts/symbolize.c`（`cl symbolize.c dbghelp.lib`）で `.pdb` から名前解決。symbols は `cmake --build build --config RelWithDebInfo --target lovec`（`SDL3.dll` / `OpenAL32.dll` を `build/SDL3/RelWithDebInfo` 等から `build/love/RelWithDebInfo` へコピー）。stderr を PowerShell のパイプに流すと書込で止まって見えるので、ファイルへリダイレクトする
 - C 側が L^ の値を保持する時は `lh::Parked`（`lh::ParkingLot` の整数スロットに係留、`StrongRef<love::Object>` で持てる）。コールバックは `lhat_machine_call` をホスト関数の中から呼ぶ（fault は外側の run に伝播するので戻り値を捨てるだけでよい）
@@ -101,7 +101,7 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 ```powershell
 .\build\love\Release\lovec.exe                      # 引数なし: nogame 画面（物理で振れる n o g a m e。ゲームを窓へドロップで起動、Esc で終了）
 .\build\love\Release\lovec.exe --dump-host-api      # lhat-host.json（LSP 用ホスト API）を書き出す
-.\build\love\Release\lovec.exe --dap=41300 testing\lh\autoquit   # DAP: ポート 41300 で待つ。停止行の source.path は "main.lh"（PhysFS の仮想パス）
+.\build\love\Release\lovec.exe --dap=41300 testing\lh\autoquit   # DAP: ポート 41300 で待つ。VS Code の絶対パスでブレークポイントが結ばれる（.love の中なら単位名 "main.lh"）
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lton・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
 .\build\love\Release\lovec.exe testing\lh\physics    # box2d: 接触コールバック4種・filter・query・rayCast・joint・userData、exit=7（約 5 秒）

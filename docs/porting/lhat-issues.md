@@ -1,18 +1,19 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `ccf0353`（2026-08-30）。
+基準: lhat HEAD `781b2cb`（2026-08-30）。
 
 ## 未解決
 
-- `dap/adapter.h` と `dap/protocol.h` に `extern "C"` ガードが無い。`include/lhat/*.h` と `stdlib/*.h` は持っているので、DAP のヘッダだけ漏れている。lhatove 側は `Boot.cpp` で `extern "C" { #include "adapter.h" }` と包んで回避中
-- **DAP のパス照合がディスク上の実パスを前提にしている。** `dap/adapter.c` の `normalize()` が `_fullpath` / `realpath` を通すので、ホストの単位名がファイルシステムに無い綴りだと `setBreakpoints` の `source.path` と機械が報告する `LhatFrameInfo.source` が一致しない。lhatove の単位は PhysFS の仮想パス（`main.lh`、`lib/vec.lh`）で、`.love` zip や fused exe の中では実体が無い。今は DAP クライアント側が仮想パスをそのまま送れば通る（`main.lh` で確認、ワーカーの `worker.lh` でも）が、VS Code 拡張は絶対パスを送るのが普通なので、そのままでは繋がらない。ホストが「単位名 ↔ 編集中のファイル」の対応を持つのが筋なので、`dap_session_begin` に解決コールバック（`const char *(*resolve)(void *ctx, const char *editor_path)` の類）を渡せると、PhysFS を知っているのはホストだけ、という切り分けが保てる
+（なし）
 
 ## 提案
 
 （なし）
 
 ## 解決済み
+
+- DAP のヘッダに `extern "C"` ガードが無い／パス照合がディスク上の実パス前提 → `781b2cb fix: the adapter speaks the host's paths, and the headers speak C++`。ガードは `dap/*.h` に加え `transport/transport.h`・`port/socket.h`・`port/thread.h` にも入った（lhatove 側の `extern "C" { #include }` 包みは撤去）。照合は `DapPathMap`（`to_unit` / `to_editor` の双方向、NULL で従来どおり）になり、`_fullpath`/`realpath` を通らなくなった。lhatove は PhysFS のマウント（`getRealDirectory`）で写像を書き、VS Code が送る絶対パスのままブレークポイントが結ばれ、スタックの `source.path` も同じ綴りで返る。`.love` の中の単位はディスクに無いので `to_editor` が false を答え、単位名のまま報告される
 
 - 親モジュールとその子モジュールを同じスコープに import できない（`import^ love` と `import^ love.graphics`）／ 同じ位置に異なる hostdata 型を置いたアームが登録で「重なる」と拒否される → `995d0e8 fix: a namespace and one under it import together; registered types are disjoint`。lhatove 側: `newThread` を `p^File;` / `p^FileData;` の 2 アームへ戻した（実行時もタグで解決 — File・FileData 双方からスレッドが起動するのを確認）、`testing/lh/suite/tests/love.lh` は `import^ love` と `import^ love.system` を同居させた綴りに戻した。`love.event.restartValue` は移さない（`love` 直下を薄く保つ方針は変わらず妥当）
 - `lhat_program_install` のランタイム型爆発（相互参照する hostdata 型をメンバ付きテーブルとして再帰展開）→ `fea90e4 fix: a registered type lowers to one nominal node, not its members`（hostdata_tag を持つ型は `LHAT_TYPE_RT_HOSTDATA` の葉 1 個。5 型×8 メンバ相互参照が test_program に pin、live < 1000）。lhatove: 起動直後 live 2,651,187 → 2,477、`testing/lh/physics` 完走 ≈10 分 → 5 秒、`m3` の mapPixel も即時。副産物: hostdata 引数のオーバーロード解決がタグ比較で効くようになった。再現 [repro/install_blowup.c](repro/install_blowup.c)
