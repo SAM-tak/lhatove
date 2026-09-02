@@ -8,7 +8,7 @@ module^suite.test
 
 var^checks = 0
 var^group = ""
-var^failures : t^{...:string^} = {}
+var^failures : t^{string^[]} = {}
 
 # Names the module whose tests are running, for the failure lines.
 public^let^begin = p^name:string^{
@@ -50,4 +50,4 @@ public^let^notNil = p^label:string^, value:any^{
 
 public^let^count = f^-> number^{ checks }
 
-public^let^problems = f^-> t^{...:string^} { failures }
+public^let^problems = f^-> t^{string^[]} { failures }

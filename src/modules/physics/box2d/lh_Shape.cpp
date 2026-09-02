@@ -465,7 +465,7 @@ static void lh_Shape_setPoint(LhatMachine *machine, void *context, const LhatVal
 
 // --- Polygon / Edge / Chain ---
 
-// getPoints() -> t^{...:number^}: the vertices as x, y pairs, for polygon,
+// getPoints() -> t^{number^[]}: the vertices as x, y pairs, for polygon,
 // edge and chain shapes alike.
 static void lh_Shape_getPoints(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
 							   LhatValue *answers, int *answerCount)
@@ -613,7 +613,7 @@ bool lhPhysicsShape(lh::Context &ctx)
 	const char *S = "Shape";
 	const char *pair = "f^self^ -> (number^, number^);";
 	const char *setPair = "p^self^, number^, number^;";
-	const char *points = "f^self^ -> t^{...:number^};";
+	const char *points = "f^self^ -> t^{number^[]};";
 
 	// What every shape answers.
 	bool ok = ctx.member(m, S, "getType", "f^self^ -> string^;", lh_Shape_getType, nullptr)

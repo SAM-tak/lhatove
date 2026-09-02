@@ -16,7 +16,7 @@ let^echo = love.thread.newThread("import^love.thread\nlet^args = ...\nlet^f = ar
 let^broken = love.thread.newThread("let^t = {}\npanic^\"boom from a thread\"\n")
 
 var^frames = 0
-var^received : t^{...:string^} = {}
+var^received : t^{string^[]} = {}
 var^errors = 0
 var^errorText = ""
 

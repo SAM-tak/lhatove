@@ -167,7 +167,7 @@ bool lhopen_love_system(Context &ctx)
 		&& ctx.func(m, "openURL", "p^string^ -> bool^;", lh_openURL, nullptr)
 		&& ctx.func(m, "vibrate", "p^number^;", lh_vibrate, nullptr)
 		&& ctx.func(m, "hasBackgroundMusic", "f^ -> bool^;", lh_hasBackgroundMusic, nullptr)
-		&& ctx.func(m, "getPreferredLocales", "p^ -> t^{...:string^};", lh_getPreferredLocales, nullptr);
+		&& ctx.func(m, "getPreferredLocales", "p^ -> t^{string^[]};", lh_getPreferredLocales, nullptr);
 }
 
 } // lh

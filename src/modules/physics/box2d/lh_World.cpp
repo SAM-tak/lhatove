@@ -407,7 +407,7 @@ static void lh_World_queryShapesInArea(LhatMachine *machine, void *context, cons
 	});
 }
 
-// getShapesInArea(lx, ly, ux, uy) -> t^{...:Shape}
+// getShapesInArea(lx, ly, ux, uy) -> t^{Shape[]}
 static void lh_World_getShapesInArea(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
 									 LhatValue *answers, int *answerCount)
 {
@@ -566,11 +566,11 @@ bool lhPhysicsWorld(lh::Context &ctx)
 		&& ctx.member(m, W, "getBodyCount", "f^self^ -> number^;", lh_World_getBodyCount, nullptr)
 		&& ctx.member(m, W, "getJointCount", "f^self^ -> number^;", lh_World_getJointCount, nullptr)
 		&& ctx.member(m, W, "getContactCount", "f^self^ -> number^;", lh_World_getContactCount, nullptr)
-		&& ctx.member(m, W, "getBodies", "p^self^ -> t^{...:love.physics.Body};", lh_World_getBodies, nullptr)
-		&& ctx.member(m, W, "getJoints", "p^self^ -> t^{...:love.physics.Joint};", lh_World_getJoints, nullptr)
-		&& ctx.member(m, W, "getContacts", "p^self^ -> t^{...:love.physics.Contact};", lh_World_getContacts, nullptr)
+		&& ctx.member(m, W, "getBodies", "p^self^ -> t^{love.physics.Body[]};", lh_World_getBodies, nullptr)
+		&& ctx.member(m, W, "getJoints", "p^self^ -> t^{love.physics.Joint[]};", lh_World_getJoints, nullptr)
+		&& ctx.member(m, W, "getContacts", "p^self^ -> t^{love.physics.Contact[]};", lh_World_getContacts, nullptr)
 		&& ctx.member(m, W, "queryShapesInArea", "p^self^, number^, number^, number^, number^, p^love.physics.Shape -> bool^;;", lh_World_queryShapesInArea, nullptr)
-		&& ctx.member(m, W, "getShapesInArea", "p^self^, number^, number^, number^, number^ -> t^{...:love.physics.Shape};", lh_World_getShapesInArea, nullptr)
+		&& ctx.member(m, W, "getShapesInArea", "p^self^, number^, number^, number^, number^ -> t^{love.physics.Shape[]};", lh_World_getShapesInArea, nullptr)
 		&& ctx.member(m, W, "rayCast", "p^self^, number^, number^, number^, number^, p^love.physics.Shape, number^, number^, number^, number^, number^ -> number^;;", lh_World_rayCast, nullptr)
 		&& ctx.member(m, W, "rayCastAny", (std::string("p^self^, number^, number^, number^, number^ -> ") + hit + ";").c_str(), lh_World_rayCastAny, nullptr)
 		&& ctx.member(m, W, "rayCastClosest", (std::string("p^self^, number^, number^, number^, number^ -> ") + hit + ";").c_str(), lh_World_rayCastClosest, nullptr)

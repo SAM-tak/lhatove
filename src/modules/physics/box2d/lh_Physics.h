@@ -79,7 +79,7 @@ LhatValue pushShape(LhatMachine *machine, Shape *shape);
 LhatValue pushJoint(LhatMachine *machine, Joint *joint);
 LhatValue pushContact(LhatMachine *machine, Contact *contact);
 
-// A tuple of numbers; a list (t^{...:number^}) of numbers.
+// A tuple of numbers; a list (t^{number^[]}) of numbers.
 // 05 の 8.7: writes `count` answers into the machine's room.
 void numbers(const float *values, size_t count, LhatValue *answers, int *answerCount);
 LhatValue numberList(LhatMachine *machine, const std::vector<float> &values);

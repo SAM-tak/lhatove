@@ -12,7 +12,7 @@ import^love.image
 let^shaderCode = "extern vec4 tint;\nextern number amount;\nvec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) { vec4 c = Texel(tex, tc) * tint; return vec4(c.rgb * amount, c.a); }\n"
 
 var^frames = 0
-var^failures : t^{...:string^} = {}
+var^failures : t^{string^[]} = {}
 let^check = p^name:string^, ok:bool^{
     if^!ok { failures.push^(name) }
     print($"{name}: {ok}")

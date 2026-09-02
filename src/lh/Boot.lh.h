@@ -86,8 +86,8 @@ let^letters = { "n", "o", "g", "a", "m", "e" }
 let^world = love.physics.newWorld(0, 700, true^)
 var^anchor : love.physics.Body|nil^= nil^
 var^balloon : love.physics.Body|nil^= nil^
-var^segments : t^{...:love.physics.Body} = {}
-var^clouds : t^{...:t^{ x : number^, y : number^, w : number^, speed : number^}} = {}
+var^segments : t^{love.physics.Body[]} = {}
+var^clouds : t^{t^{ x : number^, y : number^, w : number^, speed : number^}[]} = {}
 var^time = 0
 var^blink = 0
 

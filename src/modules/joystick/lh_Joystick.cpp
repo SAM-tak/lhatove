@@ -305,7 +305,7 @@ bool lhopen_love_joystick(Context &ctx)
 	binding.errors = ctx.errors;
 	binding.registry = ctx.registry;
 
-	return ctx.func(m, "getJoysticks", "p^ -> t^{...:love.joystick.Joystick};", lh_getJoysticks, nullptr)
+	return ctx.func(m, "getJoysticks", "p^ -> t^{love.joystick.Joystick[]};", lh_getJoysticks, nullptr)
 		&& ctx.func(m, "getJoystickCount", "f^ -> number^;", lh_getJoystickCount, nullptr)
 		&& ctx.member(m, "Joystick", "isConnected", "f^self^ -> bool^;", lh_Joystick_isConnected, nullptr)
 		&& ctx.member(m, "Joystick", "getName", "f^self^ -> string^;", lh_Joystick_getName, nullptr)

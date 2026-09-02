@@ -87,7 +87,7 @@ bool lhopen_love_touch(Context &ctx)
 
 	using namespace love::touch;
 	const char *m = "love.touch";
-	return ctx.func(m, "getTouches", "f^ -> t^{...:number^};", lh_getTouches, nullptr)
+	return ctx.func(m, "getTouches", "f^ -> t^{number^[]};", lh_getTouches, nullptr)
 		&& ctx.func(m, "getPosition", "f^number^ -> (number^, number^);", lh_getPosition, nullptr)
 		&& ctx.func(m, "getPressure", "f^number^ -> number^;", lh_getPressure, nullptr);
 }

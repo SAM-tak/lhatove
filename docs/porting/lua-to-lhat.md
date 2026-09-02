@@ -106,10 +106,10 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 
 - box2d コアの脱 Lua: `World`/`Body`/`Shape`/`Joint`/`Contact` から `lua_State` と `Reference` を除去。多値返しは out 参照 or `std::vector<float>`、列挙は `std::vector<T*>`（`getContacts` は retain 済みを返す）、userData は `StrongRef<love::Object>`。World のコールバックは言語非依存の listener 型（`ContactListener::onContact(a, b, contact, impulses)` / `ContactFilterListener::shouldCollide` / `ShapeVisitor::onShape` / `RayCastVisitor::onHit`）、`rayCastAny/Closest` は `RayHit` 構造体
 - `lh::ParkingLot` / `lh::Parked`（lh.h）: `Reference` の後継。`L^.modules.love.registry` テーブルの整数スロットに値を係留し、`Parked` は `love::Object` として `StrongRef` で保持できる。解放は `releaseLater` → 次の `park()`/`sweep()`（safe point）で nil 書込（dispose は collector 内で走りうるため）。`Runtime` が lot を所有し、`compile()` 後に `attach`、破棄時に `detach`
-- L^ 側の型は 5 つ: `love.physics.World/Body/Shape/Joint/Contact`。Shape の種別（circle/polygon/edge/chain）と Joint の種別（distance/revolute/…）は **1 つの hostdata 型に全メンバを平坦化**し、種別外のメンバは `lh::raise`（`getType()` で判別）。理由: L^ の hostdata 型に部分型が無く、`Body.getShapes -> t^{...:Shape}` のような戻りを合併で書く負担を避ける
+- L^ 側の型は 5 つ: `love.physics.World/Body/Shape/Joint/Contact`。Shape の種別（circle/polygon/edge/chain）と Joint の種別（distance/revolute/…）は **1 つの hostdata 型に全メンバを平坦化**し、種別外のメンバは `lh::raise`（`getType()` で判別）。理由: L^ の hostdata 型に部分型が無く、`Body.getShapes -> t^{Shape[]}` のような戻りを合併で書く負担を避ける
 - コールバック: `World.setCallbacks(begin[, end[, presolve[, postsolve]]])`（引数個数のアーム。省いたものはクリア、`setCallbacks()` で全解除）、`setContactFilter(p^Shape, Shape -> bool^;)`、`queryShapesInArea(..., p^Shape -> bool^;)`、`rayCast(..., p^Shape, x, y, nx, ny, fraction -> number^;)`。callback の型は `f^` ではなく `p^`（外の変数を書く用途のため）。postsolve は `(a, b, contact, n1, t1, n2, t2)` 固定 7 引数（足りない点は 0）
 - `lhat_machine_call` は `World.update` の中（b2 の step 内）から呼ぶ。fault は外側の run に伝播するので host 側は戻り値を捨てるだけ
-- 可変長の座標は `...` で受け、結果の列は `t^{...:number^}`（`getPoints`、`getWorldPoints`、`getPositions`、`getCategory`）。`love.graphics.polygon` は `p^string^, ...;` に緩和（`body.getWorldPoints(shape.getPoints()...)...` の展開は固定引数を満たさないため）
+- 可変長の座標は `...` で受け、結果の列は `t^{number^[]}`（`getPoints`、`getWorldPoints`、`getPositions`、`getCategory`）。`love.graphics.polygon` は `p^string^, ...;` に緩和（`body.getWorldPoints(shape.getPoints()...)...` の展開は固定引数を満たさないため）
 - Shape の `rayCast` は `(hit:bool^, nx, ny, fraction)` タプル（タプル|nil^ の合併を避けた）。`World.rayCastAny/Closest` は `t^{ shape, x, y, nx, ny, fraction }|nil^`
 - 非対応（12.0 で deprecated）: body 無しの `newCircleShape(x, y, r)` 系、`newFixture`、`Fixture:getShape`、`ChainShape:getChildEdge`、`MouseJoint` の setFrequency/setDampingRatio（コアに実装が無い）
 - デバッグ補助を追加: `LHATOVE_WATCHDOG=<秒>`（フレームが止まると主スレッドのスタックを base+offset で stderr へ書き、`scripts/symbolize.c` で .pdb から名前解決。RelWithDebInfo 推奨）、`LHATOVE_GC_STATS=<n>`（n フレーム毎）、`LHATOVE_SKIP_REGISTRATIONS=love.physics.*`（前方一致）
@@ -125,7 +125,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - `performAtomic(fn, ...)` は extra 引数の個数でアーム分け（0〜3、`any^`）。可変長型の手続き型に固定引数の閉包は適合しないため
 - 同位置に異なる hostdata 型を置くアームは登録で拒否される（File vs FileData）→ `p^File|FileData` の合併 1 アーム（[lhat-issues.md](lhat-issues.md) 提案）
 - `std.thread` / `std.async` は登録しない
-- graphics: Canvas は独立型にせず `newCanvas` が render target 付き `Texture` を返す（12.0 と同じ）。`setCanvas(...)` は 1 本の可変長アーム（Texture 列 + 省略可の depth/stencil bool）— `p^Texture, ...` と `p^t^{...:Texture}, ...` は登録で重なると判定されるため。`getScissor` は未設定時 0 の 4 組、`rayCast` 系と同じ「nil^ の代わりに値」方針
+- graphics: Canvas は独立型にせず `newCanvas` が render target 付き `Texture` を返す（12.0 と同じ）。`setCanvas(...)` は 1 本の可変長アーム（Texture 列 + 省略可の depth/stencil bool）— `p^Texture, ...` と `p^t^{Texture[]}, ...` は登録で重なると判定されるため。`getScissor` は未設定時 0 の 4 組、`rayCast` 系と同じ「nil^ の代わりに値」方針
 - `draw` は `p^D;` / `p^D, number^, ...;` / `p^Texture, Quad, ...;` の 3 アーム（D = Texture|Mesh|SpriteBatch|ParticleSystem|TextBatch|Video の合併）。`add(x, y, ...)` と `add(quad, x, y, ...)` も同様に先頭位置で分ける
 - Shader.send は uniform の型に従う: float（数値列 or 要素ごとの number 表）、int/uint、bool、matrix（列優先の平坦表 / 行の表 / mat4 は Transform）、sampler（Texture）
 - Mesh は標準頂点形式（x, y, u, v, r, g, b, a）のみ。頂点は 8 数 or 表で指定

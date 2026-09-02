@@ -90,7 +90,7 @@ CONTACT_SET(resetRestitution, resetRestitution())
 CONTACT_SET(setTangentSpeed, setTangentSpeed(v))
 CONTACT_NUMBER(getTangentSpeed, c->getTangentSpeed())
 
-// getPositions() -> t^{...:number^}: the contact points as x, y pairs.
+// getPositions() -> t^{number^[]}: the contact points as x, y pairs.
 static void lh_Contact_getPositions(LhatMachine *machine, void *context, const LhatValue *args, size_t count,
 									LhatValue *answers, int *answerCount)
 {
@@ -161,7 +161,7 @@ bool lhPhysicsContact(lh::Context &ctx)
 		return true;
 
 	const char *C = "Contact";
-	return ctx.member(m, C, "getPositions", "f^self^ -> t^{...:number^};", lh_Contact_getPositions, nullptr)
+	return ctx.member(m, C, "getPositions", "f^self^ -> t^{number^[]};", lh_Contact_getPositions, nullptr)
 		&& ctx.member(m, C, "getNormal", "f^self^ -> (number^, number^);", lh_Contact_getNormal, nullptr)
 		&& ctx.member(m, C, "getFriction", "f^self^ -> number^;", lh_Contact_getFriction, nullptr)
 		&& ctx.member(m, C, "getRestitution", "f^self^ -> number^;", lh_Contact_getRestitution, nullptr)
