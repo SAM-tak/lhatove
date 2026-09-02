@@ -78,3 +78,6 @@ stamp-h1
 
 # scripts/build.ps1 output
 /build/
+
+# The shipping configuration builds beside the development one.
+build-shipping/

@@ -105,13 +105,21 @@ set(LHAT_WITH_RESOLUTIONS OFF CACHE BOOL "" FORCE)
 # CMake links it against lhat, cjson and the two ports and nothing in src/
 # -- so taking it is a link, not a fork of the runtime.
 #
-# A game shipped as a fused executable never opens the port: the option is
-# what a build says, and Boot.cpp refuses --dap when the game is fused
-# whatever this was set to.
-option(LHATOVE_WITH_DAP "Build the L^ debug adapter into lovec" ON)
+# OFF takes the whole of it out, the VM's line hook included: a shipping
+# build has no debugger in it to reach. The two options go together because
+# lhat says so -- LHAT_BUILD_DAP without LHAT_WITH_DEBUGGER is a configure
+# error there, the adapter having nothing to sit on.
+#
+# A fused game is not a build of its own: the same executable becomes one
+# when an archive is appended to it, and Boot.cpp refuses --dap once it sees
+# it is fused. So this is what a distribution is built with, and
+# scripts/build.ps1 -Shipping is the way to ask.
+option(LHATOVE_WITH_DAP "Build the L^ debugger and its DAP adapter into lovec" ON)
 if(LHATOVE_WITH_DAP)
+	set(LHAT_WITH_DEBUGGER ON CACHE BOOL "" FORCE)
 	set(LHAT_BUILD_DAP ON CACHE BOOL "" FORCE)
 else()
+	set(LHAT_WITH_DEBUGGER OFF CACHE BOOL "" FORCE)
 	set(LHAT_BUILD_DAP OFF CACHE BOOL "" FORCE)
 endif()
 add_subdirectory("${LHATOVE_LHAT_DIR}" lhat)

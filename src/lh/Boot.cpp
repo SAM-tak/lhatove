@@ -308,13 +308,13 @@ static std::string checkCallbacks(const LhatUnit *unit)
 	std::string problems;
 	for (const Callback &cb : callbacks)
 	{
-		size_t needed = lhat_unit_export_type(unit, cb.name, nullptr, 0);
+		size_t needed = lhat_unit_export_type_text(unit, cb.name, nullptr, 0);
 		if (needed == SIZE_MAX)
 			continue; // not exported: the no-op takes its place
 		if (lhat_unit_export_conforms(unit, cb.name, cb.signature))
 			continue;
 		std::vector<char> spelt(needed + 1);
-		lhat_unit_export_type(unit, cb.name, spelt.data(), spelt.size());
+		lhat_unit_export_type_text(unit, cb.name, spelt.data(), spelt.size());
 		problems += std::string(lhat_unit_path(unit)) + ": error: " + cb.name + " is " + spelt.data() + ", but a love callback of that name is " + cb.signature + "\n";
 	}
 	return problems;
@@ -616,24 +616,28 @@ public:
 	DebugSession(const DebugSession &) = delete;
 	DebugSession &operator=(const DebugSession &) = delete;
 
-	// Waits for a debugger and installs the hook. False when none arrived,
-	// which the caller treats as "run without one".
-	bool begin(LhatMachine *machine, int port, const LhatProgram *program)
+	// Waits for a debugger and installs the hook. Answers what to tell the
+	// user when it did not happen, or nullptr when the run is under one.
+	const char *begin(LhatMachine *machine, int port, const LhatProgram *program)
 	{
 #ifdef LHATOVE_WITH_DAP
 		if (port <= 0)
-			return false;
+			return "no port";
 		// 09 の 5.2: PhysFS paths on one side, the editor's own on the other.
 		DapPathMap paths;
 		paths.context = (void *) program;
 		paths.to_unit = toUnit;
 		paths.to_editor = toEditor;
-		return dap_session_begin(&session_, machine, (uint16_t) port, &paths);
+		if (dap_session_begin(&session_, machine, (uint16_t) port, &paths))
+			return nullptr;
+		return "no debugger connected";
 #else
 		(void) machine;
-		(void) port;
 		(void) program;
-		return false;
+		(void) port;
+		// A shipping build has no debugger in it to reach, which is a
+		// different thing from nobody connecting.
+		return "this build carries no debugger";
 #endif
 	}
 
@@ -1035,8 +1039,9 @@ static int boot(int argc, char **argv, bool console)
 	if (args.dapPort != 0)
 	{
 		trace("waiting for a debugger");
-		if (!debugger.begin(machine, args.dapPort, runtime.program()))
-			fprintf(stderr, "lhatove: no debugger connected on port %d; running without one.\n", args.dapPort);
+		const char *why = debugger.begin(machine, args.dapPort, runtime.program());
+		if (why != nullptr)
+			fprintf(stderr, "lhatove: %s; running without one.\n", why);
 	}
 
 	trace("reading conf.lton");

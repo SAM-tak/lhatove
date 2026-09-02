@@ -21,11 +21,16 @@ megasource（love2d 公式の Windows 依存関係一括ビルドリポジトリ
 `scripts/build.ps1` が megasource の取得・`megasource/libs/love` ジャンクション作成・CMake 実行まで行う。
 
 ```powershell
-.\scripts\build.ps1              # Release ビルド
+.\scripts\build.ps1              # Release ビルド（デバッガ入り）
 .\scripts\build.ps1 -Config Debug
+.\scripts\build.ps1 -Shipping    # 配布用: デバッガを外す → build-shipping\
 ```
 
 L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフォルト `../lhat`）。
+
+**配布用ビルド**（`-Shipping` = `-DLHATOVE_WITH_DAP=OFF`）は L^ のデバッガを丸ごと落とす — DAP アダプタ（`lhatdap` は生成されない）だけでなく、`LHAT_WITH_DEBUGGER=OFF` で VM 側の line hook も。2 つは連動する必要がある（lhat 側で `LHAT_BUILD_DAP` は `LHAT_WITH_DEBUGGER` を要求する）。実測で love.dll が 34KB、`lhat.lib` が 16KB 小さくなる。`--dap` を渡すと「this build carries no debugger」と言って普通に走る。
+
+**fused はビルド構成ではない。** 同じ実行ファイルに `.love` を連結すると fused になる（`copy /b love.exe+game.love mygame.exe`）ので、配布物の土台に何を使うかは -Shipping で選ぶ。実行時の fused 判定は別にあり、そちらは `--dap` を捨てる（両方効く）。
 
 ## 移植規約
 
@@ -51,7 +56,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
 - 前提 lhat は HEAD `9a5d49a` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言・ホスト境界が count で答える・ホスト型の親宣言・DAP と `lhat_reload`）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
-- デバッガは lhat の DAP アダプタ（09 章）。`lovec --dap=PORT game/` でポートを開いて待ち、繋がってから起動列を進める。`LHATOVE_WITH_DAP`（既定 ON）で `lhatdap` をリンク。**fused では無効**（配布物がポートを開かない。`Boot.cpp` が `--dap` を捨てる）
+- デバッガは lhat の DAP アダプタ（09 章）。`lovec --dap=PORT game/` でポートを開いて待ち、繋がってから起動列を進める。`LHATOVE_WITH_DAP`（既定 ON）で `lhatdap` をリンクし、OFF で VM 側の line hook ごと落とす（`scripts/build.ps1 -Shipping`）。**fused では実行時にも無効**（配布物がポートを開かない。`Boot.cpp` が `--dap` を捨てる）
 - **love.thread のワーカーも対象**。バインディングは何もしない — `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、`Runtime::spawnMachine` が作った machine がそのまま DAP のスレッドになる（確認: `worker.lh` にブレークポイントが効き、スレッド 2/3/4 が現れる）
 - ブレークポイントのパスは `DapPathMap`（09 の 5.2）で写す。`Boot.cpp` の `toUnit` / `toEditor` が PhysFS のマウント（`getRealDirectory`）を使い、エディタの絶対パス ↔ 単位の綴りを両方向に翻訳する。だから VS Code が送る絶対パスのままブレークポイントが結ばれ、スタックの `source.path` も同じ綴りで返る。`.love` や fused の中の単位はディスクに無いので `to_editor` が false を答え、単位名のまま報告される（埋め込みの `Boot.lh` も同じ）
 - 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
