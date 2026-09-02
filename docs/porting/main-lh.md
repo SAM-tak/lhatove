@@ -109,9 +109,51 @@ let^ stage = try^ std.lton.load("stages/3.lton")
 ## ゲームの置き場
 
 `love path/to/dir`（`main.lh` を含むディレクトリ）、`love game.love`（zip）、`love file.lh`、
-または exe に zip を連結した fused 形式（`copy /b love.exe+game.love mygame.exe`）。
+または fused 形式（下の「配布する」）。
 ゲーム内の別ユニットは `require^ "lib/util.lh"`（要求側からの相対パス、リテラルのみ）。
 実行時に決めるパスは `love.filesystem.load(path)`（閉包を返す）か `std.load`。
+
+## 配布する
+
+fused にする。exe の末尾に `.love`（zip）を連結した 1 つのファイルで、Windows は先頭の
+PE ヘッダを読み、PhysFS は末尾の central directory を読むので、同じファイルが実行形式と
+アーカイブの両方として妥当になる（自己展開書庫と同じ原理）。LÖVE は起動時に自分自身を
+zip としてマウントしてみて、開けたら fused と判定する。
+
+```powershell
+.\scripts\build.ps1 -Shipping                          # デバッガの入らないビルド
+copy /b build-shipping\love\Release\love.exe+game.love mygame.exe
+```
+
+土台は `love.exe`（窓版）。`lovec.exe` はコンソールを開くので開発用。
+
+`.love` は `main.lh` を**アーカイブの根**に置いた zip。PowerShell の `Compress-Archive` は
+`.zip` 以外の拡張子を拒むので、`.zip` で作ってから改名する。
+
+```powershell
+cd path\to\game                                        # main.lh のあるディレクトリ
+Compress-Archive -Path * -DestinationPath ..\game.zip -Force
+Rename-Item ..\game.zip game.love
+```
+
+**同梱するもの**（`build-shipping\love\Release\` から）:
+
+- `mygame.exe` — 上で作ったもの
+- `love.dll` — エンジン本体。`love.exe` 自体は 48KB の殻でしかない
+- `SDL3.dll`・`OpenAL32.dll`
+
+静的リンクにして 1 ファイルにはできない。OpenAL が LGPL で、差し替え可能性を残すために
+動的リンクが要る。DLL 同梱は今日のデスクトップアプリでは普通なので、ここは諦めてよい。
+
+**fused にする理由は「1 ファイルになるから」ではない**（ならない）。実質的な差は 3 つ:
+
+- **セーブ先が独立する。** 通常は `%APPDATA%\LOVE\<identity>\` で、LÖVE で作られた
+  全ゲームが同じ棚に並ぶ。fused なら `%APPDATA%\<identity>\`。`identity` を設定し忘れた
+  ゲーム同士がセーブを踏み合う事故が消える
+- **自分の名前で走る。** 遊ぶ側が起動するのは `love.exe` ではなく `mygame.exe`
+- **中身が一体になる。** `.love` が隣にあると、zip なので開けるし差し替えられる
+
+`love.filesystem.isFused()` で自分がどちらかを訊ける。
 
 ## エラー表示
 
