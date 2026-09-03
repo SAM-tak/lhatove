@@ -24,7 +24,8 @@ param(
     [ValidateSet("x64", "ARM64")]
     [string]$Platform = "x64",
     [switch]$ConfigureOnly,
-    [switch]$Shipping
+    [switch]$Shipping,
+    [switch]$VmOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,7 +35,10 @@ $reposParent = Split-Path $repoRoot -Parent
 if (-not $MegasourceDir) { $MegasourceDir = Join-Path $reposParent "megasource" }
 if (-not $LhatDir) { $LhatDir = Join-Path $reposParent "lhat" }
 if (-not $BuildDir) {
-    $BuildDir = Join-Path $repoRoot $(if ($Shipping) { "build-shipping" } else { "build" })
+    $name = "build"
+    if ($Shipping) { $name = "build-shipping" }
+    if ($VmOnly) { $name = if ($Shipping) { "build-vmonly-shipping" } else { "build-vmonly" } }
+    $BuildDir = Join-Path $repoRoot $name
 }
 
 if (-not (Test-Path (Join-Path $LhatDir "include/lhat.h"))) {
@@ -68,7 +72,8 @@ if (Test-Path $loveLink) {
 # 09 章: a shipping build carries no debugger at all -- not the adapter, and
 # not the VM's line hook that it sits on.
 $dap = if ($Shipping) { "OFF" } else { "ON" }
-cmake -S $MegasourceDir -B $BuildDir -A $Platform "-DLHATOVE_LHAT_DIR=$LhatDir" "-DLHATOVE_WITH_DAP=$dap"
+$vm = if ($VmOnly) { "ON" } else { "OFF" }
+cmake -S $MegasourceDir -B $BuildDir -A $Platform "-DLHATOVE_LHAT_DIR=$LhatDir" "-DLHATOVE_WITH_DAP=$dap" "-DLHATOVE_VM_ONLY=$vm"
 if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
 
 if ($ConfigureOnly) { return }

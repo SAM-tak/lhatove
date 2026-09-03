@@ -155,6 +155,32 @@ Rename-Item ..\game.zip game.love
 
 `love.filesystem.isFused()` で自分がどちらかを訊ける。
 
+### ソースを配らない（VM のみビルド）
+
+`-VmOnly` で建てたエンジンは front end を持たない。読めるのはコンパイル済みユニットだけで、
+テキストの `.lh` は `this build has no front end; only a binary unit runs` と断られる。
+配布物にゲームの綴りが入らない、という副産物がある。
+
+```powershell
+.\scripts\build.ps1 -VmOnly -Shipping                              # 1 度だけ
+.\build\love\Release\lovec.exe --compile-game out\mygame game\     # フル版で materials を作る
+copy /b build-vmonly-shipping\love\Release\love.exe+mygame.love mygame.exe
+```
+
+`--compile-game` はゲーム内の `.lh` を**全部** check して書き出す（実行が届かない
+スレッドユニットも入る）。`conf.lton` も同じく `std.lton` の writer を通す。
+画像・フォント・音はそのまま複製されるので、出力ディレクトリがそのまま `.love` になる。
+
+- **利得は起動**。登録署名 800 本の解析（4.2ms）が表引き（0.0ms）になり、ゲームの
+  check / compile が消える。`lhat.lib` は半分以下だが `love.dll` は 196KB しか縮まない
+  （署名表を埋め込むため）
+- **`.love` は縮まない**。zip が deflate をかけるので、既に密なバイナリユニットは
+  テキストより圧縮が効かない（realgame 実測 4,496 → 5,862 バイト）
+- **動かないもの**: `love.thread.newThread(コード文字列)`、`love.filesystem.load` /
+  `std.load` のテキスト。実行時に構文解析器が要る。**ファイル版スレッドは動く**
+- **デバッガとは併用できる**（`-VmOnly` 単体）。行番号はコンパイル済みでも残るので
+  ブレークポイントもスタックも効く。ローカル名が要るなら `--compile-game ... --debug-names`
+
 ## エラー表示
 
 型検査エラーは起動前に診断として（lovec はコンソール、love.exe はメッセージボックス）。

@@ -71,12 +71,25 @@
 #include "adapter.h"
 #endif
 
+// 05 の 10.8: what this engine embeds, compiled, for a build that cannot
+// read the text of it.
+#ifdef LHATOVE_VM_ONLY
+#include "BootBinary.h"
+#include "NogameBinary.h"
+#endif
+
 #include <SDL3/SDL.h>
 
 #include <cstdint>
+#ifdef LOVE_WINDOWS
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -158,12 +171,20 @@ static void report(const std::string &title, const std::string &text)
 // LHATOVE_TRACE=1: the boot sequence, step by step, on stderr.
 static bool tracing = false;
 
+// Each step carries how long the one before it took, so what a build
+// takes out is legible rather than inferred -- 05 の 10.8, where
+// checking and compiling are the steps that go away.
 static void trace(const char *step)
 {
 	if (tracing)
 	{
-		fprintf(stderr, "[boot] %s\n", step);
+		static double last = 0.0;
+		double now = love::timer::Timer::getTime();
+		if (last == 0.0)
+			last = now;
+		fprintf(stderr, "[boot] %+8.1f ms  %s\n", (now - last) * 1000.0, step);
 		fflush(stderr);
+		last = now;
 	}
 }
 
@@ -470,6 +491,221 @@ static std::string describeLton(LhatMachine *machine, LhatProgram *program, Lhat
 	default:
 		return "refused";
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Compiling a game ahead
+// ---------------------------------------------------------------------------
+
+// 05 の 10.8: a build without the front end reads compiled units and nothing
+// else, so what it runs has to be written by a build that has one. This is
+// that writer: the units the game reached, and its conf.lton, laid out under
+// a directory with the paths they had, so the result mounts the way the
+// source did.
+//
+// The embedded Boot.lh and nogame.lh are not written -- every build carries
+// its own, and they are held rather than read from the game.
+
+// Makes `path`'s parent directories under `root`. PhysFS spells a unit with
+// forward slashes whatever the platform, so a nested require^ needs them.
+static bool makeParents(const std::string &root, const std::string &unit)
+{
+	size_t at = 0;
+	for (;;)
+	{
+		size_t slash = unit.find('/', at);
+		if (slash == std::string::npos)
+			return true;
+		std::string dir = root + "/" + unit.substr(0, slash);
+#ifdef LOVE_WINDOWS
+		_mkdir(dir.c_str());
+#else
+		mkdir(dir.c_str(), 0777);
+#endif
+		at = slash + 1;
+	}
+}
+
+static bool writeBytes(const std::string &path, const void *bytes, size_t length)
+{
+	FILE *out = fopen(path.c_str(), "wb");
+	if (out == nullptr)
+		return false;
+	bool ok = length == 0 || fwrite(bytes, 1, length, out) == length;
+	fclose(out);
+	return ok;
+}
+
+// Every .lh the game carries, whether or not the run reached it. A unit a
+// love.thread starts is checked at newThread time, so it is not in the
+// program when the game is compiled -- and a .lh copied over as text into a
+// distribution without a front end could never run. Checking it here is the
+// same call newThread makes, only earlier.
+static std::string checkAllUnits(Runtime &runtime, const std::string &dir)
+{
+	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+	std::vector<std::string> items;
+	fs->getDirectoryItems(dir.c_str(), items);
+	for (const std::string &item : items)
+	{
+		std::string path = dir.empty() ? item : dir + "/" + item;
+		love::filesystem::Filesystem::Info info = {};
+		if (!fs->getInfo(path.c_str(), info))
+			continue;
+		if (info.type == love::filesystem::Filesystem::FILETYPE_DIRECTORY)
+		{
+			std::string trouble = checkAllUnits(runtime, path);
+			if (!trouble.empty())
+				return trouble;
+			continue;
+		}
+		if (!endsWith(path, ".lh"))
+			continue;
+		const LhatUnit *unit = lhat_program_check(runtime.program(), path.c_str());
+		if (unit == nullptr)
+			return "Could not read " + path;
+		if (!lhat_unit_ok(unit))
+			return path + " did not check; a compiled game carries no unit that does not";
+	}
+	return std::string();
+}
+
+// Everything the game carries that is not a unit: images, fonts, sounds,
+// shader sources. The program never saw them, so the walk above cannot,
+// and a directory holding only compiled units is not a game. Copies them
+// with the paths they had, so the result mounts the way the source did.
+static bool copyRest(const std::string &to, const std::string &dir,
+                     const std::set<std::string> &written, size_t &copied)
+{
+	auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+	std::vector<std::string> items;
+	fs->getDirectoryItems(dir.c_str(), items);
+	for (const std::string &item : items)
+	{
+		std::string path = dir.empty() ? item : dir + "/" + item;
+		love::filesystem::Filesystem::Info info = {};
+		if (!fs->getInfo(path.c_str(), info))
+			continue;
+		if (info.type == love::filesystem::Filesystem::FILETYPE_DIRECTORY)
+		{
+			makeParents(to, path + "/x");
+			if (!copyRest(to, path, written, copied))
+				return false;
+			continue;
+		}
+		if (written.count(path) != 0)
+			continue;
+		StrongRef<love::filesystem::FileData> data(fs->read(path.c_str()), Acquire::NORETAIN);
+		makeParents(to, path);
+		if (!writeBytes(to + "/" + path, data->getData(), data->getSize()))
+			return false;
+		copied++;
+	}
+	return true;
+}
+
+// Writes every unit the program reached, plus conf.lton where the game has
+// one. Answers what to report, or an empty string when all of it went out.
+static std::string compileGame(Runtime &runtime, Loader &loader, const std::string &to,
+                               bool debugNames)
+{
+#ifdef LOVE_WINDOWS
+	_mkdir(to.c_str());
+#else
+	mkdir(to.c_str(), 0777);
+#endif
+	std::string trouble = checkAllUnits(runtime, "");
+	if (!trouble.empty())
+		return trouble;
+	if (!lhat_program_compile(runtime.program()))
+		return "The game did not compile";
+
+	std::set<std::string> written;
+	for (const LhatUnit *u = lhat_program_units(runtime.program()); u != nullptr;
+	     u = lhat_unit_next(u))
+	{
+		const char *path = lhat_unit_path(u);
+		if (path == nullptr)
+			continue;
+		std::string unit = path;
+		// What the engine embeds travels with the engine, not with the game.
+		if (loader.isHeld(unit))
+			continue;
+		uint8_t *bytes = nullptr;
+		size_t length = 0;
+		if (!lhat_unit_write_binary(u, debugNames, &bytes, &length))
+			return "Could not compile " + unit;
+		makeParents(to, unit);
+		bool ok = writeBytes(to + "/" + unit, bytes, length);
+		lhat_free(bytes);
+		if (!ok)
+			return "Could not write " + to + "/" + unit;
+		written.insert(unit);
+	}
+
+	// 08 の 7改: conf.lton is data, so it goes through std.lton's own writer
+	// -- the wrapper it puts around a text is part of what a compiled one
+	// carries, and lhatstdlib_lton_load reads either.
+	if (loader.exists("conf.lton"))
+	{
+		auto fs = Module::getInstance<love::filesystem::Filesystem>(Module::M_FILESYSTEM);
+		StrongRef<love::filesystem::FileData> data(fs->read("conf.lton"), Acquire::NORETAIN);
+		uint8_t *bytes = nullptr;
+		size_t length = 0;
+		LhatLtonStatus wrote = lhatstdlib_lton_write(runtime.program(), "conf.lton",
+		                                             (const char *) data->getData(),
+		                                             data->getSize(), debugNames, &bytes, &length);
+		if (wrote != LHAT_LTON_OK)
+			return std::string("conf.lton: ") + describeLton(runtime.machine(), runtime.program(), wrote);
+		bool ok = writeBytes(to + "/conf.lton", bytes, length);
+		lhat_free(bytes);
+		if (!ok)
+			return "Could not write " + to + "/conf.lton";
+		written.insert("conf.lton");
+	}
+
+	size_t copied = 0;
+	if (!copyRest(to, "", written, copied))
+		return "Could not copy the game's other files into " + to;
+
+	printf("wrote %zu compiled units and copied %zu other files to %s\n",
+	       written.size(), copied, to.c_str());
+	return std::string();
+}
+
+// 05 の 10.8: the units this engine embeds, compiled. A build without the
+// front end cannot read the text of Boot.lh or nogame.lh any more than it
+// can read a game's, so it carries them as bytes -- written here by a full
+// build and turned into headers the way the signature table is.
+static std::string dumpEmbedded(Runtime &runtime, Loader &loader, const std::string &to,
+                                bool debugNames)
+{
+#ifdef LOVE_WINDOWS
+	_mkdir(to.c_str());
+#else
+	mkdir(to.c_str(), 0777);
+#endif
+	size_t written = 0;
+	for (const LhatUnit *u = lhat_program_units(runtime.program()); u != nullptr;
+	     u = lhat_unit_next(u))
+	{
+		const char *path = lhat_unit_path(u);
+		if (path == nullptr || !loader.isHeld(path))
+			continue;
+		uint8_t *bytes = nullptr;
+		size_t length = 0;
+		if (!lhat_unit_write_binary(u, debugNames, &bytes, &length))
+			return std::string("Could not compile ") + path;
+		bool ok = writeBytes(to + "/" + path + ".bin", bytes, length);
+		lhat_free(bytes);
+		if (!ok)
+			return std::string("Could not write ") + to + "/" + path + ".bin";
+		printf("wrote %s/%s.bin (%zu bytes)\n", to.c_str(), path, length);
+		written++;
+	}
+	if (written == 0)
+		return "No embedded unit was reached; run with a game that boots.";
+	return std::string();
 }
 
 // ---------------------------------------------------------------------------
@@ -796,6 +1032,10 @@ struct Arguments
 	bool dumpHostApi = false; // --dump-host-api [file]
 	std::string dumpPath = "lhat-host.json";
 	int dapPort = 0;      // --dap=PORT, 0 for no debugger
+	std::string signaturesPath; // --dump-signatures FILE
+	std::string compileTo;      // --compile-game DIR
+	std::string embedTo;        // --dump-embedded DIR
+	bool debugNames = false;    // --debug-names, with either of those
 };
 
 static Arguments parseArguments(int argc, char **argv)
@@ -813,6 +1053,25 @@ static Arguments parseArguments(int argc, char **argv)
 			args.dumpHostApi = true;
 			if (i + 1 < argc && argv[i + 1][0] != '-')
 				args.dumpPath = argv[++i];
+		}
+		else if (a == "--debug-names")
+		{
+			args.debugNames = true;
+		}
+		else if (a == "--dump-embedded")
+		{
+			if (i + 1 < argc)
+				args.embedTo = argv[++i];
+		}
+		else if (a == "--compile-game")
+		{
+			if (i + 1 < argc)
+				args.compileTo = argv[++i];
+		}
+		else if (a == "--dump-signatures")
+		{
+			if (i + 1 < argc)
+				args.signaturesPath = argv[++i];
 		}
 		else if (a.rfind("--dap=", 0) == 0)
 		{
@@ -866,7 +1125,11 @@ static int boot(int argc, char **argv, bool console)
 	// Declared before the runtime so it is destroyed after it.
 	Modules modules;
 	Loader loader;
+#ifdef LHATOVE_VM_ONLY
+	loader.hold("Boot.lh", lh_boot_binary, lh_boot_binary_length);
+#else
 	loader.hold("Boot.lh", boot_lh);
+#endif
 
 	// love.filesystem first of all: the loader reads through it. boot.lua's
 	// love.boot, without arg.lua's URI handling.
@@ -956,7 +1219,11 @@ static int boot(int argc, char **argv, bool console)
 	{
 		if (!invalidGamePath.empty())
 			fprintf(stderr, "Cannot load game at path '%s'.\nMake sure a folder exists at the specified path.\n", invalidGamePath.c_str());
+#ifdef LHATOVE_VM_ONLY
+		loader.hold(mainUnit, lh_nogame_binary, lh_nogame_binary_length);
+#else
 		loader.hold(mainUnit, nogame_lh);
+#endif
 	}
 
 	Runtime runtime(Loader::load, &loader);
@@ -977,6 +1244,33 @@ static int boot(int argc, char **argv, bool console)
 	{
 		report("lhatove", "The L^ standard library refused to register.");
 		return 1;
+	}
+
+	// 05 の 10.7: the signature table. A registration's signature is text,
+	// and reading text takes the front end -- so a build without one looks
+	// each up in a table a full build wrote from the same registrations.
+	// Written here: everything is registered, and nothing is checked yet.
+	if (!args.signaturesPath.empty())
+	{
+		uint8_t *bytes = nullptr;
+		size_t length = 0;
+		if (!lhat_program_write_signatures(runtime.program(), &bytes, &length))
+		{
+			report("lhatove", "Could not build the signature table.");
+			return 1;
+		}
+		FILE *out = fopen(args.signaturesPath.c_str(), "wb");
+		if (out == nullptr)
+		{
+			lhat_free(bytes);
+			report("lhatove", "Could not write " + args.signaturesPath);
+			return 1;
+		}
+		fwrite(bytes, 1, length, out);
+		fclose(out);
+		lhat_free(bytes);
+		printf("wrote %s (%zu bytes)\n", args.signaturesPath.c_str(), length);
+		return 0;
 	}
 
 	// --dump-host-api: what the checker was told, as JSON for the language
@@ -1014,6 +1308,12 @@ static int boot(int argc, char **argv, bool console)
 		return 1;
 	}
 
+	// 05 の 10 章: a compiled unit carries no checker type, so this question
+	// has no answer there -- lhat_unit_export_conforms says no to everything.
+	// It needs none: what was compiled was checked by the build that
+	// compiled it, and a binary reads back only into a program registered
+	// the way that one was.
+	if (!loader.isBinary(mainUnit))
 	{
 		std::string problems = checkCallbacks(root);
 		if (!problems.empty())
@@ -1028,6 +1328,31 @@ static int boot(int argc, char **argv, bool console)
 	{
 		report("lhatove", "Could not compile the program.");
 		return 1;
+	}
+
+	// 05 の 10.8: with --compile-game the run stops here. Everything is
+	// checked and compiled, which is all the writing needs, and nothing of
+	// the game has run.
+	if (!args.embedTo.empty())
+	{
+		std::string trouble = dumpEmbedded(runtime, loader, args.embedTo, args.debugNames);
+		if (!trouble.empty())
+		{
+			report("lhatove", trouble);
+			return 1;
+		}
+		return 0;
+	}
+
+	if (!args.compileTo.empty())
+	{
+		std::string trouble = compileGame(runtime, loader, args.compileTo, args.debugNames);
+		if (!trouble.empty())
+		{
+			report("lhatove", trouble);
+			return 1;
+		}
+		return 0;
 	}
 
 	LhatMachine *machine = runtime.machine();

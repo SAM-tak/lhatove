@@ -14,6 +14,16 @@
 | M5 | threads/上級（love.thread・video・Canvas/Shader/Mesh 等） | スレッドサンプル + シェーダサンプル | **完了**（2026-08-23）。`testing/lh/thread`（file/code thread・Channel で table/closure 往復・performAtomic・threaderror、exit=8）、`testing/lh/shader`（Canvas 読み戻し・Shader uniform・Quad・Mesh・SpriteBatch・ParticleSystem・TextBatch・状態系・Video、exit=9） |
 | M6 | 仕上げ（nogame.lh・restart・Lua 残骸削除・testing/ 移植） | 引数なし起動で nogame 表示 | **完了**（2026-08-24）。nogame.lh（physics のチェーン + 雲 + ドロップで restart）、restart（`love.event.restart(payload)` → 再 boot → `love.event.restartValue()`、`testing/lh/restart` exit=10）、Lua 残骸 294 ファイル削除、`testing/lh/suite`（バインド済み全モジュールを移植、451 チェック、pass=0 / fail=1） |
 
+## M6 後
+
+- **ホスト境界の作り直し** — ホスト関数は `void`、答えは machine の room に書く（`answers[0..n]` と `*answerCount`）。491 本すべて
+- **ラッパのキャッシュ** — machine ごとに 1 オブジェクト 1 ラッパ。physics の 120 フレームで 15,018 → 7,162 回収
+- **型の親子** — `love.graphics.Drawable` の下に 6 型、physics は Shape の下に 4・Joint の下に 11。`draw` のシグネチャが 1 語になった
+- **エラー宣言をモジュールごとに** — `love.Error` 1 個をやめ、`love.audio.Error` のように失敗しうるモジュールが自分の種を宣言する
+- **conf は conf.lton** — LTON（テーブルリテラルの中身）。`f^` として読まれるので `p^` を呼べない
+- **DAP デバッガ** — `lovec --dap=PORT game/`。love.thread のワーカーもスレッドとして現れる。`-Shipping` で丸ごと落ちる
+- **VM のみビルド** — `-VmOnly` で front end を落とす。`--compile-game` がゲームをバイト列にし、署名表と埋め込みユニットはエンジンが持つ。realgame / .love / ファイル版スレッドが通る（exit=4 / 4 / 11）。`newThread(コード文字列)` と `std.load` のテキストは非対応
+
 ## モジュール別
 
 | モジュール | wrap ファイル数（参考） | バインディング | 状態 |

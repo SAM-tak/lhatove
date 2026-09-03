@@ -52,6 +52,11 @@ void Loader::hold(const std::string &path, const std::string &text)
 	held[path] = text;
 }
 
+void Loader::hold(const std::string &path, const void *bytes, size_t length)
+{
+	held[path].assign((const char *) bytes, length);
+}
+
 bool Loader::isHeld(const std::string &path) const
 {
 	return held.find(path) != held.end();
@@ -76,7 +81,11 @@ char *Loader::loadUnit(const char *path, size_t *length) const
 {
 	auto it = held.find(path);
 	if (it != held.end())
+	{
+		if (lhat_program_is_binary_unit(it->second.data(), it->second.size()))
+			binary.insert(path);
 		return copyOf(it->second.data(), it->second.size(), length);
+	}
 
 	if (filesystem == nullptr)
 		return nullptr;
@@ -84,6 +93,11 @@ char *Loader::loadUnit(const char *path, size_t *length) const
 	try
 	{
 		StrongRef<love::filesystem::FileData> data(filesystem->read(path), Acquire::NORETAIN);
+		// 05 の 10 章: the first bytes say whether this is a compiled unit.
+		// The program reads either through this same entry; what the answer
+		// is for is the checker-shaped questions Boot.cpp cannot ask of one.
+		if (lhat_program_is_binary_unit((const char *) data->getData(), data->getSize()))
+			binary.insert(path);
 		return copyOf(data->getData(), data->getSize(), length);
 	}
 	catch (const love::Exception &)

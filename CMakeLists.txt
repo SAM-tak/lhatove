@@ -122,6 +122,23 @@ else()
 	set(LHAT_WITH_DEBUGGER OFF CACHE BOOL "" FORCE)
 	set(LHAT_BUILD_DAP OFF CACHE BOOL "" FORCE)
 endif()
+
+# 05 の 10.8: a build that runs compiled units and reads no text. The lexer,
+# parser, checker and compiler leave the binary; what stays is the VM and
+# the program around it.
+#
+# Such a build cannot compile a game, so the game has to arrive compiled:
+# `lovec --compile-game DIR` from a full build writes it, and the signature
+# table a registration needs (10.7) is embedded from --dump-signatures.
+# What reads text at run time -- love.filesystem.load, a love.thread started
+# from source -- answers a refusal there.
+option(LHATOVE_VM_ONLY "Build without the L^ front end; the game must arrive compiled" OFF)
+if(LHATOVE_VM_ONLY)
+	set(LHAT_WITH_FRONTEND OFF CACHE BOOL "" FORCE)
+	add_compile_definitions(LHATOVE_VM_ONLY)
+else()
+	set(LHAT_WITH_FRONTEND ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory("${LHATOVE_LHAT_DIR}" lhat)
 
 

@@ -81,3 +81,7 @@ stamp-h1
 
 # The shipping configuration builds beside the development one.
 build-shipping/
+
+# So does the one without the front end (scripts/build.ps1 -VmOnly).
+build-vmonly/
+build-vmonly-shipping/

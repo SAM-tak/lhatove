@@ -149,3 +149,11 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
   - **`main.lh` は差し替えても効かない**。handlers は起動時に C++ が組んで `love.boot.handlers` に park したテーブルで、ユニットを入れ替えても指す先は古い閉包のまま。効かせるには handlers を組み直す経路が要る（held とは別の話 — `lhat_reload` は旧 body を掴まれていても成功し、解放を次回まで延ばすだけ）
   - 差が出るのは「壊れたコードを読み込んでも旧世界が走り続ける」点だけで、それは `lhat_reload` の手柄というより検査器の手柄
   やるとしたら決めることは 3 つ: 引き金（`love.event.reload(path)` か、エンジンがファイル監視を持つか）、handlers の組み直し、`machines` の集め方（program を install した全 machine。love.thread のワーカー分は `ParkingLot` の machine 索引から取れる）
+- **front end を落とした配布ができる**（`scripts/build.ps1 -VmOnly`）。lhat の `LHAT_WITH_FRONTEND=OFF` に乗る形で、材料はフル版が作りエンジンが読む 2 段構え:
+  - **ユニット** — `lhat_unit_write_binary`。読み戻しはローダーが差し替えるだけで `require^` もパスも同じ（先頭バイトで判別、`lhat_program_is_binary_unit`）
+  - **登録** — 署名はテキストなので読むのに front end が要る。フル版が `lhat_program_write_signatures` で表を書き、VM 版は `src/lh/Signatures.h` として**埋め込んだ表を登録の前に読む**。噛み合わなければ起動時に断る
+  - **conf.lton** — `lhatstdlib_lton_write`。`lhatstdlib_lton_load` はどちらでも読む
+  - **埋め込みユニット**も同じ扱いが要る（`BootBinary.h` / `NogameBinary.h`）。VM 版は自分の `Boot.lh` も `nogame.lh` もテキストでは読めない
+  - コールバック型検査（`lhat_unit_export_conforms`）はバイナリユニットで常に false を答える（検査器の型が無い）ので、**そのユニットが binary なら検査ごと飛ばす**。確かめ直すものは無い — コンパイルしたビルドが既に検査済みで、バイナリは同じ fingerprint・同じ登録の program にしか戻らない。ローダーが読んだ先頭バイトを覚えて `Loader::isBinary(path)` が答える
+  - **利得は起動であってサイズではない**。`lhat.lib` は半減するが `love.dll` は 196KB しか縮まない（表が 114KB）。`.love` は逆に増える（zip の deflate がバイナリに効かない）
+  - **代償**: 実行時に構文解析器が要る口が全部落ちる — `newThread(コード文字列)`、`love.filesystem.load` / `std.load` のテキスト。ファイル版スレッドは動く（`--compile-game` がゲーム内の `.lh` を全部 check して運ぶため、実行が届かないユニットも配布物に入る）

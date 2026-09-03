@@ -26,6 +26,7 @@
 #include <lhat.h>
 
 #include <map>
+#include <set>
 #include <string>
 
 namespace love
@@ -54,6 +55,12 @@ public:
 
 	// Serves `text` whenever the program asks for `path`.
 	void hold(const std::string &path, const std::string &text);
+
+	// 05 の 10 章: the same for bytes -- a unit this engine embeds compiled,
+	// which is what a build without the front end holds (they are text in a
+	// build that can read text). NUL is a byte like any other here, so the
+	// length is given rather than measured.
+	void hold(const std::string &path, const void *bytes, size_t length);
 	bool isHeld(const std::string &path) const;
 
 	// Reads game units through this module from now on.
@@ -66,12 +73,23 @@ public:
 	// The callback handed to lhat_program_new, with `this` as its context.
 	static char *load(void *context, const char *path, size_t *length);
 
+	// 05 の 10 章: whether the unit at this path came over as compiled bytes
+	// rather than text. A unit that shipped compiled has no checker type to
+	// ask about, so what depends on one is skipped rather than answered
+	// wrongly (Boot.cpp's callback check). Answered for held units too --
+	// a build without the front end holds its own compiled.
+	bool isBinary(const std::string &path) const
+	{
+		return binary.find(path) != binary.end();
+	}
+
 private:
 
 	char *loadUnit(const char *path, size_t *length) const;
 
 	std::map<std::string, std::string> held;
 	love::filesystem::Filesystem *filesystem = nullptr;
+	mutable std::set<std::string> binary;
 };
 
 } // lh

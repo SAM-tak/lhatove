@@ -20,6 +20,11 @@
 
 #include "lh.h"
 
+// 05 の 10.7: the signature table, for a build without the front end.
+#ifdef LHATOVE_VM_ONLY
+#include "Signatures.h"
+#endif
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -314,6 +319,20 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 {
 	if (program_ == nullptr)
 		return false;
+
+	// 05 の 10.7: without the front end there is nothing to read a
+	// registration's signature text with, so each is looked up in a table a
+	// full build of this same engine wrote (scripts/bin2header.ps1 turns
+	// --dump-signatures' output into Signatures.h). Read before the first
+	// registration; a build with the front end reads the text and consults
+	// no table.
+#ifdef LHATOVE_VM_ONLY
+	if (!lhat_program_read_signatures(program_, lh_signatures, lh_signatures_length))
+	{
+		failedRegistrar_ = "the signature table this build carries does not fit its registrations";
+		return false;
+	}
+#endif
 
 	// 04 の 2.4: each module declares the failures of its own, in its own
 	// registrar. Nothing central is left to declare here.

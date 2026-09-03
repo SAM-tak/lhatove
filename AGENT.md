@@ -24,13 +24,50 @@ megasource（love2d 公式の Windows 依存関係一括ビルドリポジトリ
 .\scripts\build.ps1              # Release ビルド（デバッガ入り）
 .\scripts\build.ps1 -Config Debug
 .\scripts\build.ps1 -Shipping    # 配布用: デバッガを外す → build-shipping\
+.\scripts\build.ps1 -VmOnly      # front end を外す → build-vmonly\（-Shipping と併用可）
 ```
 
 L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフォルト `../lhat`）。
 
 **配布用ビルド**（`-Shipping` = `-DLHATOVE_WITH_DAP=OFF`）は L^ のデバッガを丸ごと落とす — DAP アダプタ（`lhatdap` は生成されない）だけでなく、`LHAT_WITH_DEBUGGER=OFF` で VM 側の line hook も。2 つは連動する必要がある（lhat 側で `LHAT_BUILD_DAP` は `LHAT_WITH_DEBUGGER` を要求する）。実測で love.dll が 34KB、`lhat.lib` が 16KB 小さくなる。`--dap` を渡すと「this build carries no debugger」と言って普通に走る。
 
-**fused はビルド構成ではない。** 同じ実行ファイルに `.love` を連結すると fused になる（`copy /b love.exe+game.love mygame.exe`）ので、配布物の土台に何を使うかは -Shipping で選ぶ。実行時の fused 判定は別にあり、そちらは `--dap` を捨てる（両方効く）。
+**VM のみビルド**（`-VmOnly` = `-DLHATOVE_VM_ONLY=ON` → `LHAT_WITH_FRONTEND=OFF`）は字句解析器・構文解析器・検査器・コンパイラを落とす。**ゲームは先にコンパイルして配る**（下記）。`-Shipping` とは独立で、4 通りすべて動く（実測 `lhat.lib` / `love.dll`）:
+
+- `build` 1,744,124 / 8,326,144
+- `build-shipping` 1,550,352 / 8,210,432
+- `build-vmonly` 804,266 / 8,160,768
+- `build-vmonly-shipping` 792,464 / 8,130,048
+
+`lhat.lib` は半分以下になるが `love.dll` は 196KB しか縮まない — 署名表（114KB）を埋め込むため。**利得はサイズではなく起動**: 約 800 の登録署名がテキストの解析から表引きになり、フル版 4.2ms → VM 版 0.0ms。ゲーム側の check / compile も消える（17 ユニットの suite で 7.6+4.3ms → 4.2+1.1ms）。
+
+**VM 版で動かないもの**: `love.thread.newThread(コード文字列)` と `love.filesystem.load` / `std.load` のテキスト — 実行時に構文解析器が要る。**ファイル版スレッドは動く**（`newThread("worker.lh")`。`--compile-game` がゲーム内の `.lh` を全部 check して運ぶので、実行が届かないユニットも配布物に入る）。テキストのユニットを食わせると `this build has no front end; only a binary unit runs` と言って断る。
+
+### 配布物を作る（VM 版に食わせるもの）
+
+フル版が材料を作り、VM 版が読む。
+
+```powershell
+.\build\love\Release\lovec.exe --compile-game out\mygame game\    # ユニット→バイト列、conf.lton も、他のファイルはそのまま複製
+.\build-vmonly\love\Release\lovec.exe out\mygame                  # 走る
+```
+
+`--debug-names` を添えるとローカル名と捕捉名（09 の 4 章）が残る。行番号は**どちらでも残る**ので traceback は常に読める。既定は落とす。
+
+**エンジン側の生成物を作り直すのは、登録か埋め込みユニットを変えた時だけ**（3 つとも git に入っている）:
+
+```powershell
+.\build\love\Release\lovec.exe --dump-signatures sigs.bin testing\lh\hello
+.\scripts\bin2header.ps1 -In sigs.bin -Out src\lh\Signatures.h -Name lh_signatures
+
+.\build\love\Release\lovec.exe --dump-embedded emb\ testing\lh\hello   # Boot.lh
+.\build\love\Release\lovec.exe --dump-embedded emb\                    # nogame（main.lh の名で出る）
+.\scripts\bin2header.ps1 -In emb\Boot.lh.bin -Out src\lh\BootBinary.h -Name lh_boot_binary
+.\scripts\bin2header.ps1 -In emb\main.lh.bin -Out src\lh\NogameBinary.h -Name lh_nogame_binary
+```
+
+署名表は登録と 1 対 1 で、噛み合わなければ VM 版が起動時に `the signature table this build carries does not fit its registrations` と言う。埋め込みユニットは VM 版が自分で持つので、`--compile-game` は書き出さない。
+
+**fused はビルド構成ではない。** 同じ実行ファイルに `.love` を連結すると fused になる（`copy /b love.exe+game.love mygame.exe`）ので、配布物の土台に何を使うかは -Shipping / -VmOnly で選ぶ。実行時の fused 判定は別にあり、そちらは `--dap` を捨てる（両方効く）。`.love` は縮むとは限らない — PhysFS の zip は deflate を展開するので、既に密なバイナリユニットは圧縮が効かない（realgame 実測 4,496 → 5,862 バイト）。
 
 ## 移植規約
 
@@ -54,7 +91,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - ホスト関数は `void`（`16caa92`）。答えは machine が渡す room に書く — `answers[0] = v; *answerCount = 1;`、タプルなら `answers[0..n]` と `*answerCount = n`。`*answerCount` は 0 で届くので `p^` と `dispose` は何もせず返る。`LHAT_MAX_TUPLE` より広い戻り値は登録が拒否されるので、room があふれることはない
 - `lh::guard` / `lh::catchexcept` は void 本体を取る（答えは本体が room に書き終えている）。`catchexcept` だけ room を受け取る — 例外が起きたら書かれたものをエラー値 1 個に差し替えるため。`lh::raise` は panic なので、呼んで `return;` するだけ
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
-- 前提 lhat は HEAD `9a5d49a` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言・ホスト境界が count で答える・ホスト型の親宣言・DAP と `lhat_reload`）
+- 前提 lhat は HEAD `a1183f6` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言・ホスト境界が count で答える・ホスト型の親宣言・DAP と `lhat_reload`・バイナリユニットと署名表と `LHAT_WITH_FRONTEND`）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
 - デバッガは lhat の DAP アダプタ（09 章）。`lovec --dap=PORT game/` でポートを開いて待ち、繋がってから起動列を進める。`LHATOVE_WITH_DAP`（既定 ON）で `lhatdap` をリンクし、OFF で VM 側の line hook ごと落とす（`scripts/build.ps1 -Shipping`）。**fused では実行時にも無効**（配布物がポートを開かない。`Boot.cpp` が `--dap` を捨てる）
 - **love.thread のワーカーも対象**。バインディングは何もしない — `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、`Runtime::spawnMachine` が作った machine がそのまま DAP のスレッドになる（確認: `worker.lh` にブレークポイントが効き、スレッド 2/3/4 が現れる）
@@ -121,4 +158,8 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe testing\lh\raise      # 不正な draw mode → ホスト発 panic
 .\build\love\Release\lovec.exe testing\lh\badcallback # update の型違い → 起動前に診断
 $env:LHATOVE_GC_STATS=120; .\build\love\Release\lovec.exe testing\lh\customrun # 120 フレーム毎に GC 統計（collected / live）
+# VM のみビルド（front end 無し。ゲームは先にコンパイルする）
+.\build\love\Release\lovec.exe --compile-game out\realgame testing\lh\realgame
+.\build-vmonly\love\Release\lovec.exe out\realgame              # exit=4。テキストのまま食わせると断られる
+.\build-vmonly\love\Release\lovec.exe --dap=41300 out\realgame  # 行番号は残るのでブレークポイントは効く
 ```
