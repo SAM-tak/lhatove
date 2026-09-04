@@ -1,48 +1,45 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `f81d426`（2026-09-04）。
+基準: lhat HEAD `f43f8b1`（2026-09-05）。
 
 ## 未解決
 
-- **呼び出し文の直後の `try^{ }` が命令モードの呼び出しに読まれる。** 文の位置に
-  `f(x)` のような**呼び出し**があり、その次の文が `try^{` で始まると、パーザが
-  `try^` を名前、`{ ... }` をその引数と読んで
-  `arguments without parentheses are only accepted in command mode; did you mean foo(1, 2, 3)?`
-  を出す。空行を挟んでも変わらない。呼び出し以外の文（`var^ n = 1`）が間に入ると直り、
-  `try^{ }` がブロックの最初の文なら最初から通る。
+- **`a8d91a1 perf: reaching L^.modules stops making a string to throw away` が physics を壊す。**
+  `testing/lh/physics` が**約半分の実行で落ちる**（exit=1）。症状は 2 通りで、どちらも
+  「値が壊れている」形:
+  - `line 139/151: panic^: Expected a Body` — `body.getShapes()` のようなメンバ呼び出しが
+    **引数 0 個**で届く（`checkAt` の `index < count` が偽。`checkObject` には入っていない）。
+    直前の `typeof^(body).signature` は `love.physics.Body` と答えるので、値自体は Body
+  - `line 150: an instruction was given the wrong type`
 
-  ```lhat
-  public^let^load = p^{
-      print("before")      # ← これがあると
-      try^{                # ← ここが命令モード呼び出しに読まれる
-          let^c = try^std.channel.new()
-          print($"n {c.count()}")
-      catch^:
-          print("caught")
-      }
-  }
-  ```
+  **二分探索済み**（lhatove を各 lhat コミットに対してビルドし、physics を 8 回ずつ）:
 
-  `testing/lh/suite/tests/thread.lh` は `test.begin("std.channel")` を `try^{ }` の**中**へ
-  移して避けている。04 の 4.5 が `try^{ }` を文として定めている以上、直前に何が書いてあるかで
-  読みが変わるべきではない
+  - `f81d426`（`a8d91a1` の 4 つ前）: 8/8 通過
+  - `69e598d`: 8/8 通過
+  - `28360b7`（std.task）: 8/8 通過
+  - **`a8d91a1`: 7/8 失敗**
+  - `f43f8b1`（現 HEAD）: 同様に失敗
 
-- **ワーカーの失敗文が panic の中身を落とす。** `stdlib/thread.c` の `failure_text` は
-  `lhat_run_status_message(status)` ＋ traceback だけを綴るので、`panic^"boom from a thread"` が
-  `failed()` と `on_finish` の両方で **`panic^` の 1 語**になる。捨てているものが 2 つある:
-  - **panic の値**。`thread_main` は `ran.value` を手に持っている。lhatove の `lh::describeRun` は
-    `status + ": " + valueText(ran.value)` と綴る（[lh.cpp:711](../../src/lh/lh.cpp#L711)）
-  - **行番号**。`ran.line` も同じ場所にある
-  さらに traceback は `lhat_machine_fault_depth(machine) >= 2` の時だけ作られるので、本体の
-  最上位で panic すると深さ 1 で何も残らない。結果、**最上位 panic は場所も理由も分からない**。
-  `ThreadHandle` に `ran.value` の写しか、せめてその文字列を持たせてほしい
+  lhatove 側は無関係と確認済み — `lh::WrapperCache` の掃除を外しても再現し、キャッシュが
+  released なラッパを返している事実も無い（計測して 0 件）。ただし**キャッシュを丸ごと切ると
+  6/6 通る**ので、値が作られる回数と収集の間合いに依存する。
+
+  読んで気づいた 2 点（当たりかは lhat 側で）:
+  - `LhatMachine` に `LhatTable *modules` が増えたが、コミットは `src/gc.c` を触っていない。
+    すぐ上の `self_key` は「`gc.c` の `mark_roots` が印を付ける」とコメントしている
+  - `lhat_table_get_bytes`（`src/object.c:1789`）は**ハッシュ部の線形走査**で、置き換えた
+    `lhat_table_get` → `table_get_in` が見る**配列部も継承も見ない**。`reach_table` が
+    取り違えて「無い」と答えると、その場に**新しい空テーブルを作って既存を上書きする**
 
 ## 提案
 
 （なし）
 
 ## 解決済み
+
+- 呼び出し文の直後の `try^{ }` が命令モードの呼び出しに読まれる → `f43f8b1 fix: a call statement no longer swallows the word that opens the next one`。`test.begin("std.channel")` を `try^{ }` の外へ戻した（`testing/lh/suite/tests/thread.lh`）
+- ワーカーの失敗文が panic の中身を落とす → `stdlib/thread.c` の `failure_text` が `fault_text` と `fault_line` を綴るようになった。`threaderror` が `panic^: "boom from a thread" (line 75)` と言う（以前は `panic^` の 1 語）
 
 - DAP のヘッダに `extern "C"` ガードが無い／パス照合がディスク上の実パス前提 → `781b2cb fix: the adapter speaks the host's paths, and the headers speak C++`。ガードは `dap/*.h` に加え `transport/transport.h`・`port/socket.h`・`port/thread.h` にも入った（lhatove 側の `extern "C" { #include }` 包みは撤去）。照合は `DapPathMap`（`to_unit` / `to_editor` の双方向、NULL で従来どおり）になり、`_fullpath`/`realpath` を通らなくなった。lhatove は PhysFS のマウント（`getRealDirectory`）で写像を書き、VS Code が送る絶対パスのままブレークポイントが結ばれ、スタックの `source.path` も同じ綴りで返る。`.love` の中の単位はディスクに無いので `to_editor` が false を答え、単位名のまま報告される
 

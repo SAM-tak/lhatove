@@ -16,8 +16,9 @@ import^love.timer
 let^test = require^"../lib/test.lh"
 
 public^let^run = p^{
+    test.begin("std.channel")
+
     try^{
-        test.begin("std.channel")
         let^made = try^std.channel.new()
         test.number("a fresh channel is empty", 0, made.count())
 

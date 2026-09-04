@@ -303,10 +303,10 @@ Channel の `demand` = ブロックする受信。std.thread にはそれが無�
   love.thread が `p^ -> love.thread.Channel;` と言い切っていた分の差は、呼び出しごとの `try^`
   1 語と、囲みの `try^{ }` 1 つ。テストは両方ともこの形
 
-  3 つ覚えることがある: **`try^` は式の位置のみ**（文頭に置くと命令モードの呼び出しに読まれるので、
-  捨てる値も `let^_^= try^ c.push(x)` と束縛する）、**`try^{ }` 直下の `catch^` は腕を開く語**
-  なので値としての `catch^` は括弧が要る（`let^ v = (f() catch^ nil^)`）、そして
-  **呼び出し文の直後に `try^{` を置けない**（パーザのバグ。[lhat-issues.md](lhat-issues.md)）
+  2 つ覚えることがある: **`try^` は式の位置のみ**（文頭に置くと命令モードの呼び出しに読まれるので、
+  捨てる値も `let^_^= try^ c.push(x)` と束縛する）と、**`try^{ }` 直下の `catch^` は腕を開く語**
+  なので値としての `catch^` は括弧が要る（`let^ v = (f() catch^ nil^)`）。
+  「呼び出し文の直後に `try^{` を置けない」はここで見つけたパーザのバグで、`f43f8b1` で直った
 - **`import^` はワーカーの中に書かない。** 本体は**このユニットの閉包**なので、ユニットが
   import したものをそのまま名前で引ける（向こうの `L^.modules` から解決される）。
   閉包の中に `import^` を書くのは構文として通らない
@@ -324,9 +324,10 @@ Channel の `demand` = ブロックする受信。std.thread にはそれが無�
   loader から program を触ってはいけない。再帰ロックにすべきではない: 対を渡すのはホストなので
   `std::recursive_mutex` を渡すのは今日でもできるが、再入した先が見るのは**書き換え途中の
   unit 表**で、デッドロック（うるさい）が破壊（静か）に変わるだけ
-- **ワーカーの失敗文が痩せた。** `lh::describeRun` は panic の値と行番号を綴っていたが、
-  std.thread の `failure_text` は状態名 + traceback だけ。最上位 panic は深さ 1 で traceback も
-  無いので `panic^` の 1 語になる。[lhat-issues.md](lhat-issues.md) に記録
+- **ワーカーの失敗文が痩せていた** — `lh::describeRun` は panic の値と行番号を綴るのに、
+  std.thread の `failure_text` は状態名 + traceback だけで、最上位 panic は深さ 1 で
+  traceback も無いので `panic^` の 1 語になっていた。報告して直った（`threaderror` は今
+  `panic^: "boom from a thread" (line 75)` と言う）
 - **VM のみビルドでスレッドが完全に動く。** 本体が閉包だから構文解析器が要らない。
   `testing/lh/thread` は 1 ユニットにコンパイルされ、VM 版で exit=8
 - **DAP は何も変わらない。** `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、
