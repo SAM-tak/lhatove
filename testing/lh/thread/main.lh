@@ -40,20 +40,20 @@ public^let^load = p^{
                 var^name = "worker"
                 let^first = ...[1]
                 if^first fits^string^{ name := first }
-                let^_^= try^outbox.push($"{name} started with scale {scale}")
+                try^outbox.push($"{name} started with scale {scale}")
                 repeat^{
                     let^job = inbox.demand()
                     if^job fits^nil^{ break^}
                     if^job fits^string^{
                         if^job = "stop" { break^}
-                        let^_^= try^outbox.push($"{name} got string {job}")
+                        try^outbox.push($"{name} got string {job}")
                     elseif^job fits^number^:
-                        let^_^= try^outbox.push(job * scale)
+                        try^outbox.push(job * scale)
                     elseif^job fits^t^{ x : number^, y : number^}:
-                        let^_^= try^outbox.push({ sum = job.x + job.y, from = name })
+                        try^outbox.push({ sum = job.x + job.y, from = name })
                     }
                 }
-                let^_^= try^outbox.push($"{name} done")
+                try^outbox.push($"{name} done")
             catch^:
                 return^$"the worker gave up: {it^.message}"
             }
@@ -66,9 +66,9 @@ public^let^load = p^{
                 let^outbox = try^std.channel.named("results")
                 let^f = ...[1]
                 if^f fits^p^number^-> number^; {
-                    let^_^= try^outbox.push($"closure says {f(20)}")
+                    try^outbox.push($"closure says {f(20)}")
                 }
-                let^_^= try^outbox.push("echo done")
+                try^outbox.push("echo done")
             catch^:
                 return^nil^
             }
@@ -76,10 +76,10 @@ public^let^load = p^{
 
         let^broken = try^std.thread.spawn(p^ ... { panic^"boom from a thread" })
 
-        let^_1 = try^jobs.push(7)
-        let^_2 = try^jobs.push("hello")
-        let^_3 = try^jobs.push({ x = 1.5, y = 2.5 })
-        let^_4 = try^jobs.supply("stop")
+        try^jobs.push(7)
+        try^jobs.push("hello")
+        try^jobs.push({ x = 1.5, y = 2.5 })
+        try^jobs.supply("stop")
 
         # 15.14: the end of a body completes an std.async wait, so this parks
         # on the worker rather than asking done() over and over.
@@ -91,7 +91,7 @@ public^let^load = p^{
         }
         let^said = try^worker.join()
         if^said fits^string^{ received.push^(said) }
-        let^_5 = echo.join()
+        echo.join()
         # here the error IS what is being asked for, so the union stands
         if^broken.join() fits^std.thread.ThreadError.BadResult {
             errorText := "joined a body that panicked"
@@ -130,7 +130,7 @@ public^let^update = p^dt:number^{
             var^atomic = 0
             let^extra = 100
             results.atomic(p^c:std.channel.Channel {
-                let^_^= c.push("atomic")
+                c.push("atomic")
                 atomic := c.count() + extra
             })
             print($"atomic count {atomic}, pending {results.count()}, popped {results.pop()}")
