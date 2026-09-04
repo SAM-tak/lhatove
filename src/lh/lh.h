@@ -231,42 +231,41 @@ private:
 // the slots; a Parked object is one slot, given back when it dies. This is
 // what common/Reference.h was for Lua.
 
-// 05 の 8.8: one wrapper per object per machine.
+// 05 の 8.8: a wrapper per push, and no cache of them.
 //
-// Pushing a love::Object made a fresh hostdata every time. That was correct
-// -- lhat compares a hostdata by tag and pointer, so two wrappers of one
-// object are equal and hash alike -- but a getter called every frame
-// (world.getBodies, shape.getBody) built and dropped one on each call.
+// There was one -- a machine-keyed map from love::Object to its wrapper, so
+// that a getter called every frame (world.getBodies, shape.getBody) did not
+// build one on each call. It was wrong, and the way it was wrong is worth
+// keeping written down.
 //
-// Lua kept the same table and needed it weak (__mode = "v" on
-// registry._loveobjects), or the cache would have held every Proxy alive
-// and nothing would ever have reached __gc. Here the map is C++'s own and
-// **is not a root**: 8.8's collector walks L^ and the frames, and what the
-// host holds is not among them. So a wrapper nothing else names is
-// collected exactly as before, and the collector hands it to the type's
-// dispose on the way out (gc.c's sweep) -- which is where the entry goes.
+// The reasoning was: Lua needed __mode = "v" on its cache because a strong
+// one would have held every Proxy alive; here the map is C++'s own and is
+// not a root (8.8's collector walks L^ and the frames), so a wrapper nothing
+// else names is collected as before and the type's dispose^ takes the entry
+// out on the way. Every sentence of that is true and the conclusion is
+// still false, because **lhat's collector is incremental** (gc.c: "Lua's
+// incremental collector, borrowed"). Marking and sweeping are separate
+// steps with the program running between them, so:
 //
-// A machine apiece, like the ParkingLot: love.thread gives every worker its
-// own, and a wrapper belongs to the heap it was made on.
-class WrapperCache
-{
-public:
+//   1. a mark finishes; a wrapper nothing names is white
+//   2. before the sweep reaches it, pushObject answers with it out of the
+//      cache, and L^ puts it somewhere live
+//   3. the sweep frees it anyway -- it was decided in step 1
+//
+// What Lua's weak table gives is not "do not root": it is that the
+// collector CLEARS the entry itself, atomically at the end of marking, so
+// a reference decided dead can never be handed back out. A host map has no
+// way to be told, and no way to resurrect.
+//
+// It cost about half the physics runs (a Body whose members arrive without
+// their self, an instruction given the wrong type -- a freed object read
+// through). Answering a fresh wrapper every time is correct and is what
+// this does: 8.8 compares a hostdata by tag and pointer, so two wrappers of
+// one object are equal and hash alike, and only is^ tells them apart.
+//
+// A cache can come back when lhat has a weak cache with resurrection --
+// docs/porting/lhat-issues.md.
 
-	// The wrapper for `object`, or nil^ when there is none yet.
-	static LhatValue find(LhatMachine *machine, love::Object *object);
-
-	// Remembers `wrapper` as the one for `object`.
-	static void add(LhatMachine *machine, love::Object *object, LhatValue wrapper);
-
-	// Forgets it -- called from the type's dispose, whether that ran by hand
-	// or from the collector. Nothing here reaches back into lhat, which 8.8
-	// forbids at that moment.
-	static void forget(LhatMachine *machine, love::Object *object);
-
-	// Drops everything a machine remembered. The machine's heap is going, so
-	// the wrappers in it are gone whatever this says.
-	static void forgetMachine(LhatMachine *machine);
-};
 class ParkingLot : public love::Object
 {
 public:

@@ -1,42 +1,44 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `f43f8b1`（2026-09-05）。
+基準: lhat HEAD `20b1cbe`（2026-09-05）。
 
 ## 未解決
 
-- **`a8d91a1 perf: reaching L^.modules stops making a string to throw away` が physics を壊す。**
-  `testing/lh/physics` が**約半分の実行で落ちる**（exit=1）。症状は 2 通りで、どちらも
-  「値が壊れている」形:
-  - `line 139/151: panic^: Expected a Body` — `body.getShapes()` のようなメンバ呼び出しが
-    **引数 0 個**で届く（`checkAt` の `index < count` が偽。`checkObject` には入っていない）。
-    直前の `typeof^(body).signature` は `love.physics.Body` と答えるので、値自体は Body
-  - `line 150: an instruction was given the wrong type`
-
-  **二分探索済み**（lhatove を各 lhat コミットに対してビルドし、physics を 8 回ずつ）:
-
-  - `f81d426`（`a8d91a1` の 4 つ前）: 8/8 通過
-  - `69e598d`: 8/8 通過
-  - `28360b7`（std.task）: 8/8 通過
-  - **`a8d91a1`: 7/8 失敗**
-  - `f43f8b1`（現 HEAD）: 同様に失敗
-
-  lhatove 側は無関係と確認済み — `lh::WrapperCache` の掃除を外しても再現し、キャッシュが
-  released なラッパを返している事実も無い（計測して 0 件）。ただし**キャッシュを丸ごと切ると
-  6/6 通る**ので、値が作られる回数と収集の間合いに依存する。
-
-  読んで気づいた 2 点（当たりかは lhat 側で）:
-  - `LhatMachine` に `LhatTable *modules` が増えたが、コミットは `src/gc.c` を触っていない。
-    すぐ上の `self_key` は「`gc.c` の `mark_roots` が印を付ける」とコメントしている
-  - `lhat_table_get_bytes`（`src/object.c:1789`）は**ハッシュ部の線形走査**で、置き換えた
-    `lhat_table_get` → `table_get_in` が見る**配列部も継承も見ない**。`reach_table` が
-    取り違えて「無い」と答えると、その場に**新しい空テーブルを作って既存を上書きする**
+（なし）
 
 ## 提案
 
-（なし）
+- **弱参照キャッシュ（復活付き）。** ホストが「オブジェクト → その包み」を覚えて churn を
+  避けたい、というのは LÖVE でも godot でも同じ要求。ホスト側の素の map では**漸進 GC の
+  下で不健全**（下の解決済み参照）で、正しくやるには「マークの終わりにコレクタ自身が
+  エントリを消す」= Lua の弱値表と同じ保証が要る。以前 `LhatWeakCache` として保留したもの。
+  欲しい形:
+
+  - `lhat_machine_weak_cache_get(machine, key) -> LhatValue`（マークで死と決まった物は
+    もう返さない）/ `_put(machine, key, value)`
+  - `key` はホストのポインタ。値は hostdata の包み
+
+  無くても正しく動く（毎回新しい包みを作る）ので、これは速度の話
 
 ## 解決済み
+
+- `a8d91a1` が physics を壊す（`reach_table` が狭い読みの上に作る／`m->modules` が根でない）→ `20b1cbe fix: a walk that creates over what it did not find asks the real read first`。**ただし physics はこれでも落ち続け、真因は lhatove 側だった** — 下記
+- **`lh::WrapperCache` は漸進 GC の下で不健全だった**（lhatove `pushObject` のキャッシュ）。
+  「ホストの map は根でないから、包みは今までどおり回収され、`dispose^` がエントリを外す」
+  という理屈は各文は真だが結論が偽。lhat の収集は**漸進的**（`gc.c`「Lua's incremental
+  collector, borrowed」）で、マークとスイープの間でプログラムが走る:
+
+  1. マークが終わり、誰も名指していない包みは白
+  2. スイープが届く前に `pushObject` がキャッシュからそれを答え、L^ が生きた場所へ入れる
+  3. スイープは 1 の判定どおり解放する
+
+  Lua の弱値表が与えているのは「根にしない」ではなく「**コレクタがマークの終わりに
+  エントリを自分で消す**」こと。ホストの map には知らされる口も復活させる口も無い。
+  症状は physics の約半分で、Body のメンバが self 無しで届く／instruction given the wrong
+  type — 解放済みを読んだ形。**キャッシュを外して 20/20 通過**（有りは 13/20）。
+  毎回新しい包みを作る形に戻した（`=` は tag + ポインタなので等価、`is^` だけが別）。
+  速度が欲しくなったら上の「提案」
 
 - 呼び出し文の直後の `try^{ }` が命令モードの呼び出しに読まれる → `f43f8b1 fix: a call statement no longer swallows the word that opens the next one`。`test.begin("std.channel")` を `try^{ }` の外へ戻した（`testing/lh/suite/tests/thread.lh`）
 - ワーカーの失敗文が panic の中身を落とす → `stdlib/thread.c` の `failure_text` が `fault_text` と `fault_line` を綴るようになった。`threaderror` が `panic^: "boom from a thread" (line 75)` と言う（以前は `panic^` の 1 語）

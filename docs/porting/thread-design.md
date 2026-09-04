@@ -314,9 +314,6 @@ Channel の `demand` = ブロックする受信。std.thread にはそれが無�
   （`lhat_machine_new` + `lhat_program_install` だけ）。`lotOf` が nullptr を返すと
   `lh::Parked` が黙って死んだコールバックになるので、無ければその場で作る形にした。
   呼ばれるのはホスト関数の中＝その機械自身のスレッドなので、表を作るのは安全
-- **`WrapperCache` は掃除の合図を失う。** std.thread が自分で機械を捨てるため
-  `forgetMachine` が呼ばれない。dispose^ は機械破棄でも走る（05 の 8.8）ので内側の表は空になり、
-  残るのは外側の空ノード 1 個 / spawn。`add` のたびに空を掃く
 - **`lhat_program_set_lock` は入れ子にならない。** ホストが手で取っていたロックは**全部外す**
   （でないと自分でデッドロックする）。lhatove では `Runtime::check` / `compile` /
   `spawnMachine` / `love.filesystem.load` の 4 箇所。危険な再入は 1 経路だけ残る —

@@ -151,13 +151,14 @@ public^let^run = p^{
     test.number("the other anchor x", 260, ax2)
     let^bodyA, bodyB = joint.getBodies()
     test.isTrue("the joint knows its bodies", bodyA = box and^bodyB = ball)
-    # 8.8: a hostdata is equal by tag and pointer, so two wrappers of one
-    # body would compare equal anyway. `is^` asks the stricter question --
-    # the same wrapper -- and answers yes because the binding hands the same
-    # one back rather than building another (lh::WrapperCache).
-    test.isTrue("a getter answers the very wrapper", bodyA is^box)
+    # 8.8: a hostdata is equal by tag and pointer, so a wrapper built by one
+    # getter and a wrapper built by another compare equal and hash alike.
+    # `is^` -- the same wrapper -- is deliberately NOT promised: the binding
+    # answers a fresh one each time, because a host-held cache of them is
+    # unsound under an incremental collector (see lh.h).
     let^againA, _againB = joint.getBodies()
-    test.isTrue("and the same one on a second call", againA is^bodyA)
+    test.isTrue("a getter answers an equal wrapper", againA = bodyA)
+    test.isTrue("and one equal to the body itself", againA = box)
     test.isFalse("collideConnected", joint.getCollideConnected())
     joint.setUserData("the joint")
     test.number("the world counts the joint", 1, world.getJointCount())
