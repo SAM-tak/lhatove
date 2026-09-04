@@ -157,3 +157,12 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
   - コールバック型検査（`lhat_unit_export_conforms`）はバイナリユニットで常に false を答える（検査器の型が無い）ので、**そのユニットが binary なら検査ごと飛ばす**。確かめ直すものは無い — コンパイルしたビルドが既に検査済みで、バイナリは同じ fingerprint・同じ登録の program にしか戻らない。ローダーが読んだ先頭バイトを覚えて `Loader::isBinary(path)` が答える
   - **利得は起動であってサイズではない**。`lhat.lib` は半減するが `love.dll` は 196KB しか縮まない（表が 114KB）。`.love` は逆に増える（zip の deflate がバイナリに効かない）
   - **代償**: 実行時に構文解析器が要る口が全部落ちる — `newThread(コード文字列)`、`love.filesystem.load` / `std.load` のテキスト。ファイル版スレッドは動く（`--compile-game` がゲーム内の `.lh` を全部 check して運ぶため、実行が届かないユニットも配布物に入る）
+- **love.thread を廃止し、並行処理を言語へ渡した**（[thread-design.md](thread-design.md) が比較と、lhat に頼んだ 4 点）。lhat が 4 コミットでそれを埋めた:
+  - **hostdata の共有契約**（`lhat_register_hostdata_shared`）— carry が hostdata を全拒否していたのを、型がポインタの寿命（retain / let_go）を宣言すれば運ぶ形に。lhatove は `Context::objectType` の 2 オーバーロードで**全型に**立てる（`love::Object` の参照カウントは atomic）。Lua 版が任意の `love::Object` を Channel に通せた範囲に戻り、**LOVE オブジェクトを含む table** も運べるようになった
+  - **`std.channel`** — carry の上の MPMC キュー。`named` はプロセス全体で共有され、どの機械からも同じ実体
+  - **ワーカーの完了が push で届く** — `awaitable()`（`std.async` の待ちを立てる）・`failed()`・`lhatstdlib_thread_on_finish`（ホストのキューへ）・`lhatstdlib_thread_join_all`
+  - **`lhat_program_set_lock`** — check / compile / load / install / invalidate / reload を覆うホストのロック。`lh::programMutex()` を渡し、**lhatove 側の手動ロックは全部外した**（対は入れ子にならない）
+  結果、engine 側に残るのは `threaderror` イベント（`p^string^`。`p^love.thread.Thread, string^` から変わった）と、`Runtime` のデストラクタが program 破棄前に呼ぶ `join_all` / `forget_named` だけ。`LhThread` / `Channel` / `ThreadModule` / `lh_Thread.cpp` は削除。`src/modules/thread/` に残るのは Mutex / Conditional / Threadable で、audio・video が自前のワーカーに使う
+  - **利得**: 本体を同じユニットに書ける（別ファイルもコード文字列も要らない）、整数が実数に落ちない、誤りが値、`await^` に載る、そして **VM のみビルドでスレッドが完全に動く**（閉包は構文解析器を要らない — `testing/lh/thread` を丸ごとコンパイルして VM 版で exit=8）
+  - **代償**: `newThread(コード文字列)` は無くなった（VM のみビルドでは元から動かない）。ワーカーの失敗文が痩せた — [lhat-issues.md](lhat-issues.md) に記録
+  - **ParkingLot は遅延 attach に**。std.thread は lhatove が見ていないところで機械を作るので、`ParkingLot::lotOf` が無ければその場で作る（呼ばれるのはホスト関数の中＝その機械自身のスレッド）。`WrapperCache` は機械ごとの空ノードを `add` で掃く（std.thread が自分で機械を捨てるため `forgetMachine` が呼ばれない）

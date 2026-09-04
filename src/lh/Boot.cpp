@@ -45,7 +45,6 @@
 #include "modules/data/DataModule.h"
 #include "modules/math/MathModule.h"
 #include "modules/physics/box2d/Physics.h"
-#include "modules/thread/ThreadModule.h"
 #include "modules/video/theora/Video.h"
 #include "modules/image/Image.h"
 #include "modules/font/freetype/Font.h"
@@ -59,12 +58,15 @@
 // std.lton, which is what conf.lton is written in and what a game reads its
 // own data files with. std.io stays out -- love.filesystem owns file access
 // -- and so does std.math.vector3, which LOVE's API has no use for.
+#include "stdlib/async.h"
+#include "stdlib/channel.h"
 #include "stdlib/debug.h"
 #include "stdlib/error.h"
 #include "stdlib/load.h"
 #include "stdlib/lton.h"
 #include "stdlib/math.h"
 #include "stdlib/regex.h"
+#include "stdlib/thread.h"
 
 // 09 章: the debug adapter, when this build carries it.
 #ifdef LHATOVE_WITH_DAP
@@ -118,7 +120,6 @@ bool lhopen_love_touch(Context &ctx);
 bool lhopen_love_sensor(Context &ctx);
 bool lhopen_love_joystick(Context &ctx);
 bool lhopen_love_physics(Context &ctx);
-bool lhopen_love_thread(Context &ctx);
 static bool lhopen_love_boot(Context &ctx);
 
 static const Registrar registrars[] = {
@@ -139,19 +140,48 @@ static const Registrar registrars[] = {
 	lhopen_love_sensor,
 	lhopen_love_joystick,
 	lhopen_love_physics,
-	lhopen_love_thread,
 	lhopen_love_window,
 	lhopen_love_graphics,
 };
 
+// 05 の 8.8改2: what a worker's end is told to the loop. Called on the
+// worker's own thread with its machine already gone, so nothing here may
+// reach into L^ -- the queue is the whole of what it does, and the loop
+// reads it as it reads any other event.
+static void threadFinished(void *context, void *handle, bool ok, const char *message)
+{
+	(void) context;
+	(void) handle;
+	if (ok)
+		return;
+	auto events = Module::getInstance<love::event::Event>(Module::M_EVENT);
+	if (events == nullptr)
+		return;
+	std::string said = message != nullptr ? message : "the thread failed";
+	std::vector<Variant> args = { Variant(said.c_str(), said.length()) };
+	StrongRef<love::event::Message> msg(new love::event::Message("threaderror", args), Acquire::NORETAIN);
+	events->push(msg);
+}
+
 static bool registerStdlib(LhatProgram *program)
 {
-	return lhatstdlib_error_register(program)
-		&& lhatstdlib_debug_register(program)
-		&& lhatstdlib_regex_register(program)
-		&& lhatstdlib_load_register(program)
-		&& lhatstdlib_lton_register(program)
-		&& lhatstdlib_math_register(program);
+	if (!lhatstdlib_error_register(program)
+		|| !lhatstdlib_debug_register(program)
+		|| !lhatstdlib_regex_register(program)
+		|| !lhatstdlib_load_register(program)
+		|| !lhatstdlib_lton_register(program)
+		|| !lhatstdlib_math_register(program)
+		// Threads and channels are the language's, not love's: one machine per
+		// worker off the same program, and a queue between them that carries
+		// what carry.h carries -- LOVE objects included, since every object
+		// type declares the sharing contract (lh.cpp). std.async is what a
+		// handle's awaitable() completes, so a task may park on a worker
+		// rather than ask after it; a game pumps it with std.async.wait(0).
+		|| !lhatstdlib_thread_register(program)
+		|| !lhatstdlib_async_register(program)
+		|| !lhatstdlib_channel_register(program))
+		return false;
+	return lhatstdlib_thread_on_finish(program, threadFinished, nullptr);
 }
 
 // Something the user has to see. Text always; a message box as well for the
@@ -238,7 +268,7 @@ static const Callback callbacks[] = {
 	{"touchreleased", "p^number^, number^, number^, number^, number^, number^, ...;"},
 	{"touchmoved", "p^number^, number^, number^, number^, number^, number^, ...;"},
 	{"sensorupdated", "p^string^, number^, number^, number^;"},
-	{"threaderror", "p^love.thread.Thread, string^;"},
+	{"threaderror", "p^string^;"},
 	{"filedropped", "p^string^;"},
 	{"directorydropped", "p^string^;"},
 };
@@ -1405,8 +1435,6 @@ static int boot(int argc, char **argv, bool console)
 	love::window::Window *window = nullptr;
 	try
 	{
-		if (conf.modules.thread)
-			modules.add(new love::thread::ThreadModule());
 		if (conf.modules.timer)
 			modules.add(new love::timer::Timer());
 		if (conf.modules.event)

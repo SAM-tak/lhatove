@@ -323,11 +323,8 @@ static void lh_load(LhatMachine *machine, void *context, const LhatValue *argume
 	const FilesystemBinding *b = (const FilesystemBinding *) context;
 	std::string path = lh::optString(arguments, count, 0, "");
 	LhatProto *proto = nullptr;
-	LhatLoadStatus status;
-	{
-		std::lock_guard<std::mutex> hold(lh::programMutex());
-		status = lhat_program_load_file(b->program, path.c_str(), &proto);
-	}
+	// 05 の 5.8: the program takes its own lock over this now.
+	LhatLoadStatus status = lhat_program_load_file(b->program, path.c_str(), &proto);
 	switch (status)
 	{
 	case LHAT_LOAD_OK:

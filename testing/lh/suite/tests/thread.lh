@@ -1,101 +1,158 @@
-# love.thread and love.video -- the L^port of testing/tests/thread.lua and
-# video.lua. The thread here is short and joined at once, so the suite
-# stays a single frame's worth of work.
+# std.thread and std.channel (the language's, not love's) and love.video --
+# the L^ port of testing/tests/thread.lua and video.lua. The worker here is
+# short and joined at once, so the suite stays a single frame's worth of work.
+#
+# Every call that can run out of memory answers a union, so the channel and
+# the handle are narrowed with fits^ before anything is asked of them.
 module^suite.tests.thread
 
-import^love.thread
+import^std.thread
+import^std.channel
 import^love.graphics
 import^love.timer
 
 let^test = require^"../lib/test.lh"
 
 public^let^run = p^{
-    test.begin("love.thread")
+    test.begin("std.channel")
 
-    # a channel of one's own carries what a game would put in it
-    let^channel = love.thread.newChannel()
-    test.text("type", "Channel", channel.type())
-    test.number("a fresh channel is empty", 0, channel.getCount())
+    let^made = std.channel.new()
+    if^made fits^std.channel.Channel {
+        test.number("a fresh channel is empty", 0, made.count())
 
-    let^id = channel.push(42)
-    test.isTrue("push answers an id", id > 0)
-    test.number("one value waiting", 1, channel.getCount())
-    let^peeked = channel.peek()
-    if^peeked fits^number^{
-        test.number("peek answers without taking", 42, peeked)
+        let^id = made.push(42)
+        test.isTrue("push answers an id", id fits^number^and^id > 0)
+        test.number("one value waiting", 1, made.count())
+        let^peeked = made.peek()
+        if^peeked fits^number^{
+            test.number("peek answers without taking", 42, peeked)
+        else^:
+            test.isTrue("peek answers the number", false^)
+        }
+        test.number("peek left it there", 1, made.count())
+        let^popped = made.pop()
+        if^popped fits^number^{
+            test.number("pop answers the number", 42, popped)
+        else^:
+            test.isTrue("pop answers the number", false^)
+        }
+        test.number("pop took it", 0, made.count())
+        test.isTrue("popping an empty channel answers nil^", made.pop() fits^nil^)
+
+        # carry keeps an integer whole, which love's Variant could not
+        let^_1 = made.push(7)
+        let^whole = made.pop()
+        test.isTrue("an integer crosses as an integer", whole fits^number^and^whole = 7)
+
+        # a table crosses as a copy
+        let^_2 = made.push({ name = "carried", count = 3 })
+        let^table = made.pop()
+        if^table fits^t^{ name : string^, count : number^} {
+            test.text("a table carries its strings", "carried", table.name)
+            test.number("and its numbers", 3, table.count)
+        else^:
+            test.isTrue("a table crosses a channel", false^)
+        }
+
+        # 05 の 8.8改2: a LOVE object crosses as its pointer -- every object
+        # type declares the sharing contract, so all of them may
+        let^image = love.graphics.newImage("assets/love.png") catch^nil^
+        if^image = nil^{
+            test.isTrue("newImage reads the file", false^)
+        else^:
+            let^_3 = made.push(image)
+            let^back = made.pop()
+            if^back fits^love.graphics.Texture {
+                test.isTrue("a LOVE object crosses as itself", back = image)
+                test.number("and answers the same", image.getWidth(), back.getWidth())
+            else^:
+                test.isTrue("a LOVE object crosses a channel", false^)
+            }
+        }
+
+        # atomic runs with the channel held
+        var^inside = 0
+        made.atomic(p^c:std.channel.Channel {
+            let^_4 = c.push("first")
+            let^_5 = c.push("second")
+            inside := c.count()
+        })
+        test.number("atomic saw both pushes", 2, inside)
+        made.clear()
+        test.number("clear empties the channel", 0, made.count())
     else^:
-        test.isTrue("peek answers the number", false^)
+        test.isTrue("std.channel.new answers a channel", false^)
     }
-    test.number("peek left it there", 1, channel.getCount())
-    let^popped = channel.pop()
-    if^popped fits^number^{
-        test.number("pop answers the number", 42, popped)
-    else^:
-        test.isTrue("pop answers the number", false^)
-    }
-    test.number("pop took it", 0, channel.getCount())
-    test.isTrue("popping an empty channel answers nil^", channel.pop() fits^nil^)
 
-    # a table crosses as a copy
-    channel.push({ name = "carried", count = 3 })
-    let^table = channel.pop()
-    if^table fits^t^{ name : string^, count : number^} {
-        test.text("a table carries its strings", "carried", table.name)
-        test.number("and its numbers", 3, table.count)
+    # named channels are shared by name, and outlive any one machine
+    let^named = std.channel.named("suite")
+    let^again = std.channel.named("suite")
+    if^named fits^std.channel.Channel and^again fits^std.channel.Channel {
+        let^_6 = named.push("hello")
+        test.number("the same name answers the same channel", 1, again.count())
+        again.clear()
     else^:
-        test.isTrue("a table crosses a channel", false^)
+        test.isTrue("std.channel.named answers a channel", false^)
     }
 
-    # performAtomic runs with the channel locked
-    var^inside = 0
-    channel.performAtomic(p^c:love.thread.Channel, extra:any^{
-        c.push("first")
-        c.push("second")
-        inside := c.getCount()
-    }, 0)
-    test.number("performAtomic saw both pushes", 2, inside)
-    channel.clear()
-    test.number("clear empties the channel", 0, channel.getCount())
+    test.begin("std.thread")
 
-    # named channels are shared by name
-    let^named = love.thread.getChannel("suite")
-    named.push("hello")
-    test.number("the same name answers the same channel", 1, love.thread.getChannel("suite").getCount())
-    love.thread.getChannel("suite").clear()
-
-    # a thread from code, given its work through a channel
-    let^worker = love.thread.newThread("import^love.thread\nlet^args = ...\nlet^out = love.thread.getChannel(\"suite.out\")\nlet^n = args[1]\nif^n fits^number^{ out.push(n * 2) }\nout.push(\"done\")\n")
-    test.text("type", "Thread", worker.type())
-    test.isFalse("a thread that was not started is not running", worker.isRunning())
-    worker.start(21)
-    worker.wait()
-    test.isFalse("a joined thread has stopped", worker.isRunning())
-    test.isTrue("a thread that worked has no error", worker.getError() fits^nil^)
-
-    let^out = love.thread.getChannel("suite.out")
-    let^doubled = out.pop()
-    if^doubled fits^number^{
-        test.number("the thread did the work", 42, doubled)
+    # a worker from a closure of this very unit, given its work through a
+    # named channel. The body names std.channel because this unit imported
+    # it -- an import^ root is read off the worker's own L^.modules.
+    let^worker = std.thread.spawn(p^ ... {
+        let^out = std.channel.named("suite.out")
+        if^out fits^std.channel.Channel {
+            let^n = ...[1]
+            if^n fits^number^{ let^_7 = out.push(n * 2) }
+            let^_8 = out.push("done")
+        }
+        return^"worked"
+    }, 21)
+    if^worker fits^std.thread.ThreadHandle {
+        let^answer = worker.join()
+        if^answer fits^string^{
+            test.text("join answers what the body returned", "worked", answer)
+        else^:
+            test.isTrue("join answers the string", false^)
+        }
+        test.isTrue("a joined thread is done", worker.done())
+        test.isTrue("a thread that worked has no error", worker.failed() fits^nil^)
+        test.isTrue("joining twice says so", worker.join() fits^std.thread.ThreadError.AlreadyJoined)
+        worker.dispose()
     else^:
-        test.isTrue("the thread answered a number", false^)
+        test.isTrue("spawn answers a handle", false^)
     }
-    let^word = out.pop()
-    if^word fits^string^{
-        test.text("and said so", "done", word)
-    else^:
-        test.isTrue("the thread answered a string", false^)
-    }
-    out.clear()
 
-    # a thread that panics keeps its message for getError
-    let^broken = love.thread.newThread("panic^\"suite thread\"\n")
-    broken.start()
-    broken.wait()
-    let^error = broken.getError()
-    if^error fits^string^{
-        test.isTrue("a thread that failed says why", error.length > 0)
+    let^out = std.channel.named("suite.out")
+    if^out fits^std.channel.Channel {
+        let^doubled = out.pop()
+        test.isTrue("the thread did the work", doubled fits^number^and^doubled = 42)
+        let^word = out.pop()
+        if^word fits^string^{
+            test.text("and said so", "done", word)
+        else^:
+            test.isTrue("the thread answered a string", false^)
+        }
+        out.clear()
     else^:
-        test.isTrue("a thread that failed has an error", false^)
+        test.isTrue("the worker's channel is there", false^)
+    }
+
+    # a body that panicked keeps its message for failed()
+    let^broken = std.thread.spawn(p^ ... { panic^"suite thread" })
+    if^broken fits^std.thread.ThreadHandle {
+        test.isTrue("a body that panicked answers an error",
+                    broken.join() fits^std.thread.ThreadError.BadResult)
+        let^why = broken.failed()
+        if^why fits^string^{
+            test.isTrue("a thread that failed says why", why.length > 0)
+        else^:
+            test.isTrue("a thread that failed has an error", false^)
+        }
+        broken.dispose()
+    else^:
+        test.isTrue("spawn answers a handle", false^)
     }
 
     test.begin("love.video")

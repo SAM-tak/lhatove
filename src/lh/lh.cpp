@@ -20,6 +20,9 @@
 
 #include "lh.h"
 
+#include "stdlib/channel.h"
+#include "stdlib/thread.h"
+
 // 05 の 10.7: the signature table, for a build without the front end.
 #ifdef LHATOVE_VM_ONLY
 #include "Signatures.h"
@@ -151,6 +154,25 @@ bool Context::errorKind(const char *module, const char *const *variants, size_t 
 // collector calls it once, and so may the program. The release must not
 // reach back into the lhat API (the sweep may be the caller); Object::release
 // does not.
+// 05 の 8.8改2: the holds a shared type takes and gives. love::Object counts
+// them atomically, so the pair is what carry needs to move a pointer between
+// machines -- one hold for the carried tree, one for every wrapper rebuilt
+// from it, each given back through the dispose^ above.
+//
+// Called with no machine at hand and on whichever thread is carrying, so
+// nothing here reaches into lhat.
+static void lh_object_retain(void *pointer, void *context)
+{
+	(void) context;
+	((love::Object *) pointer)->retain();
+}
+
+static void lh_object_let_go(void *pointer, void *context)
+{
+	(void) context;
+	((love::Object *) pointer)->release();
+}
+
 static void lh_object_dispose(LhatMachine *machine, void *context, const LhatValue *arguments, size_t count,
 							  LhatValue *answers, int *answerCount)
 {
@@ -228,7 +250,12 @@ bool Context::objectType(const char *module, const char *name, love::Type &type)
 		if (tag == nullptr)
 			return false;
 		registry->add(type, tag);
-		return true;
+		// 05 の 8.8改2: every LOVE object may cross to another machine, as
+		// every one could cross a Lua Channel. What is not safe is USING
+		// some of them off the thread that made them (a GPU object), and
+		// that was the caller's to know there too.
+		return lhat_register_hostdata_shared(program, module, name,
+		                                     lh_object_retain, lh_object_let_go, nullptr);
 	}
 	return member(module, name, "dispose", "p^self^;", lh_object_dispose, registry)
 		&& member(module, name, "type", "f^self^ -> string^;", lh_object_type, registry)
@@ -246,7 +273,12 @@ bool Context::objectType(const char *module, const char *name, love::Type &type,
 		if (tag == nullptr)
 			return false;
 		registry->add(type, tag);
-		return true;
+		// 05 の 8.8改2: every LOVE object may cross to another machine, as
+		// every one could cross a Lua Channel. What is not safe is USING
+		// some of them off the thread that made them (a GPU object), and
+		// that was the caller's to know there too.
+		return lhat_register_hostdata_shared(program, module, name,
+		                                     lh_object_retain, lh_object_let_go, nullptr);
 	}
 	// 8.8改: what the base registered is taken when registration closes, so
 	// dispose, type and typeOf are already here. Registering dispose again
@@ -259,12 +291,36 @@ bool Context::objectType(const char *module, const char *name, love::Type &type,
 // Runtime
 // ---------------------------------------------------------------------------
 
+// 05 の 5.8: the one lock over the program's writes. It used to be taken by
+// hand at each call; the program takes it itself now (lhat_program_set_lock
+// in the constructor), which reaches the writes inside lhat as well -- the
+// install a std.thread worker makes for itself, above all. It must not be
+// taken here as well: lhat says the pair never nests, and this one does not.
+static std::mutex &programMutex()
+{
+	static std::mutex mutex;
+	return mutex;
+}
+
+static void lockProgram(void *context)
+{
+	(void) context;
+	programMutex().lock();
+}
+
+static void unlockProgram(void *context)
+{
+	(void) context;
+	programMutex().unlock();
+}
+
 Runtime::Runtime(LhatProgramLoader loader, void *loaderContext)
 	: program_(nullptr)
 	, machine_(nullptr)
 {
 	// 03 の 3.1: a file defaults to strict.
 	program_ = lhat_program_new(true, loader, loaderContext);
+	lhat_program_set_lock(program_, lockProgram, unlockProgram, nullptr);
 	lot_.set(new ParkingLot(), Acquire::NORETAIN);
 }
 
@@ -299,7 +355,13 @@ TypeRegistry &Runtime::registry()
 
 Runtime::~Runtime()
 {
-	// The lot first, so a Parked value released by a wrapper's dispose below
+	// Workers first: a body still running is reading a proto this program
+	// owns, and a named channel may be holding a closure of one. Both have
+	// to be given up before anything below is torn down.
+	if (program_ != nullptr)
+		lhatstdlib_thread_join_all(program_);
+	lhatstdlib_channel_forget_named();
+	// The lot next, so a Parked value released by a wrapper's dispose below
 	// does not write into the heap being torn down.
 	lot_->detach();
 	// The machine next: its heap holds values whose release callbacks reach
@@ -361,17 +423,10 @@ bool Runtime::registerAll(const Registrar *registrars, size_t count)
 	return true;
 }
 
-std::mutex &programMutex()
-{
-	static std::mutex mutex;
-	return mutex;
-}
-
 const LhatUnit *Runtime::check(const char *path)
 {
 	if (program_ == nullptr)
 		return nullptr;
-	std::lock_guard<std::mutex> hold(programMutex());
 	return lhat_program_check(program_, path);
 }
 
@@ -426,7 +481,6 @@ std::string Runtime::diagnostics() const
 
 bool Runtime::compile()
 {
-	std::lock_guard<std::mutex> hold(programMutex());
 	if (program_ == nullptr || !lhat_program_compile(program_))
 		return false;
 
@@ -486,6 +540,12 @@ LhatValue WrapperCache::find(LhatMachine *machine, love::Object *object)
 void WrapperCache::add(LhatMachine *machine, love::Object *object, LhatValue wrapper)
 {
 	std::lock_guard<std::mutex> hold(wrappersMutex());
+	// A machine std.thread disposed of is never announced here (it makes and
+	// frees its own), so its entry stays behind -- emptied, since disposing a
+	// machine runs every wrapper's dispose^ (05 の 8.8), but a node all the
+	// same. Drop what is empty while the lock is already held.
+	for (auto it = wrappers().begin(); it != wrappers().end();)
+		it = it->first != machine && it->second.empty() ? wrappers().erase(it) : std::next(it);
 	wrappers()[machine][object] = wrapper;
 }
 
@@ -555,9 +615,19 @@ void ParkingLot::detach()
 
 ParkingLot *ParkingLot::lotOf(LhatMachine *machine)
 {
-	std::lock_guard<std::mutex> hold(lotsMutex());
-	auto it = lots().find(machine);
-	return it != lots().end() ? it->second.get() : nullptr;
+	{
+		std::lock_guard<std::mutex> hold(lotsMutex());
+		auto it = lots().find(machine);
+		if (it != lots().end())
+			return it->second.get();
+	}
+	// A machine nobody here attached one to -- std.thread's worker. Attach
+	// takes the lock itself, and only this thread can be asking about its
+	// own machine, so there is no second maker to race with.
+	StrongRef<ParkingLot> lot(new ParkingLot(), Acquire::NORETAIN);
+	if (!lot->attach(machine))
+		return nullptr;
+	return lot.get();
 }
 
 uint32 ParkingLot::park(LhatValue value)
@@ -670,13 +740,10 @@ LhatMachine *Runtime::spawnMachine(LhatProgram *program)
 	// it is installed on, so every machine installs for itself. The lot is
 	// retained by the lots table until detach.
 	StrongRef<ParkingLot> lot(new ParkingLot(), Acquire::NORETAIN);
+	if (!lhat_program_install(program, machine) || !lot->attach(machine))
 	{
-		std::lock_guard<std::mutex> hold(programMutex());
-		if (!lhat_program_install(program, machine) || !lot->attach(machine))
-		{
-			lhat_machine_dispose(machine);
-			return nullptr;
-		}
+		lhat_machine_dispose(machine);
+		return nullptr;
 	}
 	return machine;
 }
@@ -887,7 +954,6 @@ LhatValue raise(LhatMachine *machine, const std::string &message)
 	}
 	return lhat_nil();
 }
-
 
 void guard(LhatMachine *machine, const std::function<void()> &body)
 {

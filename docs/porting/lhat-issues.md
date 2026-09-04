@@ -1,11 +1,19 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `a1183f6`（2026-09-03）。
+基準: lhat HEAD `f81d426`（2026-09-04）。
 
 ## 未解決
 
-（なし）
+- **ワーカーの失敗文が panic の中身を落とす。** `stdlib/thread.c` の `failure_text` は
+  `lhat_run_status_message(status)` ＋ traceback だけを綴るので、`panic^"boom from a thread"` が
+  `failed()` と `on_finish` の両方で **`panic^` の 1 語**になる。捨てているものが 2 つある:
+  - **panic の値**。`thread_main` は `ran.value` を手に持っている。lhatove の `lh::describeRun` は
+    `status + ": " + valueText(ran.value)` と綴る（[lh.cpp:711](../../src/lh/lh.cpp#L711)）
+  - **行番号**。`ran.line` も同じ場所にある
+  さらに traceback は `lhat_machine_fault_depth(machine) >= 2` の時だけ作られるので、本体の
+  最上位で panic すると深さ 1 で何も残らない。結果、**最上位 panic は場所も理由も分からない**。
+  `ThreadHandle` に `ran.value` の写しか、せめてその文字列を持たせてほしい
 
 ## 提案
 

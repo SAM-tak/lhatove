@@ -161,12 +161,6 @@ typedef bool (*Registrar)(Context &ctx);
 // Program + machine
 // ---------------------------------------------------------------------------
 
-// The one lock every write to a LhatProgram takes: a check, a compile, a
-// load, and an install onto a new machine (love.thread starts one per OS
-// thread from the same program). Machines only read protos while running,
-// and lhat keeps compiled protos where they are, so readers need nothing.
-std::mutex &programMutex();
-
 // Owns one LhatProgram and, once compiled, one LhatMachine.
 class Runtime
 {
@@ -289,9 +283,16 @@ public:
 	// Forgets the machine: slots given back after this are not written.
 	void detach();
 
-	// The lot attached to `machine`, or nullptr. A binding that parks
-	// values asks this rather than keeping a lot of its own, since every
-	// love.thread worker has a machine and a lot apiece.
+	// The lot attached to `machine`, making one if the machine has none.
+	// A binding that parks values asks this rather than keeping a lot of
+	// its own, since every worker has a machine and a lot apiece.
+	//
+	// Made on demand because std.thread starts a machine without lhatove
+	// looking on: only lhat_machine_new and lhat_program_install run there,
+	// and the first binding that parks something is where the engine gets
+	// its turn. Call it from inside a host function, so the machine is the
+	// calling thread's own and the table can be made on it. nullptr only
+	// when the machine refused the table.
 	static ParkingLot *lotOf(LhatMachine *machine);
 
 	LhatMachine *machine() const { return machine_; }

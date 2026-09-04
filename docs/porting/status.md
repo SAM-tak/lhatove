@@ -22,6 +22,7 @@
 - **エラー宣言をモジュールごとに** — `love.Error` 1 個をやめ、`love.audio.Error` のように失敗しうるモジュールが自分の種を宣言する
 - **conf は conf.lton** — LTON（テーブルリテラルの中身）。`f^` として読まれるので `p^` を呼べない
 - **DAP デバッガ** — `lovec --dap=PORT game/`。love.thread のワーカーもスレッドとして現れる。`-Shipping` で丸ごと落ちる
+- **並行処理を言語へ渡した** — love.thread を廃止し、`std.thread` / `std.channel` / `std.async` を登録。ワーカーの本体は同じユニットの閉包、チャネルは carry の上に立つ。全 hostdata 型が共有契約を宣言するので LOVE オブジェクトも機械を跨ぐ。エンジンに残るのは `threaderror` イベントと破棄前の `join_all` / `forget_named` だけ。**VM のみビルドでもスレッドが動く**（本体が閉包なので構文解析器が要らない）
 - **VM のみビルド** — `-VmOnly` で front end を落とす。`--compile-game` がゲームをバイト列にし、署名表と埋め込みユニットはエンジンが持つ。realgame / .love / ファイル版スレッドが通る（exit=4 / 4 / 11）。`newThread(コード文字列)` と `std.load` のテキストは非対応
 
 ## モジュール別
@@ -47,6 +48,6 @@
 | sensor | 1 | lh_Sensor.cpp | M3: hasSensor/isEnabled/setEnabled/getData |
 | joystick | 2 | lh_Joystick.cpp | M3: getJoysticks/getJoystickCount、Joystick{connected name id guid axes buttons hats isDown isGamepad gamepadAxis isGamepadDown vibration}、joystick/gamepad コールバック |
 | physics/box2d | 21 | lh_Physics.cpp / lh_World.cpp / lh_Body.cpp / lh_Shape.cpp / lh_Joint.cpp / lh_Contact.cpp（コア脱 Lua 済み） | M4: World/Body/Shape/Joint/Contact の 5 型。M6 後: 種別を親子宣言に展開し 20 型（Shape の下に Circle/Polygon/Edge/Chain、Joint の下に 11 種。コンストラクタは種別を返し、`fits^` で分岐できる）、newWorld/newBody/new*Body/new*Shape/new*Joint/getDistance/meter/compute*、コールバック・filter・query・rayCast、userData。deprecated API（body 無し shape・newFixture・getChildEdge）は非対応 |
-| thread | 3 | lh_Thread.cpp / LhThread.cpp（LuaThread 置換） | M5: newThread(path \| code \| File \| FileData)、Thread{start wait getError isRunning}、newChannel/getChannel、Channel{push supply pop demand peek getCount hasRead clear performAtomic}、`threaderror` コールバック。値は `lh::variantOf`（スカラー・LOVE オブジェクトはそのまま、table/closure は `lhat_carry` の複製） |
+| thread | 3 | （廃止） | M5 で love.thread として実装、M6 後に廃止。`std.thread.spawn(閉包, ...)` / `std.channel` が引き継ぎ、engine 側は `threaderror` イベントと `Runtime` 破棄時の `join_all` / `forget_named` のみ。`src/modules/thread/` に残るのは Mutex/Conditional/Threadable（audio・video・ImageData が使う） |
 | video | 2 | graphics/lh_Video.cpp | M5: `love.graphics.newVideo(path[, {audio, dpiscale}])` → Video{play pause rewind seek tell isPlaying 寸法 getSource/setSource getFilename setFilter}。love.video.VideoStream は直接公開しない |
 | luasocket / enet / luahttps / lua53 | - | 恒久廃止 | 確定 |

@@ -40,7 +40,7 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 
 `lhat.lib` は半分以下になるが `love.dll` は 196KB しか縮まない — 署名表（114KB）を埋め込むため。**利得はサイズではなく起動**: 約 800 の登録署名がテキストの解析から表引きになり、フル版 4.2ms → VM 版 0.0ms。ゲーム側の check / compile も消える（17 ユニットの suite で 7.6+4.3ms → 4.2+1.1ms）。
 
-**VM 版で動かないもの**: `love.thread.newThread(コード文字列)` と `love.filesystem.load` / `std.load` のテキスト — 実行時に構文解析器が要る。**ファイル版スレッドは動く**（`newThread("worker.lh")`。`--compile-game` がゲーム内の `.lh` を全部 check して運ぶので、実行が届かないユニットも配布物に入る）。テキストのユニットを食わせると `this build has no front end; only a binary unit runs` と言って断る。
+**VM 版で動かないもの**: `love.filesystem.load` / `std.load` のテキスト — 実行時に構文解析器が要る。**スレッドは全部動く**（`std.thread.spawn` の本体は同じユニットの閉包で、運ぶのは proto の参照と捕捉の写しだけ。`testing/lh/thread` を丸ごとコンパイルして VM 版で exit=8）。テキストのユニットを食わせると `this build has no front end; only a binary unit runs` と言って断る。
 
 ### 配布物を作る（VM 版に食わせるもの）
 
@@ -85,16 +85,19 @@ L^ ランタイムの場所は CMake オプション `LHATOVE_LHAT_DIR`（デフ
 - 登録が program に預けた state を返す口が `lhat_program_on_dispose`。lhatove では使わない — static context には返すものが無く、program 寿命の heap 資源は `ParkingLot` だけで `Runtime` のデストラクタが片付ける
 - プロセス共有 registry は `lhat_registry_dispose()` で返す。**LhatProgram が 1 つも無い時のみ**呼べるので、呼ぶのは restart ループを抜けた後（`love_lh_shutdown()` ← `src/love.cpp`）
 - C 側で保持する L^ 値は GC ルートにならない。永続値は `lhat_machine_register` で `L^.modules.love.*` に係留する
-- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math` / `lton`。conf は **conf.lton**（LTON = テーブルリテラルの中身）で、check も compile もされず `lhatstdlib_lton_load` が program の loader 経由で読む — 本文は `f^` として読まれるので `p^` を呼べず、`love.*` はスコープにも入らない。ゲームも `std.lton.load` で同じ綴りのデータファイルを読める。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない。`std.thread` / `std.async` は登録しない（スレッドは love.thread。M5 で決定）
+- lhatstdlib は選別登録: `error` / `debug` / `regex` / `load` / `math` / `lton`。conf は **conf.lton**（LTON = テーブルリテラルの中身）で、check も compile もされず `lhatstdlib_lton_load` が program の loader 経由で読む — 本文は `f^` として読まれるので `p^` を呼べず、`love.*` はスコープにも入らない。ゲームも `std.lton.load` で同じ綴りのデータファイルを読める。`std.io`（love.filesystem が担当）と `std.math.vector3` は登録しない
+- **並行処理は言語のもの**: `std.thread` / `std.channel` / `std.async` を登録し、**love.thread は廃止した**。ワーカーの本体は同じユニットの閉包（`std.thread.spawn(p^ ... { ... }, args)`）で、carry が proto の参照と捕捉のスナップショットを運ぶ。チャネルは `std.channel.new()` / `.named(name)`。エンジンが足すのは 2 つだけ — `threaderror` イベント（`lhatstdlib_thread_on_finish` がワーカーのスレッドから `event::Message` を積む。`p^string^`）と、`Runtime` のデストラクタが program 破棄前に呼ぶ `lhatstdlib_thread_join_all` → `lhatstdlib_channel_forget_named`
+- **LOVE オブジェクトは機械を跨ぐ**: `Context::objectType` が全 hostdata 型に `lhat_register_hostdata_shared(retain, let_go)` を宣言する（`love::Object` の参照カウントは atomic）。だから ImageData も Channel も Texture も `spawn` の引数・チャネルの中身として渡り、**それを含む table** も運べる。Lua 版が任意の `love::Object` を Channel に通せたのと同じ範囲 — 別スレッドで**使って**よいかは Lua 版と同じく呼び手の責任
+- **program の書込ロックは lhat が持つ**: `Runtime` のコンストラクタが `lhat_program_set_lock` に lhatove の mutex を渡す。だから check / compile / load / install / invalidate / reload の全部が覆われ、**std.thread のワーカーが自分でする install** も含まれる。対は**入れ子にならない** — 呼ぶ側が手でロックを取ってはいけない。危険な再入は 1 経路だけで、**ホストの loader はロック保持中に呼ばれる**（`lhat_program_check` の内側）ので、`PhysfsLoader` は program に触れてはならない
 - エラー宣言はモジュールごと（04 の 2.4）。失敗しうるモジュールが TYPES 相で `ctx.errorKind(m, variants, n, out)` を呼び、`love.<module>.Error` を宣言する。variant は**何が起きたか**で命名する（`CouldNotLoad` / `ShaderFailed` / `Rejected`。「どの層が気づいたか」を表す `IO` / `Misuse` を全モジュールで共有しない）。1 variant なら葉を書かず宣言名だけでシグネチャに載る（`-> love.audio.Source|love.audio.Error`）。受け側は宣言名でも葉でも `fits^` で絞れる
 - プログラマエラー（不正な enum 等）は `lh::raise` = `lhat_machine_panic_text`。失敗しうる API（IO 等）だけがエラー値をシグネチャに書く
 - ホスト関数は `void`（`16caa92`）。答えは machine が渡す room に書く — `answers[0] = v; *answerCount = 1;`、タプルなら `answers[0..n]` と `*answerCount = n`。`*answerCount` は 0 で届くので `p^` と `dispose` は何もせず返る。`LHAT_MAX_TUPLE` より広い戻り値は登録が拒否されるので、room があふれることはない
 - `lh::guard` / `lh::catchexcept` は void 本体を取る（答えは本体が room に書き終えている）。`catchexcept` だけ room を受け取る — 例外が起きたら書かれたものをエラー値 1 個に差し替えるため。`lh::raise` は panic なので、呼んで `return;` するだけ
 - メインループは埋め込み `Boot.lh` の `run`（yieldable `p^`）。C++ は `lhat_machine_resume` を毎フレーム呼ぶだけ。optional なコールバックの解決は C++ 側の handlers 構築で行う（L^ では「あれば呼ぶ」を静的に書けない）
-- 前提 lhat は HEAD `a1183f6` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言・ホスト境界が count で答える・ホスト型の親宣言・DAP と `lhat_reload`・バイナリユニットと署名表と `LHAT_WITH_FRONTEND`）
+- 前提 lhat は HEAD `f81d426` 以降（`lhat_machine_panic`・`lhat_unit_export_conforms`・std.math・署名中 `Self^`・可変長アームの位置判定・登録型のランタイム型が葉 1 個・親と子の同時 import・登録型どうしは交わらない・登録の identity はプロセス単位で intern・`lhat_registry_dispose`・`lhat_program_on_dispose`・`lhat_program_invalidate`・std.lton と `lhatstdlib_lton_load`・ホスト型の親宣言・ホスト境界が count で答える・ホスト型の親宣言・DAP と `lhat_reload`・バイナリユニットと署名表と `LHAT_WITH_FRONTEND`・hostdata の共有契約・std.channel・ワーカーの完了通知・`lhat_program_set_lock`）
 - 自型を返す/取るメンバは `Self^` で書く（`p^self^, Self^ -> Self^;`）。オーバーロードは「書かれた位置で型が交わらない or 個数で分かれる」こと。`f(string^, ...)` と `f(string^, Font, ...)` は拒否される — 尾の前に交わらない位置を置く（`print` の3アーム参照）
 - デバッガは lhat の DAP アダプタ（09 章）。`lovec --dap=PORT game/` でポートを開いて待ち、繋がってから起動列を進める。`LHATOVE_WITH_DAP`（既定 ON）で `lhatdap` をリンクし、OFF で VM 側の line hook ごと落とす（`scripts/build.ps1 -Shipping`）。**fused では実行時にも無効**（配布物がポートを開かない。`Boot.cpp` が `--dap` を捨てる）
-- **love.thread のワーカーも対象**。バインディングは何もしない — `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、`Runtime::spawnMachine` が作った machine がそのまま DAP のスレッドになる（確認: `worker.lh` にブレークポイントが効き、スレッド 2/3/4 が現れる）
+- **ワーカーも対象**。バインディングは何もしない — `lhat_debug_watch_machines` が `lhat_machine_new` を拾うので、`std.thread` が作った machine がそのまま DAP のスレッドになる（確認: spawn した閉包の中にブレークポイントが効き、threadId 2 で止まる）
 - ブレークポイントのパスは `DapPathMap`（09 の 5.2）で写す。`Boot.cpp` の `toUnit` / `toEditor` が PhysFS のマウント（`getRealDirectory`）を使い、エディタの絶対パス ↔ 単位の綴りを両方向に翻訳する。だから VS Code が送る絶対パスのままブレークポイントが結ばれ、スタックの `source.path` も同じ綴りで返る。`.love` や fused の中の単位はディスクに無いので `to_editor` が false を答え、単位名のまま報告される（埋め込みの `Boot.lh` も同じ）
 - 起動がおかしい時: 環境変数 `LHATOVE_TRACE=1`（起動列トレース）、`LHATOVE_SKIP_REGISTRATIONS=love.x.f,love.y.T.m,love.z.*`（登録を外して二分探索。`*` で前方一致）、`LHATOVE_GC_STATS=<n>`（n フレーム毎に collected/live）
 - 止まる・遅い時: `LHATOVE_WATCHDOG=<秒>` でフレームが止まった主スレッドのスタックを base+offset で stderr へ出力 → `scripts/symbolize.c`（`cl symbolize.c dbghelp.lib`）で `.pdb` から名前解決。symbols は `cmake --build build --config RelWithDebInfo --target lovec`（`SDL3.dll` / `OpenAL32.dll` を `build/SDL3/RelWithDebInfo` 等から `build/love/RelWithDebInfo` へコピー）。stderr を PowerShell のパイプに流すと書込で止まって見えるので、ファイルへリダイレクトする
@@ -147,7 +150,7 @@ lhat 側で直すべき事項は @docs/porting/lhat-issues.md に記録する。
 .\build\love\Release\lovec.exe testing\lh\realgame   # conf.lton・require^・画像・フォント・セーブ dir、exit=4（.love / fused exe でも同じ）
 .\build\love\Release\lovec.exe testing\lh\m3         # audio/sound/data/math/system/touch/sensor/joystick/ImageData ピクセル、exit=6
 .\build\love\Release\lovec.exe testing\lh\physics    # box2d: 接触コールバック4種・filter・query・rayCast・joint・userData、exit=7（約 5 秒）
-.\build\love\Release\lovec.exe testing\lh\thread     # love.thread: file/code スレッド・Channel（table/closure の carry）・performAtomic・threaderror、exit=8
+.\build\love\Release\lovec.exe testing\lh\thread     # std.thread/std.channel: 閉包ワーカー3本・number/string/table/closure の carry・atomic・awaitable で待つ・threaderror、exit=8
 .\build\love\Release\lovec.exe testing\lh\shader     # Canvas 読み戻し・Shader uniform・Quad/Mesh/SpriteBatch/ParticleSystem/TextBatch・状態系・Video、exit=9
 .\build\love\Release\lovec.exe testing\lh\restart    # love.event.restart + restartValue、2 周目で exit=10
 .\build\love\Release\lovec.exe testing\lh\suite      # L^ 版テストスイート（バインド済み全モジュール、451 チェック）、pass=0 / fail=1
