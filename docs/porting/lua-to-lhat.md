@@ -18,7 +18,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 | Lua 時代 | L^ 移植後 |
 | --- | --- |
 | `luax_*`（src/common/runtime.h、約60関数） | `love::lh` 名前空間（src/lh/lh.h） |
-| `Proxy` userdata + 弱値テーブル同一性 + `__gc` | 型ごと hostdata + `dispose` メンバ（`tag->release` → `Object::release()`）。同一性は lhat の等値規則が持つ（`=` は tag+実体ポインタ、テーブルキーも畳まれる）ので、Lua のようにキャッシュで保証する必要は無い。**キャッシュは置けない** — 漸進 GC の下ではホスト側の map が不健全（M6 後の項） |
+| `Proxy` userdata + 弱値テーブル同一性 + `__gc` | 型ごと hostdata + `dispose` メンバ（`tag->release` → `Object::release()`）。同一性は lhat の等値規則が持つ（`=` は tag+実体ポインタ、テーブルキーも畳まれる）ので、Lua のようにキャッシュで保証する必要は無い。churn 避けのキャッシュは lhat の**弱参照表**に載せる（05 の 8.12。ホスト側の自前 map は漸進 GC の下で不健全 — M6 後の項） |
 | `Reference`（luaL_ref） | `lh::Parked`（`L^.modules.love.registry` テーブル + 整数フリーリスト、RAII） |
 | `love::Variant`（スレッド間輸送） | Channel は `lhat_carry/uncarry`（テーブル・閉包可）。love オブジェクトは C ポインタ再鋳造で拡張。Variant は SDL イベント/restart 用に縮退 or 廃止（M5 で判断） |
 | `luaopen_love_<mod>` + `luaL_Reg` | `lhopen_love_<mod>(lh::Context&)` 2相登録（TYPES → MEMBERS） |
@@ -43,7 +43,7 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
 - GC ルートは `L^` と実行フレームのみ。C 保持値は非ルート → `lhat_machine_register` で係留。到達済みテーブルへは `lhat_machine_table_set`（write barrier）
 - 「全引数変換 → 呼ぶ → 答え変換」規律（変換と実行を交錯させない）
 - Boot.lh は「あれば呼ぶ」を静的に書けない（`t.foo` は型に無ければ静的エラー、`t[k]` は合併|nil^ で絞れない）→ optional コールバックは C++ 境界（handlers 構築、欠けた分は no-op ホスト関数）で解決。**`?.` `?[` `?(`（02 の 11.7改）では解けない** — あれが外すのは対象の側の `nil^` であって、型に無いメンバには届かない（`t?.missing` は今も `no such member`）。handlers の型を `update : p^number^;|nil^` の形にして `h.update?(dt)` と書く道はあるが、「update が無いかもしれない」がゲーム作者に嬉しい状況は無く、no-op を挟む今の形と実質同じ。与え忘れは検出しない（draw だけで回すのも正当な使い方）が、**与えたものの型違いは起動前に落ちる**（`lhat_unit_export_conforms`、`testing/lh/badcallback`）
-- 言語に弱参照は無い。ホストが持つ参照は GC ルートでもない（8.8 のコレクタが辿るのは `L^` と実行フレームだけ）が、**それはキャッシュを組める理由にならない** — 収集が漸進的なので、マークで死と決まった包みをスイープ前に配ると解放済みの物が生きた場所に入る。ラッパは毎回作る。バイト配列型無し
+- 弱参照は**ホストの側にだけある**（05 の 8.12 の弱参照キャッシュ。L^ の綴りには無い）。ホストが持つ参照は GC ルートでもないが、**それは自前キャッシュを組める理由にならない** — 収集が漸進的なので、マークで死と決まった包みをスイープ前に配ると解放済みの物が生きた場所に入る。ラッパのキャッシュは弱参照表に載せる。バイト配列型無し
 - エラー値は traceback を自己記録しない（fault/panic のみ）。末尾呼び出しは痕跡なし、fault 時 `finally^` 不実行
 - `std.load` は同時 1 machine（スレッドからの load 禁止）。carry 産閉包は proto を借用 → program 破棄をまたぐ restart ペイロードに閉包不可
 - 純インタプリタ（JIT 無し）
@@ -166,15 +166,19 @@ lhatove の Lua/LuaJIT を L^ (lhat) へ置き換えるにあたっての確定�
   - **利得**: 本体を同じユニットに書ける（別ファイルもコード文字列も要らない）、整数が実数に落ちない、誤りが値、`await^` に載る、そして **VM のみビルドでスレッドが完全に動く**（閉包は構文解析器を要らない — `testing/lh/thread` を丸ごとコンパイルして VM 版で exit=8）
   - **代償**: `newThread(コード文字列)` は無くなった（VM のみビルドでは元から動かない）。ワーカーの失敗文が痩せた — [lhat-issues.md](lhat-issues.md) に記録
   - **ParkingLot は遅延 attach に**。std.thread は lhatove が見ていないところで機械を作るので、`ParkingLot::lotOf` が無ければその場で作る（呼ばれるのはホスト関数の中＝その機械自身のスレッド）
-- **ラッパのキャッシュを撤去した**（`lh::WrapperCache`）。「ホストの map は GC ルートではないから、
-  包みは今までどおり回収され `dispose^` がエントリを外す」という理屈は各文が真で結論が偽だった。
-  lhat の収集は**漸進的**（`gc.c`「Lua's incremental collector, borrowed」）で、マークとスイープの
-  間でプログラムが走る — マークで白と決まった包みをスイープ前に `pushObject` が配り、L^ が生きた
-  場所へ入れると、その物は 1 の判定どおり解放される。Lua の弱値表が与えているのは「根にしない」
+- **ラッパのキャッシュは lhat の弱参照表に載せた**。最初は `lh::WrapperCache` — ホスト側の
+  `std::map` — で組んだが、これは不健全だった。「ホストの map は GC ルートではないから、包みは
+  今までどおり回収され `dispose^` がエントリを外す」という理屈は各文が真で結論が偽。lhat の収集は
+  **漸進的**（`gc.c`「Lua's incremental collector, borrowed」）で、マークとスイープの間で
+  プログラムが走る — マークで白と決まった包みをスイープ前に `pushObject` が配り、L^ が生きた
+  場所へ入れると、その物は判定どおり解放される。Lua の弱値表が与えているのは「根にしない」
   ではなく「**コレクタがマークの終わりにエントリを自分で消す**」ことで、ホストの map には
   知らされる口も復活させる口も無い。
   症状は `testing/lh/physics` の**約半分**（Body のメンバが self 無しで届く／instruction given the
-  wrong type = 解放済みを読んだ形）で、**外して 20/20 通過**（有りは 13/20）。
-  lhat の `a8d91a1`（`L^.modules` 到達の高速化）で表面化しただけで、原因は最初からこちら側。
-  `=` は tag + ポインタなので等価性は変わらず、`is^` だけが別になる（suite の 2 本をそう直した）。
-  速度が要るなら lhat の弱参照キャッシュ待ち（[lhat-issues.md](lhat-issues.md) の提案）
+  wrong type = 解放済みを読んだ形）。lhat の `a8d91a1` で表面化したが原因は最初からこちら側で、
+  外すと 20/20 通過（有りは 13/20）。
+  報告して lhat に `lhat_machine_weak_cache_get` / `_put` / `_forget`（05 の 8.12、`78b72ec`）が
+  入り、`pushObject` はそれに載せ直した — コレクタがマーク終端でエントリを外し、マーク中の
+  get は答えた値を灰に戻す（復活）。`dispose` でも `_forget` する（鍵が番地なので、解放された
+  `love::Object` の番地を次の確保が貰いうる）。physics 20/20、churn は 120 フレームで
+  collected 1,582 → 1,164 / live 8,939 → 7,643

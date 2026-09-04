@@ -180,11 +180,13 @@ static void lh_object_dispose(LhatMachine *machine, void *context, const LhatVal
 	if (count < 1 || !lhat_is_object_kind(arguments[0], LHAT_OBJECT_HOSTDATA))
 		return;
 	LhatHostData *data = (LhatHostData *) lhat_as_object(arguments[0]);
-	(void) machine;
 	if (data->pointer != nullptr)
 	{
-		// Whether this ran by hand or from the sweep (gc.c). Nothing here
-		// reaches back into lhat, which 8.8 forbids at this moment.
+		// 05 の 8.12: the key is an address, and this object is about to be
+		// free to be freed -- so the entry goes before the next allocation
+		// can be handed the same one. The collector takes out what it found
+		// unreachable; this is the other way a wrapper ends, by name.
+		lhat_machine_weak_cache_forget(machine, data->pointer);
 		((love::Object *) data->pointer)->release();
 		data->pointer = nullptr;
 	}
@@ -846,6 +848,12 @@ LhatValue pushObject(LhatMachine *machine, const TypeRegistry &registry, love::T
 {
 	if (object == nullptr)
 		return lhat_nil();
+	// 05 の 8.12: the one this machine already has, if the marking has not
+	// decided against it. A get during a marking marks what it answers, so
+	// what comes back here is alive.
+	LhatValue known = lhat_machine_weak_cache_get(machine, object);
+	if (!lhat_is_nil(known))
+		return known;
 	const LhatHostDataTag *tag = registry.tagFor(type);
 	if (tag == nullptr)
 		return lhat_nil();
@@ -853,6 +861,8 @@ LhatValue pushObject(LhatMachine *machine, const TypeRegistry &registry, love::T
 	if (!lhat_machine_make_hostdata(machine, tag, object, &out))
 		return lhat_nil();
 	object->retain();
+	// A table that could not grow is a miss next time, and nothing worse.
+	lhat_machine_weak_cache_put(machine, object, out);
 	return out;
 }
 

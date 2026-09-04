@@ -1,7 +1,7 @@
 # lhat 側への報告事項
 
 lhatove の移植中に見つかった、lhat 本体で直すべき事項。解決したら「解決済み」へ移す。
-基準: lhat HEAD `20b1cbe`（2026-09-05）。
+基準: lhat HEAD `78b72ec`（2026-09-05）。
 
 ## 未解決
 
@@ -9,22 +9,14 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 提案
 
-- **弱参照キャッシュ（復活付き）。** ホストが「オブジェクト → その包み」を覚えて churn を
-  避けたい、というのは LÖVE でも godot でも同じ要求。ホスト側の素の map では**漸進 GC の
-  下で不健全**（下の解決済み参照）で、正しくやるには「マークの終わりにコレクタ自身が
-  エントリを消す」= Lua の弱値表と同じ保証が要る。以前 `LhatWeakCache` として保留したもの。
-  欲しい形:
-
-  - `lhat_machine_weak_cache_get(machine, key) -> LhatValue`（マークで死と決まった物は
-    もう返さない）/ `_put(machine, key, value)`
-  - `key` はホストのポインタ。値は hostdata の包み
-
-  無くても正しく動く（毎回新しい包みを作る）ので、これは速度の話
+（なし）
 
 ## 解決済み
 
+- 弱参照キャッシュ（復活付き）が欲しい → `78b72ec feat: the collector keeps the cache a host cannot keep for itself`。`lhat_machine_weak_cache_get` / `_put` / `_forget`（05 の 8.12、`vm.h`）。鍵はホストのポインタ（番地で比べるだけで指す先は読まない）、値は弱く、マシンごとの表。保証は `gc.c` の `atomic()` — 最後の `follow_gray` の後・白の入れ替えの前で、到達しなかったエントリをコレクタが外す。`get` は `LHAT_GC_PROPAGATE` の間に答えた値を灰にする（**求めること自体が再到達**）。lhatove の `pushObject` はこれに載っている（下の項の続き）
+
 - `a8d91a1` が physics を壊す（`reach_table` が狭い読みの上に作る／`m->modules` が根でない）→ `20b1cbe fix: a walk that creates over what it did not find asks the real read first`。**ただし physics はこれでも落ち続け、真因は lhatove 側だった** — 下記
-- **`lh::WrapperCache` は漸進 GC の下で不健全だった**（lhatove `pushObject` のキャッシュ）。
+- **ホスト側のラッパキャッシュは漸進 GC の下で不健全だった**（lhatove `pushObject` の `lh::WrapperCache`。上の弱参照キャッシュに載せ替えて解決）。
   「ホストの map は根でないから、包みは今までどおり回収され、`dispose^` がエントリを外す」
   という理屈は各文は真だが結論が偽。lhat の収集は**漸進的**（`gc.c`「Lua's incremental
   collector, borrowed」）で、マークとスイープの間でプログラムが走る:
@@ -37,8 +29,10 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
   エントリを自分で消す**」こと。ホストの map には知らされる口も復活させる口も無い。
   症状は physics の約半分で、Body のメンバが self 無しで届く／instruction given the wrong
   type — 解放済みを読んだ形。**キャッシュを外して 20/20 通過**（有りは 13/20）。
-  毎回新しい包みを作る形に戻した（`=` は tag + ポインタなので等価、`is^` だけが別）。
-  速度が欲しくなったら上の「提案」
+  いったん毎回新しい包みを作る形に戻し、lhat に弱参照キャッシュが入ってからそちらへ載せ替えた
+  （physics 20/20、churn は 120 フレームで collected 1,582 → 1,164 / live 8,939 → 7,643）。
+  suite の同一性チェックは `is^` をやめ `=` を訊く形のまま — `is^` はキャッシュの当たり外れ次第で、
+  lhat が約束しているのは `=`（tag + ポインタ）だけ
 
 - 呼び出し文の直後の `try^{ }` が命令モードの呼び出しに読まれる → `f43f8b1 fix: a call statement no longer swallows the word that opens the next one`。`test.begin("std.channel")` を `try^{ }` の外へ戻した（`testing/lh/suite/tests/thread.lh`）
 - ワーカーの失敗文が panic の中身を落とす → `stdlib/thread.c` の `failure_text` が `fault_text` と `fault_line` を綴るようになった。`threaderror` が `panic^: "boom from a thread" (line 75)` と言う（以前は `panic^` の 1 語）

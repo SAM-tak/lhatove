@@ -7,7 +7,7 @@
 | # | 内容 | 受け入れ条件 | 状態 |
 | --- | --- | --- | --- |
 | M0 | ビルド統合（CMake 手術、最小 Boot、CLAUDE.md 等整備） | hold した main.lh が `print` で lovec に出力。診断表示。U1/U4 検証 | **完了**（2026-08-22）。U1 OK。U4 は機構 OK だが lhat 側 UAF あり → [lhat-issues.md](lhat-issues.md) |
-| M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微）。M6 後にラッパをキャッシュしたが、漸進 GC の下で不健全と判って撤去した（M6 後の項） |
+| M1 | hello world（lh コア + Boot.lh/handlers/run コルーチン + timer/event/window/keyboard/mouse + 即時グラフィックス） | 矩形が動き Esc で終了。run オーバーライド動作。タプル分解動作。GC 負荷計測 (U2) | **完了**（2026-08-22）。`testing/lh/*`。GC: live ≈750 obj、120 フレームで数百回収（軽微）。M6 後にラッパをキャッシュ（lhat の弱参照表に載せる。M6 後の項） |
 | M2 | 実ゲーム対応（PhysfsLoader 完全化・conf・filesystem/image/font・エラー画面・fused） | ディスク上の実ゲームディレクトリ + zip 読込 | **完了**（2026-08-23）。`testing/lh/realgame` をディレクトリ・.love・fused exe の3形態で確認。blue screen・nogame 動作 |
 | M3 | 拡幅（audio/sound/data/math/system/touch/sensor/joystick） | 各モジュールのサンプル動作 | **完了**（2026-08-23）。`testing/lh/m3` が全モジュールを1回ずつ呼ぶ（音再生・hash/lz4・乱数/Transform/noise・OS 情報・ジョイスティック列挙 + joystickadded・ImageData ピクセル） |
 | M4 | physics（box2d コアの脱 Lua + バインディング21本） | コールバック含むソークテスト | **完了**（2026-08-23）。`testing/lh/physics` が begin/end/presolve/postsolve・contact filter・area query・ray cast・joint・userData を通す（exit=7、約 5 秒）。途中見つけた lhat の install 型爆発は `fea90e4` で解消（[lhat-issues.md](lhat-issues.md)） |
@@ -24,7 +24,7 @@
 - **並行処理を言語へ渡した** — love.thread を廃止し、`std.thread` / `std.channel` / `std.async` を登録。ワーカーの本体は同じユニットの閉包、チャネルは carry の上に立つ。全 hostdata 型が共有契約を宣言するので LOVE オブジェクトも機械を跨ぐ。エンジンに残るのは `threaderror` イベントと破棄前の `join_all` / `forget_named` だけ。**VM のみビルドでもスレッドが動く**（本体が閉包なので構文解析器が要らない）
 - **VM のみビルド** — `-VmOnly` で front end を落とす。`--compile-game` がゲームをバイト列にし、署名表と埋め込みユニットはエンジンが持つ。realgame / .love / ファイル版スレッドが通る（exit=4 / 4 / 11）。`newThread(コード文字列)` と `std.load` のテキストは非対応
 
-- **ラッパのキャッシュは撤去** — machine ごとに 1 オブジェクト 1 ラッパを保っていたが、漸進 GC の下でホスト側のキャッシュは不健全（マークで死と決まった包みをスイープ前に配る）。physics の約半分が落ちていた。毎回作る形に戻し 20/20 通過
+- **ラッパのキャッシュ** — machine ごとに 1 オブジェクト 1 ラッパ。最初はホスト側の map で組んで漸進 GC の下で不健全（physics の約半分が落ちた）と判り、lhat に弱参照キャッシュ（05 の 8.12）を入れてもらって載せ直した。physics 20/20、120 フレームの collected 1,582 → 1,164
 
 ## モジュール別
 
