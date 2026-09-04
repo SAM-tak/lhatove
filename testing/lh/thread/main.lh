@@ -65,7 +65,9 @@ public^let^load = p^{
             try^{
                 let^outbox = try^std.channel.named("results")
                 let^f = ...[1]
-                if^f fits^p^number^-> number^; { let^_^= try^outbox.push($"closure says {f(20)}") }
+                if^f fits^p^number^-> number^; {
+                    let^_^= try^outbox.push($"closure says {f(20)}")
+                }
                 let^_^= try^outbox.push("echo done")
             catch^:
                 return^nil^
