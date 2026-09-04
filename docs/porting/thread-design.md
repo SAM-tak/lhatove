@@ -294,11 +294,19 @@ Channel の `demand` = ブロックする受信。std.thread にはそれが無�
 
 移してから見えた、4 章に書けていなかったこと。
 
-- **合併を返す入口が増える。** `std.channel.new()` も `named()` も `spawn()` も
-  `|std.error.OutOfMemory` を含む合併で、合併にメンバは無い。`typeof^(c).signature` は
-  `std.channel.Channel` と答えるので（それは実行時の型）紛らわしいが、静的には絞らないと
-  何も呼べない。love.thread は `p^ -> love.thread.Channel;` と言い切っていた分、書き味が軽かった。
-  `fits^` のブロックで包むのが正しい形で、テストもそう書き直した
+- **合併を返す入口が増えるが、読むのは `try^` の仕事。** `std.channel.new()` も `named()` も
+  `spawn()` も `push()` も `|std.error.OutOfMemory` を含む合併で、合併にメンバは無い
+  （`typeof^(c).signature` が `std.channel.Channel` と答えるのは実行時の型なので紛らわしい）。
+  ただしこれは `fits^` で包む話ではない — 04 の 4.5 の `try^{ … catch^: … }` がまさにこのために
+  在り、`try^ e` が値を取り出して拒否だけを腕へ送るので、**本体は失敗しない綴りのまま**書ける。
+  `fits^` は「その誤りが来ること自体が主張」の場所にだけ残す（`AlreadyJoined` / `BadResult`）。
+  love.thread が `p^ -> love.thread.Channel;` と言い切っていた分の差は、呼び出しごとの `try^`
+  1 語と、囲みの `try^{ }` 1 つ。テストは両方ともこの形
+
+  3 つ覚えることがある: **`try^` は式の位置のみ**（文頭に置くと命令モードの呼び出しに読まれるので、
+  捨てる値も `let^_^= try^ c.push(x)` と束縛する）、**`try^{ }` 直下の `catch^` は腕を開く語**
+  なので値としての `catch^` は括弧が要る（`let^ v = (f() catch^ nil^)`）、そして
+  **呼び出し文の直後に `try^{` を置けない**（パーザのバグ。[lhat-issues.md](lhat-issues.md)）
 - **`import^` はワーカーの中に書かない。** 本体は**このユニットの閉包**なので、ユニットが
   import したものをそのまま名前で引ける（向こうの `L^.modules` から解決される）。
   閉包の中に `import^` を書くのは構文として通らない

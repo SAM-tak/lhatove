@@ -5,6 +5,29 @@ lhatove の移植中に見つかった、lhat 本体で直すべき事項。解�
 
 ## 未解決
 
+- **呼び出し文の直後の `try^{ }` が命令モードの呼び出しに読まれる。** 文の位置に
+  `f(x)` のような**呼び出し**があり、その次の文が `try^{` で始まると、パーザが
+  `try^` を名前、`{ ... }` をその引数と読んで
+  `arguments without parentheses are only accepted in command mode; did you mean foo(1, 2, 3)?`
+  を出す。空行を挟んでも変わらない。呼び出し以外の文（`var^ n = 1`）が間に入ると直り、
+  `try^{ }` がブロックの最初の文なら最初から通る。
+
+  ```lhat
+  public^let^load = p^{
+      print("before")      # ← これがあると
+      try^{                # ← ここが命令モード呼び出しに読まれる
+          let^c = try^std.channel.new()
+          print($"n {c.count()}")
+      catch^:
+          print("caught")
+      }
+  }
+  ```
+
+  `testing/lh/suite/tests/thread.lh` は `test.begin("std.channel")` を `try^{ }` の**中**へ
+  移して避けている。04 の 4.5 が `try^{ }` を文として定めている以上、直前に何が書いてあるかで
+  読みが変わるべきではない
+
 - **ワーカーの失敗文が panic の中身を落とす。** `stdlib/thread.c` の `failure_text` は
   `lhat_run_status_message(status)` ＋ traceback だけを綴るので、`panic^"boom from a thread"` が
   `failed()` と `on_finish` の両方で **`panic^` の 1 語**になる。捨てているものが 2 つある:
